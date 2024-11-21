@@ -86,7 +86,8 @@ struct ComponentPool
  */
 
 // Each component has its own memory pool, to have good memory
-// locality.
+// locality. An entity's ID is the index into its own component in the
+// component pool.
 struct Scene {
   struct EntityEntry {
     EntityID id;  // though redundent with index in vector, required
