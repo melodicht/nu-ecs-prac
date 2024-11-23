@@ -35,8 +35,9 @@ int GetId()
 
 // Represents a point in a 2D space as a Component
 class TransformComponent {
-    float x_pos;
-    float y_pos;
+    public:
+        float x_pos;
+        float y_pos;
 };
 
 
@@ -151,52 +152,75 @@ struct Scene {
 };
 
 int main() {
-  sf::RenderWindow window(sf::VideoMode(800, 600), "My window");
-
-  // run the program as long as the window is open
-  while (window.isOpen())
-    {
-      // check all the window's events that were triggered since the last iteration of the loop
-      sf::Event event;
-      
-      while (window.pollEvent(event))
-        {
-          // "close requested" event: we close the window
-          if (event.type == sf::Event::Closed)
-            window.close();
-
-          // clear the window with black color
-          window.clear(sf::Color::Black);
-
-          // draw everything here...
-          // window.draw(...);
-
-          sf::CircleShape shape(50);
-
-          // set the shape color to green
-          shape.setFillColor(sf::Color(100, 250, 50));
-
-          // set the absolute position of the shape
-          shape.setPosition(10, 50);
-
-          // move the shape relatively to its current position
-          shape.move(5, 5);
-
-          window.draw(shape);
+  sf::RenderWindow window(sf::VideoMode(800, 600), "ECS Tester");
 
 
-          // end the current frame
-          window.display();
-
-        }
-    }
-  /*
   Scene scene;
 
   EntityID newEnt = scene.NewEntity();
-  scene.Assign<TransformComponent>(newEnt);
-  */
+  TransformComponent* transComp = scene.Assign<TransformComponent>(newEnt);
+
+  sf::Clock deltaClock;
+
+  transComp->x_pos = 100;
+  transComp->y_pos = 100;
+
+  // these can be turned into components, currently they're here for proof of concept
+  // If you're seeing this, it means I haven't turned them into components yet
+  // because some architecture questions need to be considered
+  float ballAcceleration = 98;
+  float ballMass = 5;
+
+  // run the program as long as the window is open
+  while (window.isOpen())
+  {
+    // Restarts the clock to get the change in time between frames
+    // used for framerate-independent physics calculations
+    sf::Time dt = deltaClock.restart();
+    // check all the window's events that were triggered since the last iteration of the loop
+    sf::Event event;
+
+    while (window.pollEvent(event))
+    {
+        // "close requested" event: we close the window
+        if (event.type == sf::Event::Closed) {
+            window.close();
+        }
+    } 
+    // clear the window with black color
+    window.clear(sf::Color::Black);
+
+    // draw everything here...
+    sf::CircleShape shape(50);
+
+    // set the shape color to green
+    shape.setFillColor(sf::Color(100, 250, 50));
+
+    // set the absolute position of the shape to the transform component
+    shape.setPosition(transComp->x_pos, transComp->y_pos);
+
+    window.draw(shape);
+
+
+
+    // Modifies the transform component
+    // Setting this after the frame has been drawn is relatively arbitrary at the moment
+    // As we develop the architecture of the system more, this will change.
+    // e.g if we want to have physics calculations happen before a frame is drawn.
+    transComp->y_pos += ballAcceleration * dt.asSeconds(); 
+                                          // we multiply by dt.asSeconds() to make it framerate-independent
+                                          // e.g if two seconds passed between frames, we multiply the distance
+                                          // the ball should've travelled in a frame, times 2.
+    ballAcceleration += ballMass * ballAcceleration * dt.asSeconds();
+    printf("%f\n", transComp->y_pos);
+
+
+    // end the current frame
+    window.display();
+
+  }
 }
+
 
 
 
