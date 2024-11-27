@@ -369,8 +369,12 @@ int ecsDemo() {
     window.display();
 
   }
+
+  return 0;
 }
 
-
+int main() {
+  return ecsDemo();
+}
 
 
