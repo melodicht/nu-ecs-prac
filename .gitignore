@@ -405,12 +405,9 @@ FodyWeavers.xsd
 *.vcxproj
 *.filters
 *.sln
-run.bat
 Makefile
 CMakeLists.txt
 
 # Ignores Build Details for Macbook (Jianwen)
 out
 
-# Ignores Build Details of Windows (Marvin)
-build.sh
