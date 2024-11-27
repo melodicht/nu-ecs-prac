@@ -301,7 +301,7 @@ struct SceneView
   bool all{ false };
 };
 
-int main() {
+int ecsDemo() {
   sf::RenderWindow window(sf::VideoMode(800, 600), "ECS Tester");
 
 
