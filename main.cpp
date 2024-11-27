@@ -52,6 +52,40 @@ typedef std::bitset<MAX_COMPONENTS> ComponentMask;
 const u32 MAX_ENTITIES = 256;
 
 /*
+ * ID FUNCTIONALITY 
+ */
+
+// Allows the storage of EntityID's such that they store both the Index and their Version number
+// This allows for deletion without overlapping slots.
+// Index and Version number are both 32 bit unsigned ints that will be combined into EntityID.
+
+inline EntityID CreateEntityId(unsigned int index, unsigned int version)
+{
+  // Shift the index up 32, and put the version in the bottom
+  return ((EntityID)index << 32) | ((EntityID)version);
+}
+// This should represent the index an element has within the "entities" vector inside of a Scene
+inline unsigned int GetEntityIndex(EntityID id)
+{
+  // Shift down 32 so we lose the version and get our index
+  return id >> 32;
+}
+
+inline unsigned int GetEntityVersion(EntityID id)
+{
+  // Cast to a 32 bit int to get our version number (loosing the top 32 bits)
+  return (unsigned int)id;
+}
+// Checks if the EntityID has not been deleted
+inline bool IsEntityValid(EntityID id)
+{
+  // Check if the index is our invalid index
+  return (id >> 32) != (unsigned int)(-1);
+}
+
+#define INVALID_ENTITY CreateEntityId((unsigned int)(-1), 0)
+
+/*
  * COMPONENT POOL
  */
 
@@ -100,14 +134,49 @@ struct Scene {
   };
   std::vector<EntityEntry> entities;
   std::vector<ComponentPool*> componentPools;
+  std::vector<unsigned int> freeIndices;
 
   // Adds a new entity to this vector of entities, and returns its
   // ID. Can only support 2^64 entities without ID conflicts.
   EntityID NewEntity()
   {
     // std::vector::size runs in constant time.
-    entities.push_back({ entities.size(), ComponentMask() });
+    if (!freeIndices.empty())
+    {
+      unsigned int newIndex = freeIndices.back();
+      freeIndices.pop_back();
+      // Takes in index and incremented EntityVersion at that index
+      EntityID newID = CreateEntityId(newIndex, GetEntityVersion(entities[newIndex].id));
+      entities[newIndex].id = newID;
+      return entities[newIndex].id;
+    }
+    entities.push_back({ CreateEntityId((unsigned int)(entities.size()), 0), ComponentMask() });
     return entities.back().id;
+  }
+
+  // Removes a given entity from the scene and signals to the scene the free space that was left behind
+  void DestroyEntity(EntityID id)
+  {
+    // Increments EntityVersion at the deleted index
+    EntityID newID = CreateEntityId((unsigned int)(-1), GetEntityVersion(id) + 1);
+    entities[GetEntityIndex(id)].id = newID;
+    entities[GetEntityIndex(id)].mask.reset(); 
+    freeIndices.push_back(GetEntityIndex(id));
+  }
+
+  // Removes a component from the entity with the given EntityID
+  // if the EntityID is not already removed.
+  template<typename T>
+  void Remove(EntityID id)
+  {
+    // ensures you're not accessing an entity that has been deleted
+    if (entities[GetEntityIndex(id)].id != id) 
+      return;
+
+    int componentId = GetId<T>();
+    // Finds location of component data within the entity component pool and 
+    // resets, thus removing the component from the entity
+    entities[GetEntityIndex(id)].mask.reset(componentId);
   }
 
   // Assigns the entity associated with the given entity ID in this
@@ -129,9 +198,9 @@ struct Scene {
     }
 
     // Looks up the component in the pool, and initializes it with placement new
-    T* pComponent = new (componentPools[componentId]->get(id)) T();
+    T* pComponent = new (componentPools[componentId]->get(GetEntityIndex(id))) T();
 
-    entities[id].mask.set(componentId);
+    entities[GetEntityIndex(id)].mask.set(componentId);
     return pComponent;
   }
 
@@ -143,12 +212,93 @@ struct Scene {
   T* Get(EntityID id)
   {
     int componentId = GetId<T>();
-    if (!entities[id].mask.test(componentId))
+    if (!entities[GetEntityIndex(id)].mask.test(componentId))
       return nullptr;
 
-    T* pComponent = static_cast<T*>(componentPools[componentId]->get(id));
+    T* pComponent = static_cast<T*>(componentPools[componentId]->get(GetEntityIndex(id)));
     return pComponent;
   }
+};
+
+// Helps with iterating through a given scene
+template<typename... ComponentTypes>
+struct SceneView
+{
+  SceneView(Scene& scene)  : pScene(&scene) 
+  {
+    if (sizeof...(ComponentTypes) == 0)
+    {
+      all = true;
+    }
+    else
+    {
+      // Unpack the template parameters into an initializer list
+      int componentIds[] = { 0, GetId<ComponentTypes>() ... };
+      for (int i = 1; i < (sizeof...(ComponentTypes) + 1); i++)
+        componentMask.set(componentIds[i]);
+    }
+  }
+
+  struct Iterator
+  {
+    Iterator(Scene* pScene, unsigned int index, ComponentMask mask, bool all) 
+    : pScene(pScene), index(index), mask(mask), all(all) {}
+
+    // give back the entityID we're currently at
+    EntityID operator*() const{
+      return pScene->entities[index].id; 
+    }
+
+    // Compare two iterators
+    bool operator==(const Iterator& other) const{
+      return index == other.index || index == pScene->entities.size();
+    }
+    bool operator!=(const Iterator& other) const{
+      return index != other.index && index != pScene->entities.size();
+    }
+
+    bool ValidIndex(){
+      return
+      // It's a valid entity ID
+      IsEntityValid(pScene->entities[index].id) &&
+      // It has the correct component mask
+      (all || mask == (mask & pScene->entities[index].mask));
+    }
+
+    // Move the iterator forward
+    Iterator& operator++(){
+      do
+      {
+        index++;
+      } while (index < pScene->entities.size() && !ValidIndex());
+      return *this;
+    }
+    unsigned int index;
+    Scene* pScene;
+    ComponentMask mask;
+    bool all{ false };
+  };
+
+  // Give an iterator to the beginning of this view
+  const Iterator begin() const{
+    int firstIndex = 0;
+    while (firstIndex < pScene->entities.size() &&
+      (componentMask != (componentMask & pScene->entities[firstIndex].mask) 
+        || !IsEntityValid(pScene->entities[firstIndex].id))) 
+    {
+      firstIndex++;
+    }
+    return Iterator(pScene, firstIndex, componentMask, all);
+  }
+
+    // Give an iterator to the end of this view 
+  const Iterator end() const{
+    return Iterator(pScene, (unsigned int)(pScene->entities.size()), componentMask, all);
+  }
+
+  Scene* pScene{ nullptr };
+  ComponentMask componentMask;
+  bool all{ false };
 };
 
 int ecsDemo() {
