@@ -8,6 +8,11 @@
 // for the ball game we make with the ECS
 #define BALL_RADIUS 10
 
+// For rendering
+
+#define WINDOW_WIDTH 800
+#define WINDOW_HEIGHT 600
+
 #define u8  uint8_t
 #define u32 uint32_t
 #define u64 uint64_t
@@ -38,6 +43,15 @@ class TransformComponent {
     public:
         float x_pos;
         float y_pos;
+};
+
+struct Rigidbody {
+  float v_x;
+  float v_y;
+};
+
+struct CircleCollider {
+  float radius;
 };
 
 
@@ -374,7 +388,76 @@ int ecsDemo() {
 }
 
 int main() {
-  return ecsDemo();
+  // Define the ball
+  sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "BALLS!");
+  Scene scene;
+
+  EntityID ball = scene.NewEntity();
+  TransformComponent* pBallTransform = scene.Assign<TransformComponent>(ball);
+  Rigidbody* pBallRb = scene.Assign<Rigidbody>(ball);
+  CircleCollider* pBallCC = scene.Assign<CircleCollider>(ball);
+
+  pBallTransform->x_pos = WINDOW_WIDTH / 4;
+  pBallTransform->y_pos = WINDOW_HEIGHT / 2;
+  pBallRb->v_x = 0.1;
+  pBallRb->v_y = 0.5;
+  pBallCC->radius = 20;
+
+  
+  // run the program as long as the window is open
+  while (window.isOpen())
+  {
+    // check all the window's events that were triggered since the last iteration of the loop
+    sf::Event event;
+
+    while (window.pollEvent(event))
+    {
+        // "close requested" event: we close the window
+        if (event.type == sf::Event::Closed) {
+            window.close();
+        }
+    } 
+    // clear the window with black color
+    window.clear(sf::Color::Black);
+
+    for (EntityID ent : SceneView<TransformComponent, Rigidbody, CircleCollider>(scene))
+      {
+        TransformComponent* t = scene.Get<TransformComponent>(ent);
+        Rigidbody* rb = scene.Get<Rigidbody>(ent);
+        CircleCollider* cc = scene.Get<CircleCollider>(ent);
+        float radius = cc->radius;
+
+        // Not framerate independent for simpler collision logic.
+        t->x_pos += rb->v_x;
+        t->y_pos += rb->v_y;
+
+        printf("%f\n", t->y_pos);
+
+        // Collision check x-axis
+        if ((t->x_pos - radius) < 0 || (t->x_pos + radius) > WINDOW_WIDTH)
+          {
+            rb->v_x *= -1;
+          }
+
+        // Collision check y-axis
+        if ((t->y_pos - radius) < 0 || (t->y_pos + radius) > WINDOW_HEIGHT)
+          {
+            rb->v_y *= -1;
+          }
+
+        // Render to window
+        sf::CircleShape shape(radius);
+        shape.setFillColor(sf::Color(100, 250, 50));
+
+        shape.setPosition(t->x_pos, t->y_pos);
+
+        window.draw(shape);
+      }
+    
+    // end the current frame
+    window.display();
+
+  }
 }
 
 
