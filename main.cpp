@@ -151,7 +151,7 @@ struct Scene {
   }
 };
 
-int main() {
+int ecsDemo() {
   sf::RenderWindow window(sf::VideoMode(800, 600), "ECS Tester");
 
 
@@ -219,8 +219,12 @@ int main() {
     window.display();
 
   }
+
+  return 0;
 }
 
-
+int main() {
+  return ecsDemo();
+}
 
 
