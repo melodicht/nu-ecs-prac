@@ -408,3 +408,6 @@ FodyWeavers.xsd
 run.bat
 Makefile
 CMakeLists.txt
+
+# Ignores Build Details for Macbook
+out
