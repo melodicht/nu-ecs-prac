@@ -406,3 +406,4 @@ FodyWeavers.xsd
 *.filters
 *.sln
 run.bat
+Makefile
