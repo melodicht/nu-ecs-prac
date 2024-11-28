@@ -10,7 +10,7 @@
 
 // for the ball game we make with the ECS
 #define BALL_RADIUS 20
-#define NUM_BALLS 200
+#define NUM_BALLS 25
 
 // For rendering
 
