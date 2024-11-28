@@ -10,7 +10,7 @@
 
 // for the ball game we make with the ECS
 #define BALL_RADIUS 20
-#define NUM_BALLS 25
+#define NUM_BALLS 5
 
 // For rendering
 
@@ -415,6 +415,7 @@ void scanCollision(CircleCollider* checkCollider, Rigidbody* accessRigid, Transf
       }
     }
   }
+}
 // Generates a random float in the inclusive range of the two given
 // floats.
 float RandInBetween(float LO, float HI)
@@ -439,8 +440,8 @@ int main() {
 
       pBallTransform->x_pos = RandInBetween(radius, WINDOW_WIDTH - radius);
       pBallTransform->y_pos = RandInBetween(radius, WINDOW_HEIGHT - radius);
-      pBallRb->v_x = RandInBetween(0.1, 0.5);
-      pBallRb->v_y = RandInBetween(0.1, 0.5);
+      pBallRb->v_x = RandInBetween(0.1, 0.2);
+      pBallRb->v_y = RandInBetween(0.1, 0.2);
       pBallCC->radius = radius;
     }
   
