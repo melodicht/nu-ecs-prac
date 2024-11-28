@@ -1,12 +1,16 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 
+#include <cstdlib>
+#include <ctime>
+
 #include <iostream>
 #include <vector>
 #include <bitset>
 
 // for the ball game we make with the ECS
-#define BALL_RADIUS 10
+#define BALL_RADIUS 20
+#define NUM_BALLS 200
 
 // For rendering
 
@@ -387,22 +391,34 @@ int ecsDemo() {
   return 0;
 }
 
+// Generates a random float in the inclusive range of the two given
+// floats.
+float RandInBetween(float LO, float HI)
+{
+  // From https://stackoverflow.com/questions/686353/random-float-number-generation
+  return LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
+}
+
 int main() {
-  // Define the ball
+  srand (static_cast <unsigned> (time(0)));
   sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "BALLS!");
   Scene scene;
 
-  EntityID ball = scene.NewEntity();
-  TransformComponent* pBallTransform = scene.Assign<TransformComponent>(ball);
-  Rigidbody* pBallRb = scene.Assign<Rigidbody>(ball);
-  CircleCollider* pBallCC = scene.Assign<CircleCollider>(ball);
+  // Instantiate all the balls.
+  for (u32 i = 0; i < NUM_BALLS; i++)
+    {
+      EntityID ball = scene.NewEntity();
+      TransformComponent* pBallTransform = scene.Assign<TransformComponent>(ball);
+      Rigidbody* pBallRb = scene.Assign<Rigidbody>(ball);
+      CircleCollider* pBallCC = scene.Assign<CircleCollider>(ball);
+      float radius = BALL_RADIUS;
 
-  pBallTransform->x_pos = WINDOW_WIDTH / 4;
-  pBallTransform->y_pos = WINDOW_HEIGHT / 2;
-  pBallRb->v_x = 0.1;
-  pBallRb->v_y = 0.5;
-  pBallCC->radius = 20;
-
+      pBallTransform->x_pos = RandInBetween(radius, WINDOW_WIDTH - radius);
+      pBallTransform->y_pos = RandInBetween(radius, WINDOW_HEIGHT - radius);
+      pBallRb->v_x = RandInBetween(0.1, 0.5);
+      pBallRb->v_y = RandInBetween(0.1, 0.5);
+      pBallCC->radius = radius;
+    }
   
   // run the program as long as the window is open
   while (window.isOpen())
@@ -430,8 +446,6 @@ int main() {
         // Not framerate independent for simpler collision logic.
         t->x_pos += rb->v_x;
         t->y_pos += rb->v_y;
-
-        printf("%f\n", t->y_pos);
 
         // Collision check x-axis
         if ((t->x_pos - radius) < 0 || (t->x_pos + radius) > WINDOW_WIDTH)
