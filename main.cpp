@@ -387,6 +387,32 @@ int ecsDemo() {
   return 0;
 }
 
+// Scans for collision of a single component
+// and edits trajectory of ball otherwise
+void scanCollision(CircleCollider* checkCollider, Rigidbody* accessRigid, TransformComponent* accessTransform, Scene& accessScene){
+  for (EntityID ent : SceneView<TransformComponent, Rigidbody, CircleCollider>(accessScene))
+  {
+    TransformComponent* t = accessScene.Get<TransformComponent>(ent);
+    Rigidbody* rb = accessScene.Get<Rigidbody>(ent);
+    CircleCollider* cc = accessScene.Get<CircleCollider>(ent);
+    if(rb != accessRigid){
+      double diffX = t->x_pos - accessTransform->x_pos;
+      double diffY = t->y_pos - accessTransform->y_pos;
+      double distance = sqrt(diffX * diffX + diffY * diffY);
+      if(distance < cc->radius + checkCollider->radius){
+        double normX = diffX/distance;
+        double normY = diffY/distance;
+        double thisSpeedMag = -sqrt(accessRigid->v_x * accessRigid->v_x + accessRigid->v_y * accessRigid->v_y);
+        accessRigid->v_x = normX * thisSpeedMag;
+        accessRigid->v_y = normY * thisSpeedMag;
+        double speedMag = sqrt(rb->v_x * rb->v_x + rb->v_y * rb->v_y);
+        rb->v_x = normX * speedMag;
+        rb->v_y = normY * speedMag;
+      }
+    }
+  }
+}
+
 int main() {
   // Define the ball
   sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "BALLS!");
@@ -397,11 +423,22 @@ int main() {
   Rigidbody* pBallRb = scene.Assign<Rigidbody>(ball);
   CircleCollider* pBallCC = scene.Assign<CircleCollider>(ball);
 
+  EntityID ball2 = scene.NewEntity();
+  TransformComponent* pBallTransform2 = scene.Assign<TransformComponent>(ball2);
+  Rigidbody* pBallRb2 = scene.Assign<Rigidbody>(ball2);
+  CircleCollider* pBallCC2 = scene.Assign<CircleCollider>(ball2);
+
   pBallTransform->x_pos = WINDOW_WIDTH / 4;
   pBallTransform->y_pos = WINDOW_HEIGHT / 2;
-  pBallRb->v_x = 0.1;
-  pBallRb->v_y = 0.5;
+  pBallRb->v_x = 0.05;
+  pBallRb->v_y = 0.25;
   pBallCC->radius = 20;
+
+  pBallTransform2->x_pos = WINDOW_WIDTH / 2;
+  pBallTransform2->y_pos = WINDOW_HEIGHT / 2;
+  pBallRb2->v_x = 0.1;
+  pBallRb2->v_y = 0.25;
+  pBallCC2->radius = 40;
 
   
   // run the program as long as the window is open
@@ -431,8 +468,6 @@ int main() {
         t->x_pos += rb->v_x;
         t->y_pos += rb->v_y;
 
-        printf("%f\n", t->y_pos);
-
         // Collision check x-axis
         if ((t->x_pos - radius) < 0 || (t->x_pos + radius) > WINDOW_WIDTH)
           {
@@ -445,6 +480,7 @@ int main() {
             rb->v_y *= -1;
           }
 
+        scanCollision(cc, rb, t, scene);
         // Render to window
         sf::CircleShape shape(radius);
         shape.setFillColor(sf::Color(100, 250, 50));
@@ -459,5 +495,4 @@ int main() {
 
   }
 }
-
 
