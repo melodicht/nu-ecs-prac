@@ -1,27 +1,27 @@
-// #ifndef COMPONENTPOOL_HPP
-// #define COMPONENTPOOL_HPP
+#ifndef COMPONENTPOOL_HPP
+#define COMPONENTPOOL_HPP
 
-// #include <iostream>
-// #include <vector>
-// #include <bitset>
-// #include "ECSconsts.hpp"
+#include <iostream>
+#include <vector>
+#include <bitset>
+#include "ECSconsts.hpp"
 
-// // Responsible for allocating contiguous memory for the components
-// // such that `MAX_ENTITIES` can be stored, and components be accessed
-// // via index.
-// // NOTE: The memory pool is an array of bytes, as the size of one
-// // component isn't known at compile time.
-// struct ComponentPool
-// {
-//   ComponentPool(size_t elementsize);
+// Responsible for allocating contiguous memory for the components
+// such that `MAX_ENTITIES` can be stored, and components be accessed
+// via index.
+// NOTE: The memory pool is an array of bytes, as the size of one
+// component isn't known at compile time.
+struct ComponentPool
+{
+  ComponentPool(size_t elementsize);
 
-//   ~ComponentPool();
+  ~ComponentPool();
 
-//   // Gets the component in this pData at the given index.
-//   inline void* get(size_t index);
+  // Gets the component in this pData at the given index.
+  inline void* get(size_t index);
 
-//   u8* pData{ nullptr };
-//   size_t elementSize{ 0 };
-// };
+  u8* pData{ nullptr };
+  size_t elementSize{ 0 };
+};
 
-// #endif
+#endif
