@@ -18,7 +18,11 @@ struct ComponentPool
   ~ComponentPool();
 
   // Gets the component in this pData at the given index.
-  inline void* get(size_t index);
+  inline void* get(size_t index)
+  {
+    // looking up the component at the desired index
+    return pData + index * elementSize;
+  }
 
   u8* pData{ nullptr };
   size_t elementSize{ 0 };

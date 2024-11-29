@@ -11,10 +11,3 @@ ComponentPool::~ComponentPool()
 {
     delete[] pData;
 }
-
-// Gets the component in this pData at the given index.
-inline void* ComponentPool::get(size_t index)
-{
-// looking up the component at the desired index
-return pData + index * elementSize;
-}

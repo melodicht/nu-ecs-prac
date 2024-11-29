@@ -1,5 +1,7 @@
 #include "ECSconsts.hpp"
 
+u64 ECSconsts::s_componentCounter = 0;
+
 // EntityID ECSconsts::CreateEntityId(unsigned int index, unsigned int version)
 // {
 //     // Shift the index up 32, and put the version in the bottom

@@ -51,7 +51,7 @@ struct ECSconsts{
     // 2^64 unsigned ints. 
     static u64 s_componentCounter;
     template <class T>
-    static inline int GetId()
+    static int GetId()
     {
         static u64 s_componentId = s_componentCounter++;
         return s_componentId;
