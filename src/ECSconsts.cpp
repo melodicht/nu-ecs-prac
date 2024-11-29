@@ -1,4 +1,4 @@
-// #include "ECSconsts.hpp"
+#include "ECSconsts.hpp"
 
 // EntityID ECSconsts::CreateEntityId(unsigned int index, unsigned int version)
 // {
