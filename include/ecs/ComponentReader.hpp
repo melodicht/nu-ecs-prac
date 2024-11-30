@@ -4,7 +4,7 @@
 #include "Scene.hpp"
 #include "SceneView.hpp"
 #include "ComponentReaderBase.hpp"
-
+#include "ECSManager.hpp"
 // This allows for an easier implementation of behaviors into the ECS as behaviors are
 // plugged in just by defining the correct types
 // The ComponentType is the component it processes
@@ -13,6 +13,11 @@ template<typename ComponentType, typename BaseType>
 class ComponentReader : public ComponentReaderBase{
     public:
         ComponentReader() : ComponentReaderBase(){
+            ECSManager::insertReader(this);
+        }
+
+        void InsertScene(Scene* setScene){
+            givenScene = setScene;
         }
 
         // The behavior that a component initiates when the ECSManager actually starts the game
@@ -37,5 +42,7 @@ class ComponentReader : public ComponentReaderBase{
     protected:
         // Ensures that the component is properly plugged into the ECSManager
         static BaseType base;
+        // The Scene to gleam relavant components to update from
+        Scene* givenScene;
 };
 #endif
