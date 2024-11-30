@@ -8,11 +8,11 @@ EntityID Scene::NewEntity()
         unsigned int newIndex = freeIndices.back();
         freeIndices.pop_back();
         // Takes in index and incremented EntityVersion at that index
-        EntityID newID = ECSconsts::CreateEntityId(newIndex, ECSconsts::GetEntityVersion(entities[newIndex].id));
+        EntityID newID = ECSConsts::CreateEntityId(newIndex, ECSConsts::GetEntityVersion(entities[newIndex].id));
         entities[newIndex].id = newID;
         return entities[newIndex].id;
     }
-    entities.push_back({ ECSconsts::CreateEntityId((unsigned int)(entities.size()), 0), ComponentMask() });
+    entities.push_back({ ECSConsts::CreateEntityId((unsigned int)(entities.size()), 0), ComponentMask() });
     return entities.back().id;
 }
 
@@ -20,8 +20,8 @@ EntityID Scene::NewEntity()
 void Scene::DestroyEntity(EntityID id)
 {
     // Increments EntityVersion at the deleted index
-    EntityID newID = ECSconsts::CreateEntityId((unsigned int)(-1), ECSconsts::GetEntityVersion(id) + 1);
-    entities[ECSconsts::GetEntityIndex(id)].id = newID;
-    entities[ECSconsts::GetEntityIndex(id)].mask.reset(); 
-    freeIndices.push_back(ECSconsts::GetEntityIndex(id));
+    EntityID newID = ECSConsts::CreateEntityId((unsigned int)(-1), ECSConsts::GetEntityVersion(id) + 1);
+    entities[ECSConsts::GetEntityIndex(id)].id = newID;
+    entities[ECSConsts::GetEntityIndex(id)].mask.reset(); 
+    freeIndices.push_back(ECSConsts::GetEntityIndex(id));
 }

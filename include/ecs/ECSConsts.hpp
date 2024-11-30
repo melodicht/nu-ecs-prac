@@ -20,7 +20,7 @@ static const uint32_t MAX_ENTITIES = 256;
 // Allows the storage of EntityID's such that they store both the Index and their Version number
 // This allows for deletion without overlapping slots.
 // Index and Version number are both 32 bit unsigned ints that will be combined into EntityID.
-struct ECSconsts{
+struct ECSConsts{
 
     static inline EntityID CreateEntityId(unsigned int index, unsigned int version)
     {

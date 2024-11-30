@@ -1,7 +1,7 @@
 #ifndef SCENE_HPP
 #define SCENE_HPP
 
-#include "ECSconsts.hpp"
+#include "ECSConsts.hpp"
 #include "ComponentPool.hpp"
 
 /*
@@ -33,13 +33,13 @@ struct Scene {
   template<typename T>
   void Remove(EntityID id){
     // ensures you're not accessing an entity that has been deleted
-    if (entities[ECSconsts::GetEntityIndex(id)].id != id) 
+    if (entities[ECSConsts::GetEntityIndex(id)].id != id) 
         return;
 
-    int componentId = ECSconsts::GetId<T>();
+    int componentId = ECSConsts::GetId<T>();
     // Finds location of component data within the entity component pool and 
     // resets, thus removing the component from the entity
-    entities[ECSconsts::GetEntityIndex(id)].mask.reset(componentId);
+    entities[ECSConsts::GetEntityIndex(id)].mask.reset(componentId);
   }
 
   // Assigns the entity associated with the given entity ID in this
@@ -48,7 +48,7 @@ struct Scene {
   // to it.
   template<typename T>
   T* Assign(EntityID id){
-    int componentId = ECSconsts::GetId<T>();
+    int componentId = ECSConsts::GetId<T>();
 
     if (componentPools.size() <= componentId) // Not enough component pool
     {
@@ -60,9 +60,9 @@ struct Scene {
     }
 
     // Looks up the component in the pool, and initializes it with placement new
-    T* pComponent = new (componentPools[componentId]->get(ECSconsts::GetEntityIndex(id))) T();
+    T* pComponent = new (componentPools[componentId]->get(ECSConsts::GetEntityIndex(id))) T();
 
-    entities[ECSconsts::GetEntityIndex(id)].mask.set(componentId);
+    entities[ECSConsts::GetEntityIndex(id)].mask.set(componentId);
     return pComponent;
   }
 
@@ -72,11 +72,11 @@ struct Scene {
   // the given component type.
   template<typename T>
   T* Get(EntityID id){
-    int componentId = ECSconsts::GetId<T>();
-    if (!entities[ECSconsts::GetEntityIndex(id)].mask.test(componentId))
+    int componentId = ECSConsts::GetId<T>();
+    if (!entities[ECSConsts::GetEntityIndex(id)].mask.test(componentId))
         return nullptr;
 
-    T* pComponent = static_cast<T*>(componentPools[componentId]->get(ECSconsts::GetEntityIndex(id)));
+    T* pComponent = static_cast<T*>(componentPools[componentId]->get(ECSConsts::GetEntityIndex(id)));
     return pComponent;
   }
 };

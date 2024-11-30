@@ -14,7 +14,7 @@
 
 // For rendering
 #include "ComponentPool.hpp"
-#include "ECSconsts.hpp"
+#include "ECSConsts.hpp"
 #include "Scene.hpp"
 #include "SceneView.hpp"
 

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <vector>
 #include <bitset>
-#include "ECSconsts.hpp"
+#include "ECSConsts.hpp"
 
 // Responsible for allocating contiguous memory for the components
 // such that `MAX_ENTITIES` can be stored, and components be accessed

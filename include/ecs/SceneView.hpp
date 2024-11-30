@@ -1,7 +1,7 @@
 #ifndef SCENEVIEW_HPP
 #define SCENEVIEW_HPP
 
-#include "ECSconsts.hpp"
+#include "ECSConsts.hpp"
 #include "Scene.hpp"
 
 // Helps with iterating through a given scene
@@ -17,7 +17,7 @@ struct SceneView
     else
     {
       // Unpack the template parameters into an initializer list
-      int componentIds[] = { 0, ECSconsts::GetId<ComponentTypes>() ... };
+      int componentIds[] = { 0, ECSConsts::GetId<ComponentTypes>() ... };
       for (int i = 1; i < (sizeof...(ComponentTypes) + 1); i++)
         componentMask.set(componentIds[i]);
     }
@@ -44,7 +44,7 @@ struct SceneView
     bool ValidIndex(){
       return
       // It's a valid entity ID
-      ECSconsts::IsEntityValid(pScene->entities[index].id) &&
+      ECSConsts::IsEntityValid(pScene->entities[index].id) &&
       // It has the correct component mask
       (all || mask == (mask & pScene->entities[index].mask));
     }
@@ -68,7 +68,7 @@ struct SceneView
     int firstIndex = 0;
     while (firstIndex < pScene->entities.size() &&
       (componentMask != (componentMask & pScene->entities[firstIndex].mask) 
-        || !ECSconsts::IsEntityValid(pScene->entities[firstIndex].id))) 
+        || !ECSConsts::IsEntityValid(pScene->entities[firstIndex].id))) 
     {
       firstIndex++;
     }

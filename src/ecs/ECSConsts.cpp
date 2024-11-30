@@ -1,6 +1,6 @@
-#include "ECSconsts.hpp"
+#include "ECSConsts.hpp"
 
-u64 ECSconsts::s_componentCounter = 0;
+u64 ECSConsts::s_componentCounter = 0;
 
 // EntityID ECSconsts::CreateEntityId(unsigned int index, unsigned int version)
 // {
