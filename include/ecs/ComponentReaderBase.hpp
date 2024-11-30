@@ -10,16 +10,16 @@
 // It automatically passes itself into to the single existing ECSManager
 class ComponentReaderBase{
     public:
-        ComponentReaderBase();
-
         // Sets a given scene as the scene to iterate over on update
-        virtual void InsertScene(Scene* setScene) = 0;
+        virtual void insertScene(Scene& setScene) = 0;
 
         // Uses the implemented behavior on every component
         virtual void fullStart() = 0;
 
         // Uses the implemented behavior on every component
         virtual void fullUpdate() = 0;
+    protected:
+        ComponentReaderBase();
 };
 
 #endif
