@@ -3,7 +3,7 @@
 
 #include <vector>
 
-#include "ComponentReader.hpp"
+#include "ComponentReaderBase.hpp"
 #include "Scene.hpp"
 #include "SceneView.hpp"
 
@@ -17,19 +17,18 @@ class ECSManager{
 
         // Inserts a reader that determines the behavior of a range of components
         // Updates the given scene to the corresponding behaviors
-        static void insertReader(ComponentReader setReader);
+        static void insertReader(ComponentReaderBase* setReader);
 
         // Updates the given components within the scene according to the corresponding readers.
         static void update();
-    private:
+    protected:
         // Privated to prevent multiple instances of the manager
         ECSManager();
 
         // The sole instance of this class
         static ECSManager instance;
-        std::vector<ComponentReader> readers;
-        Scene base;
-        SceneView givenScene;
-};
+        Scene baseScene;
+        std::vector<ComponentReaderBase*> readers;
+};  
 
 #endif

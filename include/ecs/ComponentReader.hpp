@@ -1,19 +1,41 @@
 #ifndef COMPONENTREADER_HPP
 #define COMPONENTREADER_HPP
 
-// This acts as an abstract base of the behavior a Component
-// It automatically passes itself into to the single existing ECSManager 
-// Relys on ECS to call behaviors on corresponding type
-template<typename ComponentType>
-class ComponentReader{
-    // The behavior that a component initiates on creation
-    virtual void Start(ComponentType givenComp);
+#include "Scene.hpp"
+#include "SceneView.hpp"
+#include "ComponentReaderBase.hpp"
 
-    // The behavior that a component initiates every frame
-    virtual void Update(ComponentType givenComp);
+// This allows for an easier implementation of behaviors into the ECS as behaviors are
+// plugged in just by defining the correct types
+// The ComponentType is the component it processes
+// The BaseType is the class of the  
+template<typename ComponentType, typename BaseType>
+class ComponentReader : public ComponentReaderBase{
+    public:
+        ComponentReader() : ComponentReaderBase(){
+        }
 
-    // The behavior that a component initiates when the given Component is going away
-    virtual void Destroy(ComponentType givenComp);
+        // The behavior that a component initiates when the ECSManager actually starts the game
+        virtual void start(ComponentType givenComp);
+        // Uses the implemented behavior on every component
+        void fullStart() override{
+            for (EntityID ent : SceneView<ComponentType>(givenScene))
+            {
+                start(givenScene->Scene::Get<ComponentType>(ent));
+            }
+        }
 
+        // The behavior that a component initiates every frame
+        virtual void update(ComponentType givenComp);
+        // Uses the implemented behavior on every component
+        void fullUpdate() override {
+            for (EntityID ent : SceneView<ComponentType>(givenScene))
+            {
+                update(givenScene->Scene::Get<ComponentType>(ent));
+            }
+        }
+    protected:
+        // Ensures that the component is properly plugged into the ECSManager
+        static BaseType base;
 };
 #endif
