@@ -42,3 +42,5 @@ void CircleColliderBehavior::update(CircleCollider* givenComp, EntityID givenEnt
 
 CircleColliderBehavior::CircleColliderBehavior() : ComponentReader<CircleCollider, CircleColliderBehavior>(){
 }
+
+CircleColliderBehavior CircleColliderBehavior::base = CircleColliderBehavior();

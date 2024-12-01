@@ -1,5 +1,5 @@
 #include "ECSManager.hpp"
-
+#include "iostream"
 Scene& ECSManager::getScene(){
     return (instance.baseScene);
 }

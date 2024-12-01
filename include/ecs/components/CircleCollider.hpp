@@ -25,6 +25,8 @@ class CircleColliderBehavior : public ComponentReader<CircleCollider, CircleColl
     
     // Passes itself into ECSManager
     CircleColliderBehavior();
+    // void CircleColliderBehavior construct() override;
+    static CircleColliderBehavior base;
 };
 
 #endif

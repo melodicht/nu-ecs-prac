@@ -22,5 +22,8 @@ class RigidBodyBehavior : public ComponentReader<Rigidbody, RigidBodyBehavior>{
     
     // Passes itself into ECSManager
     RigidBodyBehavior();
+    // void RigidBodyBehavior construct() override;
+
+    static RigidBodyBehavior base;
 };
 #endif

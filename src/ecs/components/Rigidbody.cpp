@@ -11,3 +11,5 @@ void RigidBodyBehavior::update(Rigidbody* givenComp, EntityID givenEnt){
 
 RigidBodyBehavior::RigidBodyBehavior() : ComponentReader<Rigidbody, RigidBodyBehavior>(){
 }
+
+RigidBodyBehavior RigidBodyBehavior::base = RigidBodyBehavior();

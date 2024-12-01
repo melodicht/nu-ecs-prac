@@ -26,6 +26,8 @@ class CircleRenderBehavior : public ComponentReader<CircleRenderer, CircleRender
     
     // Passes itself into ECSManager
     CircleRenderBehavior();
+    // void CircleRenderBehavior construct() override;
+    static CircleRenderBehavior base;
 };
 
 

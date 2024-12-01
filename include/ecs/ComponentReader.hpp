@@ -33,6 +33,9 @@ class ComponentReader : public ComponentReaderBase{
             }
         }
     protected:
+        // Constructs a version of the baseType
+        // Forces class to pass into ECS
+        // static virtual BaseType construct() = 0;
         // The behavior that a component initiates when the ECSManager actually starts the game
         virtual void start(ComponentType* givenComp, EntityID givenEnt) = 0;
         // The behavior that a component initiates every frame
@@ -43,8 +46,6 @@ class ComponentReader : public ComponentReaderBase{
             ECSManager::insertReader(this);
         }
 
-        // Ensures that the component is properly plugged into the ECSManager
-        static BaseType base;
         // The Scene to gleam relavant components to update from
         SceneView<ComponentType> givenSceneView;
 };
