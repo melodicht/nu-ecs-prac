@@ -15,7 +15,7 @@ struct CircleCollider{
 };
 
 // Scans for collisions and properly accordingly updates the cached rigidbodies
-class CircleColliderBehavior : public ComponentReader<CircleCollider, CircleColliderBehavior>
+class CircleColliderBehavior : public ComponentReader<CircleCollider>
 {
     // Caches transform and rigidbody
     void start(CircleCollider* givenComp, EntityID givenEnt) override;
@@ -25,7 +25,8 @@ class CircleColliderBehavior : public ComponentReader<CircleCollider, CircleColl
     
     // Passes itself into ECSManager
     CircleColliderBehavior();
-    // void CircleColliderBehavior construct() override;
+
+    // Constructs an instance of the behvaior to pass into the ECSManager
     static CircleColliderBehavior base;
 };
 

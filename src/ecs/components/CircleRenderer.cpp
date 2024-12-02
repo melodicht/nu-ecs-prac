@@ -15,7 +15,7 @@ void CircleRenderBehavior::update(CircleRenderer* givenComp, EntityID givenEnt){
 }
 
 // Passes itself into ECSManager
-CircleRenderBehavior::CircleRenderBehavior() : ComponentReader<CircleRenderer, CircleRenderBehavior>(){
+CircleRenderBehavior::CircleRenderBehavior() : ComponentReader<CircleRenderer>(){
 }
 
 CircleRenderBehavior CircleRenderBehavior::base = CircleRenderBehavior();

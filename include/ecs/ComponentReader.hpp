@@ -9,7 +9,7 @@
 // plugged in just by defining the correct types
 // The ComponentType is the component it processes
 // The BaseType is the class that inherits this, requires a empty constructor
-template<typename ComponentType, typename BaseType>
+template<typename ComponentType>
 class ComponentReader : public ComponentReaderBase{
     public:
         // Takes in the current scene from the ECSManager
@@ -33,9 +33,6 @@ class ComponentReader : public ComponentReaderBase{
             }
         }
     protected:
-        // Constructs a version of the baseType
-        // Forces class to pass into ECS
-        // static virtual BaseType construct() = 0;
         // The behavior that a component initiates when the ECSManager actually starts the game
         virtual void start(ComponentType* givenComp, EntityID givenEnt) = 0;
         // The behavior that a component initiates every frame

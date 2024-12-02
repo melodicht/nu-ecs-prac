@@ -9,7 +9,7 @@ void RigidBodyBehavior::update(Rigidbody* givenComp, EntityID givenEnt){
     givenComp->givenTransform->y_pos += givenComp->v_y;
 }
 
-RigidBodyBehavior::RigidBodyBehavior() : ComponentReader<Rigidbody, RigidBodyBehavior>(){
+RigidBodyBehavior::RigidBodyBehavior() : ComponentReader<Rigidbody>(){
 }
 
 RigidBodyBehavior RigidBodyBehavior::base = RigidBodyBehavior();

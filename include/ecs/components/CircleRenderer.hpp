@@ -17,7 +17,7 @@ struct CircleRenderer{
     sf::Color renderColor{sf::Color::Green};
 };
 
-class CircleRenderBehavior : public ComponentReader<CircleRenderer, CircleRenderBehavior>{
+class CircleRenderBehavior : public ComponentReader<CircleRenderer>{
     // Caches transform
     void start(CircleRenderer* givenComp, EntityID givenEnt) override;
 
@@ -26,7 +26,8 @@ class CircleRenderBehavior : public ComponentReader<CircleRenderer, CircleRender
     
     // Passes itself into ECSManager
     CircleRenderBehavior();
-    // void CircleRenderBehavior construct() override;
+
+    // Constructs an instance of the behvaior to pass into the ECSManager
     static CircleRenderBehavior base;
 };
 

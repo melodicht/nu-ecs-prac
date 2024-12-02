@@ -13,7 +13,7 @@ struct Rigidbody {
 };
 
 // 
-class RigidBodyBehavior : public ComponentReader<Rigidbody, RigidBodyBehavior>{
+class RigidBodyBehavior : public ComponentReader<Rigidbody>{
     // Caches transform
     void start(Rigidbody* givenComp, EntityID givenEnt) override;
 
@@ -22,8 +22,8 @@ class RigidBodyBehavior : public ComponentReader<Rigidbody, RigidBodyBehavior>{
     
     // Passes itself into ECSManager
     RigidBodyBehavior();
-    // void RigidBodyBehavior construct() override;
 
+    // Constructs an instance of the behvaior to pass into the ECSManager
     static RigidBodyBehavior base;
 };
 #endif
