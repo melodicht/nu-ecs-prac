@@ -3,6 +3,7 @@
 
 #include "ComponentReader.hpp"
 #include "TransformComponent.hpp"
+#include "TimeManager.hpp"
 
 struct Rigidbody {
   // Cached transform to update position of

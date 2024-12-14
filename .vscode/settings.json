@@ -52,6 +52,11 @@
         "tuple": "cpp",
         "typeinfo": "cpp",
         "unordered_map": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "__tree": "cpp",
+        "map": "cpp",
+        "strstream": "cpp",
+        "deque": "cpp",
+        "queue": "cpp"
     },
 }
