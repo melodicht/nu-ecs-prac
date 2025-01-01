@@ -75,7 +75,7 @@ struct SceneView
     return Iterator(pScene, firstIndex, componentMask, all);
   }
 
-    // Give an iterator to the end of this view 
+  // Give an iterator to the end of this view 
   const Iterator end() const{
     return Iterator(pScene, (unsigned int)(pScene->entities.size()), componentMask, all);
   }

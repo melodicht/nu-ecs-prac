@@ -4,17 +4,16 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 
+#include "Color.hpp"
 #include "TransformComponent.hpp"
 #include "ComponentReader.hpp"
 
 struct CircleRenderer{
     // Caches transform
     TransformComponent* transform;
-    // The window this renderer draws from
-    // A bit scuffed for now, I think a universal singleton window might be useful to counteract this need but as a proof of concept it will suffice
-    sf::RenderWindow* window{nullptr};
+
     // Color to render as
-    sf::Color renderColor{sf::Color::Green};
+    Color renderColor{Color(0,0,0)};
 };
 
 class CircleRenderBehavior : public ComponentReader<CircleRenderer>{
@@ -28,7 +27,7 @@ class CircleRenderBehavior : public ComponentReader<CircleRenderer>{
     CircleRenderBehavior();
 
     // Constructs an instance of the behvaior to pass into the ECSManager
-    static CircleRenderBehavior base;
+    // static CircleRenderBehavior base;
 };
 
 

@@ -9,7 +9,7 @@
 
 // Handles the regular updates/behaviors of the components within a given scene
 // ONLY SUPPORTS A SINGLE INSTANCE
-// TODO LATER: Scene functionality, currently only one scene is loaded and preseneted
+// TODO LATER: Scene functionality, currently only one scene is loaded and presented
 class ECSManager{
     public:
         // Initializes the behaviors at the current game state

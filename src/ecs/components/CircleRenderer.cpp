@@ -11,11 +11,11 @@ void CircleRenderBehavior::update(CircleRenderer* givenComp, EntityID givenEnt){
 
     shape.setPosition(givenComp->transform->x_pos, givenComp->transform->y_pos);
     
-    givenComp->window->draw(shape);
+    // givenComp->window->draw(shape);
 }
 
 // Passes itself into ECSManager
 CircleRenderBehavior::CircleRenderBehavior() : ComponentReader<CircleRenderer>(){
 }
 
-CircleRenderBehavior CircleRenderBehavior::base = CircleRenderBehavior();
+// CircleRenderBehavior CircleRenderBehavior::base = CircleRenderBehavior();
