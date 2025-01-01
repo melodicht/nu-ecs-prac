@@ -20,28 +20,8 @@ class IRenderWindow {
         // Gets the current height of the window this window.
         virtual int getWindowHeight() = 0;
 
-        // Sets a number of parameters of the render window.
-        // Template T is the class that implements this interface.
-        template <typename T>
-        class IRenderWindowBuilder {
-            // Sets the background color of the window to be created.
-            virtual void setBuildBackColor(Color setColor) = 0;
-
-            // Sets the width of the window to be created.
-            virtual void setBuildWidth(int setWidth) = 0;
-
-            // Sets the height of the window to be created.
-            virtual void setWindowHeight(int setHeight) = 0;
-
-            // Sets the title of the window
-            virtual void setWindowTitle(std::string setTitle) = 0;
-
-            // Builds a window based on parameters.
-            virtual T build() = 0;
-        };
-
         // Checks if the window is active or not
-        virtual bool isActive();
+        virtual bool isActive() = 0;
 
         // Polls all inputs from a player recorded in the window.
         virtual InputCycle pollEvent() = 0;
@@ -49,6 +29,34 @@ class IRenderWindow {
         // Renders the scene given to it.
         virtual void renderScene(Scene& givenScene) = 0;
 
+        virtual ~IRenderWindow();
+
+        // Sets a number of parameters of the render window.
+        // Template T is the class that implements this interface.
+        template <typename T>
+        class IRenderWindowBuilder {
+            public:
+                // Sets the background color of the window to be created.
+                virtual void setBuildBackColor(Color setColor) = 0;
+
+                // Sets the width of the window to be created.
+                virtual void setBuildWidth(int setWidth) = 0;
+
+                // Sets the height of the window to be created.
+                virtual void setWindowHeight(int setHeight) = 0;
+
+                // Sets the title of the window
+                virtual void setWindowTitle(std::string setTitle) = 0;
+
+                // Builds a window based on parameters.
+                virtual T build() = 0;
+
+                virtual ~IRenderWindowBuilder();
+        };
 };
+
+template <typename T>
+IRenderWindow::IRenderWindowBuilder<T>::~IRenderWindowBuilder() {
+}
 
 #endif

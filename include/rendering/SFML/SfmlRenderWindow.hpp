@@ -29,6 +29,8 @@ class SfmlRenderWindow : public IRenderWindow {
                 // With a title of "SFML Game"
                 SfmlRenderWindowBuilder();
 
+                ~SfmlRenderWindowBuilder() override;
+
                 void setBuildBackColor(Color setColor) override;
 
                 void setBuildWidth(int setWidth) override;
@@ -50,6 +52,8 @@ class SfmlRenderWindow : public IRenderWindow {
         InputCycle pollEvent() override;
 
         void renderScene(Scene& givenScene) override;
+
+        ~SfmlRenderWindow() override;
 
     protected:
         // Constructs a window that uses SFML.

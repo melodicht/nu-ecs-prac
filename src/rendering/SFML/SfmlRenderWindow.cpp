@@ -17,7 +17,7 @@ bool SfmlRenderWindow::isActive(){
     return mainWindow.isOpen();
 }
 
-// CURRENTLY DOES NOTHING
+// CURRENTLY RETURNS NOTHING
 InputCycle SfmlRenderWindow::pollEvent(){
     // check all the window's events that were triggered since the last iteration of the loop
     sf::Event event;
@@ -29,14 +29,13 @@ InputCycle SfmlRenderWindow::pollEvent(){
             mainWindow.close();
         }
     }
-
     return InputCycle();
 }
 
 
 void SfmlRenderWindow::renderScene(Scene& givenScene){
     mainWindow.clear(givenBackground);
-
+    
     SceneView<CircleRenderer> scene = SceneView<CircleRenderer>(givenScene);
     for (EntityID ent : scene)
     {
@@ -69,7 +68,9 @@ void SfmlRenderWindow::renderScene(Scene& givenScene){
     sf::Text profiler = sf::Text();
     sf::Text avgProfiler = sf::Text();
     profiler.setString(perFrame);
+    profiler.setFillColor(sf::Color::Green);
     avgProfiler.setString(perAvgFrame);
+    avgProfiler.setFillColor(sf::Color::Green);
     profiler.setFont(profilerFont);
     avgProfiler.setFont(profilerFont);
     profiler.setCharacterSize(20);
@@ -77,18 +78,24 @@ void SfmlRenderWindow::renderScene(Scene& givenScene){
     profiler.setPosition(sf::Vector2f(50,100));
     avgProfiler.setPosition(sf::Vector2f(50,50));
 
+    mainWindow.draw(profiler);
+    mainWindow.draw(avgProfiler);
+
     // end the current frame
     mainWindow.display();
-
 }
 
 
 SfmlRenderWindow::SfmlRenderWindow(Color setBackground, int setHeight, int setWidth, std::string setString) : 
     givenBackground(setBackground.r, setBackground.g, setBackground.b), 
-    height(height), 
-    width(width) ,
-    mainWindow(sf::VideoMode(width, height), setString){
+    height(setHeight), 
+    width(setWidth) ,
+    mainWindow(sf::VideoMode(setWidth, setHeight), setString){
     profilerFont.loadFromFile("../../resources/cour.ttf");
+    std::cout << "build" << std::endl;
+}
+
+SfmlRenderWindow::~SfmlRenderWindow(){
 }
 
 
@@ -118,4 +125,7 @@ SfmlRenderWindow::SfmlRenderWindowBuilder::SfmlRenderWindowBuilder() :
     width (800),
     height (600),
     title ("SFML Game"){
+}
+
+SfmlRenderWindow::SfmlRenderWindowBuilder::~SfmlRenderWindowBuilder(){
 }

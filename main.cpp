@@ -44,7 +44,6 @@ int main() {
   srand (static_cast <unsigned> (time(0)));
   
   Scene& scene = ECSManager::getScene();
-
   // Instantiate all the balls.
   for (u32 i = 0; i < NUM_BALLS; i++)
   {
@@ -54,7 +53,9 @@ int main() {
     Rigidbody* pBallRb = scene.Assign<Rigidbody>(ball);
     CircleCollider* pBallCC = scene.Assign<CircleCollider>(ball);
     float radius = BALL_RADIUS;
-
+    
+    pBallRender->renderColor = Color(255,255,255);
+    pBallRender->transform = pBallTransform;
     pBallTransform->x_pos = RandInBetween(radius, WINDOW_WIDTH - radius);
     pBallTransform->y_pos = RandInBetween(radius, WINDOW_HEIGHT - radius);
     pBallRb->v_x = RandInBetween(100, 150);
@@ -62,20 +63,17 @@ int main() {
     pBallTransform->radius = radius;
 
   }
-  
   ECSManager::start();
   TimeManager::init();
 
   // run the program as long as the window is open
   while (window.isActive())
   {
-    // check all the window's events that were triggered since the last iteration of the loop
-    sf::Event event;
-
     window.pollEvent();
 
     ECSManager::update();
     TimeManager::update();
+    
     window.renderScene(scene);
   }
 }

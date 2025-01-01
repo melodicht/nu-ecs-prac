@@ -57,6 +57,9 @@
         "map": "cpp",
         "strstream": "cpp",
         "deque": "cpp",
-        "queue": "cpp"
+        "queue": "cpp",
+        "execution": "cpp",
+        "print": "cpp",
+        "stack": "cpp"
     },
 }
