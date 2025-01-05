@@ -11,7 +11,7 @@ typedef uint64_t u64;
 typedef uint64_t EntityID;
 static const uint32_t MAX_COMPONENTS = 32;
 typedef std::bitset<MAX_COMPONENTS> ComponentMask;
-static const uint32_t MAX_ENTITIES = 256;
+static const uint32_t MAX_ENTITIES = 3000;
 
 /*
 * ID FUNCTIONALITY 

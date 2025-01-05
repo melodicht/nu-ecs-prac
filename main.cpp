@@ -11,7 +11,7 @@
 
 // for the ball game we make with the ECS
 #define BALL_RADIUS 20
-#define NUM_BALLS 5
+#define NUM_BALLS 1000
 
 // Loads ECS System
 #include "ComponentPool.hpp"
@@ -73,7 +73,7 @@ int main() {
 
     ECSManager::update();
     TimeManager::update();
-    
+
     window.renderScene(scene);
   }
 }
