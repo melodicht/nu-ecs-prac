@@ -15,6 +15,7 @@ typedef double f64;
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
+#include <SFML/System.hpp>
 
 #include "ecs.cpp"
 #include "ecsprac.cpp"
@@ -23,13 +24,13 @@ typedef double f64;
 
 int main() {
   srand (static_cast <unsigned> (time(0)));
-	u64 cpuTimerFreq = EstimateCPUTimerFreq();
+	sf::Clock beginClock;
   sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "BALLS!");
   Scene scene;
 
   GameInitialize(scene);
 
-	u64 lastCounter = ReadCPUTimer();
+	u64 lastCounter = beginClock.getElapsedTime().asMicroseconds();
   
   // run the program as long as the window is open
   while (window.isOpen())
@@ -49,11 +50,11 @@ int main() {
     
     window.display();
 
-		u64 endCounter = ReadCPUTimer();
+		u64 endCounter =  beginClock.getElapsedTime().asMicroseconds();
 
 		u64 counterElapsed = endCounter - lastCounter;
-		f32 msPerFrame = 1000.0f * (f32)counterElapsed/(f32)cpuTimerFreq;
-		f32 fps = (f32)cpuTimerFreq/(f32)counterElapsed;
+		f32 msPerFrame = (counterElapsed / 1000.0f);
+		f32 fps = (1/(msPerFrame / 1000.0f));
 		printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
 		lastCounter = endCounter;
   }

@@ -26,7 +26,6 @@ static u64 ReadOSTimer(void)
 
 #else
 
-#include <x86intrin.h>
 #include <sys/time.h>
 
 static u64 GetOSTimerFreq(void)
@@ -45,12 +44,18 @@ static u64 ReadOSTimer(void)
 
 #endif
 
+#if _WIN32
+#include <x86intrin.h>
+#endif
 inline u64 ReadCPUTimer(void)
 {
+	#if _WIN32
 	// If you were on ARM, you would need to replace __rdtsc with one of
 	// their performance counter read instructions, depending on which
 	// ones are available on your platform.
 	return __rdtsc();
+	#endif
+	return 0;
 }
 
 static u64 EstimateCPUTimerFreq(void)
