@@ -10,7 +10,7 @@
 #include <queue>
 
 // for the ball game we make with the ECS
-#define BALL_RADIUS 20
+#define BALL_RADIUS 2.5
 #define NUM_BALLS 1000
 
 // Loads ECS System
@@ -58,8 +58,8 @@ int main() {
     pBallRender->transform = pBallTransform;
     pBallTransform->x_pos = RandInBetween(radius, WINDOW_WIDTH - radius);
     pBallTransform->y_pos = RandInBetween(radius, WINDOW_HEIGHT - radius);
-    pBallRb->v_x = RandInBetween(100, 150);
-    pBallRb->v_y = RandInBetween(100, 150);
+    pBallRb->v_x = RandInBetween(0.1, 0.5);
+    pBallRb->v_y = RandInBetween(0.1, 0.5);
     pBallTransform->radius = radius;
 
   }
