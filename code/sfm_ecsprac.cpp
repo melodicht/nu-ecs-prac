@@ -32,13 +32,13 @@ int main() {
 
     while (window.pollEvent(event))
     {
-        // "close requested" event: we close the window
-        if (event.type == sf::Event::Closed) {
-            window.close();
-        }
+			// "close requested" event: we close the window
+			if (event.type == sf::Event::Closed) {
+				window.close();
+			}
     }
 
-	GameUpdateAndRender(scene, window);
+		GameUpdateAndRender(scene, window);
     
     window.display();
   }
