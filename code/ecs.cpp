@@ -29,7 +29,7 @@ int GetId()
 typedef u64 EntityID;
 const u32 MAX_COMPONENTS = 32;
 typedef std::bitset<MAX_COMPONENTS> ComponentMask;
-const u32 MAX_ENTITIES = 256;
+const u32 MAX_ENTITIES = 3000;
 
 /*
  * ID FUNCTIONALITY 

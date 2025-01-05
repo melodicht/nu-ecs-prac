@@ -7,7 +7,7 @@ void
 GameUpdateAndRender(Scene &scene, sf::RenderWindow &window);
 
 #define BALL_RADIUS 5
-#define NUM_BALLS 250
+#define NUM_BALLS 1000
 
 // Represents a point in a 2D space as a Component
 struct TransformComponent {
