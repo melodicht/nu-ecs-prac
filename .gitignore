@@ -406,7 +406,6 @@ FodyWeavers.xsd
 *.filters
 *.sln
 Makefile
-CMakeLists.txt
 
 # Ignores Build Details for Macbook (Jianwen)
 out
