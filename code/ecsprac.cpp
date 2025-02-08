@@ -9,6 +9,7 @@ GameInitialize(Scene &scene)
 		TransformComponent* pBallTransform = scene.Assign<TransformComponent>(ball);
 		Rigidbody* pBallRb = scene.Assign<Rigidbody>(ball);
 		CircleCollider* pBallCC = scene.Assign<CircleCollider>(ball);
+		ColorComponent* pColorComponent = scene.Assign<ColorComponent>(ball);
 		float radius = BALL_RADIUS;
 
 		pBallTransform->x_pos = RandInBetween(radius, WINDOW_WIDTH - radius);
@@ -16,6 +17,15 @@ GameInitialize(Scene &scene)
 		pBallRb->v_x = RandInBetween(0.1, 0.2);
 		pBallRb->v_y = RandInBetween(0.1, 0.2);
 		pBallCC->radius = radius;
+		pColorComponent->r = (u32)RandInBetween(50, 256);
+		pColorComponent->g = (u32)RandInBetween(50, 256);
+		pColorComponent->b = (u32)RandInBetween(50, 256);
+
+		if (i % 4 == 0)
+		{
+			GravityComponent* pGravityTransform = scene.Assign<GravityComponent>(ball);
+			pGravityTransform->strength = RandInBetween(GRAVITY_MIN, GRAVITY_MAX);
+		}
   }
 }
 
@@ -50,11 +60,22 @@ GameUpdateAndRender(Scene &scene, sf::RenderWindow &window)
 {
   window.clear(sf::Color::Black);
 
-  for (EntityID ent : SceneView<TransformComponent, Rigidbody, CircleCollider>(scene))
+	// Gravity
+	for (EntityID ent : SceneView<Rigidbody, GravityComponent>(scene))
+	{
+		Rigidbody* rb = scene.Get<Rigidbody>(ent);
+		GravityComponent* gc = scene.Get<GravityComponent>(ent);
+
+		rb->v_y += gc->strength;
+	}
+
+	// Forward movement, collision, rendering
+  for (EntityID ent : SceneView<TransformComponent, Rigidbody, CircleCollider, ColorComponent>(scene))
   {
 		TransformComponent* t = scene.Get<TransformComponent>(ent);
 		Rigidbody* rb = scene.Get<Rigidbody>(ent);
 		CircleCollider* cc = scene.Get<CircleCollider>(ent);
+		ColorComponent* colc = scene.Get<ColorComponent>(ent);
 		float radius = cc->radius;
 
 		// Not framerate independent for simpler collision logic.
@@ -76,7 +97,12 @@ GameUpdateAndRender(Scene &scene, sf::RenderWindow &window)
 		scanCollision(cc, rb, t, scene);
 		// Render to window
 		sf::CircleShape shape(radius);
-		shape.setFillColor(sf::Color(100, 250, 50));
+
+		float colorBrighteningFactor = std::min(sqrt((rb->v_x * rb->v_x) + (rb->v_y * rb->v_y)), 1.0);
+		u32 r = (u32)((t->x_pos / WINDOW_WIDTH) * 255);
+		u32 g = (u32)((t->y_pos / WINDOW_HEIGHT) * 255);
+		u32 b = (u32)(colc->b * colorBrighteningFactor) % 256;
+		shape.setFillColor(sf::Color(r, g, b));
 
 		shape.setPosition(t->x_pos, t->y_pos);
 
