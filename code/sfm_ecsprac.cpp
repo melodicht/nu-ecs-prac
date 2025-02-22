@@ -5,6 +5,8 @@
 #include <iostream>
 #include "utils.cpp"
 
+#define IN_EDITOR 1
+
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600
 
