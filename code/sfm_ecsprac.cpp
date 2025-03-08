@@ -19,6 +19,7 @@ typedef double f64;
 
 #include "ecs.cpp"
 #include "ecsprac.cpp"
+#include "imgui.cpp"
 
 #include "platform_metrics.cpp"
 
@@ -41,12 +42,35 @@ int main() {
     while (window.pollEvent(event))
     {
 			// "close requested" event: we close the window
-			if (event.type == sf::Event::Closed) {
+			if (event.type == sf::Event::Closed)
+			{
 				window.close();
+			}
+
+			if (event.type == sf::Event::MouseMoved)
+			{
+				sf::Vector2i mousePos = sf::Mouse::getPosition();
+				uistate.mousex = mousePos.x;
+				uistate.mousey = mousePos.y;
+			}
+
+			if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
+			{
+				uistate.mousedown = 1;
+			}
+			else
+			{
+				uistate.mousedown = 0;
 			}
     }
 
-		GameUpdateAndRender(scene, window);
+		sf::CircleShape circleTmp(50.f);
+		circleTmp.setFillColor(sf::Color(0, 250, 250 * uistate.mousedown));
+		circleTmp.setPosition(uistate.mousex, uistate.mousey);
+		window.draw(circleTmp);
+
+		// TODO(marv): Going to comment out game code for now just to get UI working!
+		// GameUpdateAndRender(scene, window);
     
     window.display();
 
