@@ -16,6 +16,7 @@ typedef double f64;
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
+#include "draw_utils.cpp"
 
 #include "ecs.cpp"
 #include "ecsprac.cpp"
@@ -41,6 +42,13 @@ int main() {
 
     while (window.pollEvent(event))
     {
+			if (event.type == sf::Event::Resized)
+			{
+        // update the view to the new size of the window
+        sf::FloatRect visibleArea(0, 0, event.size.width, event.size.height);
+        window.setView(sf::View(visibleArea));
+			}
+			
 			// "close requested" event: we close the window
 			if (event.type == sf::Event::Closed)
 			{
@@ -49,9 +57,10 @@ int main() {
 
 			if (event.type == sf::Event::MouseMoved)
 			{
-				sf::Vector2i mousePos = sf::Mouse::getPosition();
-				uistate.mousex = mousePos.x;
-				uistate.mousey = mousePos.y;
+				sf::Vector2i pixelPos = sf::Mouse::getPosition(window);
+				sf::Vector2f worldPos = window.mapPixelToCoords(pixelPos);
+				uistate.mousex = worldPos.x;
+				uistate.mousey = worldPos.y;
 			}
 
 			if (sf::Mouse::isButtonPressed(sf::Mouse::Button::Left))
@@ -64,15 +73,32 @@ int main() {
 			}
     }
 
-		sf::CircleShape circleTmp(50.f);
-		circleTmp.setFillColor(sf::Color(0, 250, 250 * uistate.mousedown));
-		circleTmp.setPosition(uistate.mousex, uistate.mousey);
-		window.draw(circleTmp);
+		static sf::Color bgColor = sf::Color::Black;
 
+		window.clear(bgColor);
+
+		ImguiPrepare();
+
+		sf::CircleShape buttonRect(50.f, 4);
+
+		// For one button.
+		u32 x = 200; 
+		u32 y = 100;
+		u32 w = 64;
+		u32 h = 48;
+		u32 id = 1;
+
+		if (Button(1, window, 200, 100, 64, 48))
+		{
+			bgColor = sf::Color::Red;
+		}
+		
 		// TODO(marv): Going to comment out game code for now just to get UI working!
 		// GameUpdateAndRender(scene, window);
     
     window.display();
+
+		ImguiFinish();
 
 		u64 endCounter = ReadCPUTimer();
 
