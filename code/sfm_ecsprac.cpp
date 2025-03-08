@@ -79,15 +79,6 @@ int main() {
 
 		ImguiPrepare();
 
-		sf::CircleShape buttonRect(50.f, 4);
-
-		// For one button.
-		u32 x = 200; 
-		u32 y = 100;
-		u32 w = 64;
-		u32 h = 48;
-		u32 id = 1;
-
 		if (Button(1, window, 200, 100, 64, 48))
 		{
 			bgColor = sf::Color::Red;
