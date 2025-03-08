@@ -60,6 +60,12 @@ GameUpdateAndRender(Scene &scene, sf::RenderWindow &window)
 {
   window.clear(sf::Color::Black);
 
+	#if IN_EDITOR
+	// Render the "scene view"
+
+	// 
+	#endif
+
 	// Gravity
 	for (EntityID ent : SceneView<Rigidbody, GravityComponent>(scene))
 	{
