@@ -79,7 +79,7 @@ int main() {
 
 		ImguiPrepare();
 
-		if (Button(1, window, 200, 100, 64, 48))
+		if (Button(GEN_ID, window, 200, 100, 64, 48))
 		{
 			bgColor = sf::Color::Red;
 		}
