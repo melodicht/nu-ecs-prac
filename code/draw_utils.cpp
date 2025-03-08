@@ -12,3 +12,10 @@ void DrawRect(sf::RenderWindow &window, u32 topLeftX, u32 topLeftY, u32 w, u32 h
 	rect.setPosition(topLeftX, topLeftY);
 	window.draw(rect);
 }
+
+sf::Font font("arial.ttf");
+// Draws the given text on the window at the given top-left 2D coordinate.
+void DrawText(sf::RenderWindow &window, char *text, u32 topLeftX, u32 topLeftY)
+{
+	// TODO: Fill in this.
+}
