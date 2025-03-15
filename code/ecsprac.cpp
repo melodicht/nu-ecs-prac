@@ -1,31 +1,32 @@
 #include "ecsprac.h"
 
+// Spawns a ball with the given radius in the given scene.
+inline EntityID
+SpawnBall(Scene &scene, float radius)
+{
+	EntityID ball = scene.NewEntity();
+	TransformComponent* pBallTransform = scene.Assign<TransformComponent>(ball);
+	Rigidbody* pBallRb = scene.Assign<Rigidbody>(ball);
+	CircleCollider* pBallCC = scene.Assign<CircleCollider>(ball);
+	ColorComponent* pColorComponent = scene.Assign<ColorComponent>(ball);
+
+	pBallTransform->x_pos = RandInBetween(radius, WINDOW_WIDTH - radius);
+	pBallTransform->y_pos = RandInBetween(radius, WINDOW_HEIGHT - radius);
+	pBallRb->v_x = RandInBetween(0.1, 0.2);
+	pBallRb->v_y = RandInBetween(0.1, 0.2);
+	pBallCC->radius = radius;
+	pColorComponent->r = (u32)RandInBetween(50, 256);
+	pColorComponent->g = (u32)RandInBetween(50, 256);
+	pColorComponent->b = (u32)RandInBetween(50, 256);
+	return ball;
+}
+
 void
 GameInitialize(Scene &scene)
 {
   for (u32 i = 0; i < NUM_BALLS; i++)
   {
-		EntityID ball = scene.NewEntity();
-		TransformComponent* pBallTransform = scene.Assign<TransformComponent>(ball);
-		Rigidbody* pBallRb = scene.Assign<Rigidbody>(ball);
-		CircleCollider* pBallCC = scene.Assign<CircleCollider>(ball);
-		ColorComponent* pColorComponent = scene.Assign<ColorComponent>(ball);
-		float radius = BALL_RADIUS;
-
-		pBallTransform->x_pos = RandInBetween(radius, WINDOW_WIDTH - radius);
-		pBallTransform->y_pos = RandInBetween(radius, WINDOW_HEIGHT - radius);
-		pBallRb->v_x = RandInBetween(0.1, 0.2);
-		pBallRb->v_y = RandInBetween(0.1, 0.2);
-		pBallCC->radius = radius;
-		pColorComponent->r = (u32)RandInBetween(50, 256);
-		pColorComponent->g = (u32)RandInBetween(50, 256);
-		pColorComponent->b = (u32)RandInBetween(50, 256);
-
-		if (i % 4 == 0)
-		{
-			GravityComponent* pGravityTransform = scene.Assign<GravityComponent>(ball);
-			pGravityTransform->strength = RandInBetween(GRAVITY_MIN, GRAVITY_MAX);
-		}
+		SpawnBall(scene, BALL_RADIUS);
   }
 }
 
@@ -108,4 +109,11 @@ GameUpdateAndRender(Scene &scene, sf::RenderWindow &window)
 
 		window.draw(shape);
   }
+
+	if (Button(GEN_ID, window, 200, 100, 64, 48))
+	{
+		EntityID ball = SpawnBall(scene, BALL_RADIUS);
+		GravityComponent* pGravityTransform = scene.Assign<GravityComponent>(ball);
+		pGravityTransform->strength = RandInBetween(GRAVITY_MIN, GRAVITY_MAX);
+	}
 }

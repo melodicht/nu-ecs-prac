@@ -18,9 +18,9 @@ typedef double f64;
 #include <SFML/Window.hpp>
 #include "draw_utils.cpp"
 
+#include "imgui.cpp"
 #include "ecs.cpp"
 #include "ecsprac.cpp"
-#include "imgui.cpp"
 
 #include "platform_metrics.cpp"
 
@@ -73,20 +73,10 @@ int main() {
 			}
     }
 
-		static sf::Color bgColor = sf::Color::Black;
-
-		window.clear(bgColor);
-
 		ImguiPrepare();
-
-		if (Button(GEN_ID, window, 200, 100, 64, 48))
-		{
-			bgColor = sf::Color::Red;
-		}
 		
-		// TODO(marv): Going to comment out game code for now just to get UI working!
-		// GameUpdateAndRender(scene, window);
-    
+		GameUpdateAndRender(scene, window);
+
     window.display();
 
 		ImguiFinish();
