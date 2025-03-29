@@ -4,7 +4,7 @@ void
 GameInitialize(Scene &scene);
 
 void
-GameUpdateAndRender(Scene &scene, sf::RenderWindow &window);
+GameUpdateAndRender(Scene &scene, SDL_Window* window, SDL_Renderer* renderer);
 
 #define BALL_RADIUS 5
 #define NUM_BALLS 1000

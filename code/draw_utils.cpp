@@ -1,48 +1,115 @@
 /// Helpers for drawing shit.
 
-// Draws a rectangle with the given top-left 2D coordinate with given
-// width and height, on the given SFML window, with the given RGB
-// color.
-void DrawRect(sf::RenderWindow &window, u32 topLeftX, u32 topLeftY, u32 w, u32 h,
+// Draws a fully opaque rectangle with the given top-left 2D coordinate with given
+// width and height, on the given SDL_Renderer, with the given RGB
+// color. 
+void DrawRect(SDL_Renderer *renderer, u32 topLeftX, u32 topLeftY, u32 w, u32 h,
 							u32 r, u32 g, u32 b)
 {
-	sf::RectangleShape rect({(f32)w, (f32)h});
-	rect.setRotation(0);
-	rect.setFillColor(sf::Color(r, g, b));
-	rect.setPosition(topLeftX, topLeftY);
-	window.draw(rect);
+    SDL_Rect rect;
+    rect.x = topLeftX;
+    rect.y = topLeftY;
+    rect.w = w;
+    rect.h = h;
+
+    SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+    SDL_RenderDrawRect(renderer, &rect);
 }
 
-// Draws the given text on the window at the given top-left 2D coordinate.
-void DrawText(sf::RenderWindow &window, char *text, u32 topLeftX, u32 topLeftY)
+// Source: https://gist.github.com/Gumichan01/332c26f6197a432db91cc4327fcabb1c
+int DrawOutlinedCricle(SDL_Renderer* renderer, int x, int y, int radius, u32 r, u32 g, u32 b)
 {
-	// TODO: Fill in this.
-	sf::Font font;
-	if (!font.loadFromFile("main.ttf"))
-	{
-    // error...
-	}
-	else
-	{
-		/*
-		sf::Text text(font); 
-		// set the string to display
-		text.setString("Hello world");
+    int offsetx, offsety, d;
+    int status;
 
-		// set the character size
-		text.setCharacterSize(24); // in pixels, not points!
+    offsetx = 0;
+    offsety = radius;
+    d = radius -1;
+    status = 0;
 
-		// set the color
-		text.setFillColor(sf::Color::Red);
+    SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+    while (offsety >= offsetx) {
+        status += SDL_RenderDrawPoint(renderer, x + offsetx, y + offsety);
+        status += SDL_RenderDrawPoint(renderer, x + offsety, y + offsetx);
+        status += SDL_RenderDrawPoint(renderer, x - offsetx, y + offsety);
+        status += SDL_RenderDrawPoint(renderer, x - offsety, y + offsetx);
+        status += SDL_RenderDrawPoint(renderer, x + offsetx, y - offsety);
+        status += SDL_RenderDrawPoint(renderer, x + offsety, y - offsetx);
+        status += SDL_RenderDrawPoint(renderer, x - offsetx, y - offsety);
+        status += SDL_RenderDrawPoint(renderer, x - offsety, y - offsetx);
 
-		// set the text style
-		text.setStyle(sf::Text::Bold | sf::Text::Underlined);
+        if (status < 0) {
+            status = -1;
+            break;
+        }
 
-		...
+        if (d >= 2*offsetx) {
+            d -= 2*offsetx + 1;
+            offsetx +=1;
+        }
+        else if (d < 2 * (radius - offsety)) {
+            d += 2 * offsety - 1;
+            offsety -= 1;
+        }
+        else {
+            d += 2 * (offsety - offsetx - 1);
+            offsety -= 1;
+            offsetx += 1;
+        }
+    }
 
-			// inside the main loop, between window.clear() and window.display()
-			window.draw(text);
-		*/
-	}
-	
+    return status;
+}
+
+// source same as above
+int DrawFilledCircle(SDL_Renderer * renderer, int x, int y, int radius, u32 r, u32 g, u32 b)
+{
+    int offsetx, offsety, d;
+    int status;
+
+    offsetx = 0;
+    offsety = radius;
+    d = radius -1;
+    status = 0;
+
+    SDL_SetRenderDrawColor(renderer, r, g, b, 255);
+    while (offsety >= offsetx) {
+
+        status += SDL_RenderDrawLine(renderer, x - offsety, y + offsetx,
+                                     x + offsety, y + offsetx);
+        status += SDL_RenderDrawLine(renderer, x - offsetx, y + offsety,
+                                     x + offsetx, y + offsety);
+        status += SDL_RenderDrawLine(renderer, x - offsetx, y - offsety,
+                                     x + offsetx, y - offsety);
+        status += SDL_RenderDrawLine(renderer, x - offsety, y - offsetx,
+                                     x + offsety, y - offsetx);
+
+        if (status < 0) {
+            status = -1;
+            break;
+        }
+
+        if (d >= 2*offsetx) {
+            d -= 2*offsetx + 1;
+            offsetx +=1;
+        }
+        else if (d < 2 * (radius - offsety)) {
+            d += 2 * offsety - 1;
+            offsety -= 1;
+        }
+        else {
+            d += 2 * (offsety - offsetx - 1);
+            offsety -= 1;
+            offsetx += 1;
+        }
+    }
+
+    return status;
+}
+
+
+// Draws the given text on the window at the given top-left 2D coordinate.
+// TODO: Change to SDL
+void DrawText(SDL_Renderer* renderer, char *text, u32 topLeftX, u32 topLeftY)
+{
 }

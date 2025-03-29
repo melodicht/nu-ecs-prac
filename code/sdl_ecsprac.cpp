@@ -14,12 +14,14 @@
 typedef float f32;
 typedef double f64;
 
+#define SDL_MAIN_HANDLED
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_surface.h>
 
+#include "draw_utils.cpp"
 #include "ecs.cpp"
 #include "ecsprac.cpp"
-
 #include "platform_metrics.cpp"
 
 int main() {
@@ -28,6 +30,7 @@ int main() {
 
 	SDL_Window* window = NULL;
 	SDL_Surface* screenSurface = NULL;
+	SDL_Renderer* renderer = NULL;
 	if(SDL_Init( SDL_INIT_VIDEO ) < 0)
 	{
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
@@ -35,13 +38,19 @@ int main() {
 	else
 	{
 		window = SDL_CreateWindow("SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+		renderer = SDL_CreateRenderer(window, -1, 0);
 		if(window == NULL)
 		{
 			printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
-		}
+		} 
+		else if (renderer == NULL) 
+		{
+			printf("Rednerer could not be created! SDL_Error: %s\n", SDL_GetError());
+		} 
 		else
 		{
 			screenSurface = SDL_GetWindowSurface(window);
+			// Creates a renderer on the first driver that supports our 0 flags
 			
 			Scene scene;
 			GameInitialize(scene);
@@ -81,7 +90,7 @@ int main() {
 						// https://wiki.libsdl.org/SDL2/SDL_MouseButtonEvent
 					}
 
-					GameUpdateAndRender(scene, window);
+					GameUpdateAndRender(scene, window, renderer);
 
 					u64 endCounter = ReadCPUTimer();
 

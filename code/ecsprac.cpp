@@ -56,10 +56,11 @@ void scanCollision(CircleCollider* checkCollider, Rigidbody* accessRigid, Transf
   }
 }
 
-void
-GameUpdateAndRender(Scene &scene, sf::RenderWindow &window)
+void GameUpdateAndRender(Scene &scene, SDL_Window* window, SDL_Renderer* renderer)
 {
-  window.clear(sf::Color::Black);
+  SDL_UpdateWindowSurface( window );
+  // Render to window
+  SDL_RenderClear(renderer);
 
 	// Gravity
 	for (EntityID ent : SceneView<Rigidbody, GravityComponent>(scene))
@@ -96,24 +97,14 @@ GameUpdateAndRender(Scene &scene, sf::RenderWindow &window)
 		}
 
 		scanCollision(cc, rb, t, scene);
-		// Render to window
-		sf::CircleShape shape(radius);
-
-		float colorBrighteningFactor = std::min(sqrt((rb->v_x * rb->v_x) + (rb->v_y * rb->v_y)), 1.0);
+		
+		float colorBrighteningFactor = std::min(sqrt((rb->v_x * rb->v_x) + (rb->v_y * rb->v_y)), 1.0f);
 		u32 r = (u32)((t->x_pos / WINDOW_WIDTH) * 255);
 		u32 g = (u32)((t->y_pos / WINDOW_HEIGHT) * 255);
 		u32 b = (u32)(colc->b * colorBrighteningFactor) % 256;
-		shape.setFillColor(sf::Color(r, g, b));
 
-		shape.setPosition(t->x_pos, t->y_pos);
 
-		window.draw(shape);
+		DrawFilledCircle(renderer, t->x_pos, t->y_pos, radius, r, g, b);
+
   }
-
-	if (Button(GEN_ID, window, 200, 100, 64, 48))
-	{
-		EntityID ball = SpawnBall(scene, BALL_RADIUS);
-		GravityComponent* pGravityTransform = scene.Assign<GravityComponent>(ball);
-		pGravityTransform->strength = RandInBetween(GRAVITY_MIN, GRAVITY_MAX);
-	}
 }
