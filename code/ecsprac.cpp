@@ -58,9 +58,9 @@ void scanCollision(CircleCollider* checkCollider, Rigidbody* accessRigid, Transf
 
 void GameUpdateAndRender(Scene &scene, SDL_Window* window, SDL_Renderer* renderer)
 {
-  SDL_UpdateWindowSurface( window );
-  // Render to window
   SDL_RenderClear(renderer);
+	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  // BLACK
+	SDL_RenderFillRect(renderer, NULL);
 
 	// Gravity
 	for (EntityID ent : SceneView<Rigidbody, GravityComponent>(scene))
@@ -103,8 +103,6 @@ void GameUpdateAndRender(Scene &scene, SDL_Window* window, SDL_Renderer* rendere
 		u32 g = (u32)((t->y_pos / WINDOW_HEIGHT) * 255);
 		u32 b = (u32)(colc->b * colorBrighteningFactor) % 256;
 
-
 		DrawFilledCircle(renderer, t->x_pos, t->y_pos, radius, r, g, b);
-
   }
 }

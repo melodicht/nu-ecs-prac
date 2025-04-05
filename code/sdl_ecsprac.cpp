@@ -64,10 +64,13 @@ int main() {
 			{
 				while(SDL_PollEvent(&e))
 				{
+
 					if(e.type == SDL_QUIT)
 					{
 						playing = false;
 					}
+				/*
+
 					else if(e.window.event == SDL_WINDOWEVENT_RESIZED)
 					{
 						screenSurface = SDL_GetWindowSurface(window);
@@ -89,8 +92,11 @@ int main() {
 						SDL_MouseButtonEvent buttonEvent = e.button;
 						// https://wiki.libsdl.org/SDL2/SDL_MouseButtonEvent
 					}
+				*/
 
-					GameUpdateAndRender(scene, window, renderer);
+				}
+
+				GameUpdateAndRender(scene, window, renderer);
 
 					u64 endCounter = ReadCPUTimer();
 
@@ -99,10 +105,9 @@ int main() {
 					f32 fps = (f32)cpuTimerFreq/(f32)counterElapsed;
 					printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
 					lastCounter = endCounter;
-				}
 				
 				SDL_RenderPresent(renderer);
-				SDL_UpdateWindowSurface(window);
+				//SDL_UpdateWindowSurface(window);
 			}
 		}
 	}
