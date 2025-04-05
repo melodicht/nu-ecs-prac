@@ -101,7 +101,7 @@ int main() {
 					lastCounter = endCounter;
 				}
 				
-				SDL_FillRect( screenSurface, NULL, SDL_MapRGB( screenSurface->format, 0xFF, 0xFF, 0xFF ) );
+				SDL_RenderPresent(renderer);
 				SDL_UpdateWindowSurface(window);
 			}
 		}
