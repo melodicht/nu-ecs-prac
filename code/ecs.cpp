@@ -99,6 +99,16 @@ struct ComponentPool
   size_t elementSize{ 0 };
 };
 
+struct Scene;
+
+// A system in our ECS, which defines operations on a subset of
+// entities, using scene view.
+class System
+{
+public:
+	virtual void OnUpdate(Scene *scene) = 0;
+};
+
 /*
  * SCENE DEFINITION + FUNCTIONALITY
  */
@@ -115,6 +125,20 @@ struct Scene {
   std::vector<EntityEntry> entities;
   std::vector<ComponentPool*> componentPools;
   std::vector<unsigned int> freeIndices;
+	std::vector<System*> systems;
+
+	void AddSystem(System *sys)
+	{
+		systems.push_back(sys);
+	}
+
+	void UpdateSystems()
+	{
+		for (System *sys : systems)
+		{
+			sys->OnUpdate(this);
+		}
+	}
 
   // Adds a new entity to this vector of entities, and returns its
   // ID. Can only support 2^64 entities without ID conflicts.

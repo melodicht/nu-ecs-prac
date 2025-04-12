@@ -21,7 +21,11 @@ typedef double f64;
 
 #include "draw_utils.cpp"
 #include "ecs.cpp"
+
+#include "ecsprac.h"
+#include "systems.cpp"
 #include "ecsprac.cpp"
+
 #include "platform_metrics.cpp"
 
 int main() {
@@ -53,7 +57,7 @@ int main() {
 			// Creates a renderer on the first driver that supports our 0 flags
 			
 			Scene scene;
-			GameInitialize(scene);
+			GameInitialize(scene, renderer);
 
 			u64 lastCounter = ReadCPUTimer();
 
