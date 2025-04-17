@@ -2,7 +2,7 @@
 
 - The reason why `u64` is used for EntityID is to avoid narrowing. We use
   `std::vector::size` for getting unique EntityIDs, which outputs `u64`.
-
+  
 # Setting up Meson build
 First make sure you have Meson installed. Most of the need-to-know information for this setup can be extrapolated from reading [this page](https://mesonbuild.com/Quick-guide.html) 
 

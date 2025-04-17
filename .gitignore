@@ -407,3 +407,8 @@ FodyWeavers.xsd
 *.sln
 Makefile
 
+# Ignores Build Details for Macbook (Jianwen)
+out
+
+/subprojects
+/.vscode
