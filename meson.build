@@ -7,7 +7,7 @@ glm_dep = dependency('glm')
 
 incdir = include_directories('include')
 
-executable('main', 'src/sdl_ecsprac.cpp', 'src/glad.cpp',
+executable('main', 'src/main.cpp', 'src/glad.cpp',
            dependencies: [imgui_dep, sdl2_dep, glm_dep],
            include_directories : incdir)
 

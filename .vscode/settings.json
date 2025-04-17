@@ -53,5 +53,6 @@
         "typeinfo": "cpp",
         "unordered_map": "cpp",
         "algorithm": "cpp"
-    }
+    },
+    "C_Cpp.errorSquiggles": "disabled"
 }
