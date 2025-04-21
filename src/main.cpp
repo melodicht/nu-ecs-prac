@@ -16,8 +16,8 @@ typedef double f64;
 
 #define SDL_MAIN_HANDLED
 
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_surface.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_surface.h>
 #include "glad/glad.h"
 
 #include "renderer_gl.cpp"
@@ -50,8 +50,8 @@ int main() {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
 
-	window = SDL_CreateWindow("SDL Tutorial", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
-	renderer = SDL_CreateRenderer(window, -1, 0);
+	window = SDL_CreateWindow("SDL Tutorial", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE);
+	renderer = SDL_CreateRenderer(window, NULL);
 	if(window == NULL)
 	{
 		printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
@@ -67,7 +67,7 @@ int main() {
 	context = SDL_GL_CreateContext(window);
 	if (context == NULL)
 	{
-		printf("OpenGL context coule not be created: %s\n!", SDL_GetError());
+		printf("OpenGL context could not be created: %s\n!", SDL_GetError());
 		return 1;
 	}
 
@@ -95,7 +95,7 @@ int main() {
 		while(SDL_PollEvent(&e))
 		{
 
-			if(e.type == SDL_QUIT)
+			if(e.type == SDL_EVENT_QUIT)
 			{
 				playing = false;
 			}

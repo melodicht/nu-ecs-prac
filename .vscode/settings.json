@@ -54,5 +54,7 @@
         "unordered_map": "cpp",
         "algorithm": "cpp"
     },
-    "C_Cpp.errorSquiggles": "disabled"
+    "C_Cpp.errorSquiggles": "disabled",
+    "C_Cpp.default.compileCommands": "c:\\Users\\Eli\\Documents\\nu-ecs-prac\\builddir/compile_commands.json",
+    "C_Cpp.default.configurationProvider": "mesonbuild.mesonbuild"
 }

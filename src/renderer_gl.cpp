@@ -13,26 +13,26 @@ u32 indices[] =
 };
 
 const char* vertexSource =
-"#version 460 core
-layout (location = 0) in vec3 aPos;
+"#version 460 core"
+"layout (location = 0) in vec3 aPos;"
 
-uniform mat4 model;
-uniform mat4 view;
-uniform mat4 projection;
+"uniform mat4 model;"
+"uniform mat4 view;"
+"uniform mat4 projection;"
 
-void main()
-{
-  gl_Position = projection * view * model * vec4(aPos.x, aPos.y, aPos.z, 1.0);
-}"
+"void main()"
+"{"
+"  gl_Position = projection * view * model * vec4(aPos.x, aPos.y, aPos.z, 1.0);"
+"}";
 
 const char* fragmentSource = 
-"#version 460 core
-out vec4 fragColor;
+"#version 460 core"
+"out vec4 fragColor;"
 
-void main()
-{
-  fragColor = vec4(0.2f, 1.0f, 0.4f, 1.0f);
-}"
+"void main()"
+"{"
+"  fragColor = vec4(0.2f, 1.0f, 0.4f, 1.0f);"
+"}";
 
 unsigned int VBO;
 unsigned int EBO;
@@ -55,29 +55,29 @@ void InitRenderer()
   vertexShader = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(vertexShader, 1, &vertexSource, NULL);
   glCompileShader(vertexShader);
-  int success;
-  char infoLog[512];
-  glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-  if (!success)
+  int vertSuccess;
+  char vertInfoLog[512];
+  glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &vertSuccess);
+  if (!vertSuccess)
   {
-    glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-    std::cout << "Vertex shader failed to compile: " << infoLog;
+    glGetShaderInfoLog(vertexShader, 512, NULL, vertInfoLog);
+    std::cout << "Vertex shader failed to compile: " << vertInfoLog;
   }
 
   unsigned int fragmentShader;
   fragmentShader = glCreateShader(GL_VERTEX_SHADER);
   glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
   glCompileShader(fragmentShader);
-  int success;
-  char infoLog[512];
-  glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-  if (!success)
+  int fragSuccess;
+  char fragInfoLog[512];
+  glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &fragSuccess);
+  if (!fragSuccess)
   {
-    glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-    std::cout << "Vertex shader failed to compile: " << infoLog;
+    glGetShaderInfoLog(fragmentShader, 512, NULL, fragInfoLog);
+    std::cout << "Vertex shader failed to compile: " << fragInfoLog;
   }
 
-  shaderProgam = glCreateProgram();
+  shaderProgram = glCreateProgram();
   glAttachShader(shaderProgram, vertexShader);
   glAttachShader(shaderProgram, fragmentShader);
   glLinkProgram(shaderProgram);
