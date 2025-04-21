@@ -39,7 +39,7 @@ int main() {
 	SDL_GLContext context;
 	SDL_Surface* screenSurface = NULL;
 	SDL_Renderer* renderer = NULL;
-	if(SDL_Init( SDL_INIT_VIDEO ) < 0)
+	if(!SDL_Init( SDL_INIT_VIDEO | SDL_INIT_EVENTS))
 	{
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		return 1;
@@ -50,6 +50,7 @@ int main() {
 	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
 	window = SDL_CreateWindow("SDL Tutorial", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
 	if(window == NULL)
