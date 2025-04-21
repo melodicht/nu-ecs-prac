@@ -18,7 +18,8 @@ typedef double f64;
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
-#include "glad/glad.h"
+#define GLAD_GL_IMPLEMENTATION
+#include <glad/gl.h>
 
 #include "renderer_gl.cpp"
 #include "draw_utils.cpp"
@@ -50,13 +51,14 @@ int main() {
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
 
-	window = SDL_CreateWindow("SDL Tutorial", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE);
-	renderer = SDL_CreateRenderer(window, NULL);
+	window = SDL_CreateWindow("SDL Tutorial", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
 	if(window == NULL)
 	{
 		printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
 		return 1;
-	} 
+	}
+
+	renderer = SDL_CreateRenderer(window, NULL);
 
 	if (renderer == NULL) 
 	{
@@ -71,7 +73,7 @@ int main() {
 		return 1;
 	}
 
-	if (!gladLoadGLLoader((GLADloadproc) SDL_GL_GetProcAddress))
+	if (!gladLoadGL((GLADloadfunc) SDL_GL_GetProcAddress))
 	{
 		printf("Failed to initialize GLAD!");
 		return 1;
