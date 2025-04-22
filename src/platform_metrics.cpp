@@ -12,16 +12,16 @@
 
 static u64 GetOSTimerFreq(void)
 {
-	LARGE_INTEGER Freq;
-	QueryPerformanceFrequency(&Freq);
-	return Freq.QuadPart;
+    LARGE_INTEGER Freq;
+    QueryPerformanceFrequency(&Freq);
+    return Freq.QuadPart;
 }
 
 static u64 ReadOSTimer(void)
 {
-	LARGE_INTEGER Value;
-	QueryPerformanceCounter(&Value);
-	return Value.QuadPart;
+    LARGE_INTEGER Value;
+    QueryPerformanceCounter(&Value);
+    return Value.QuadPart;
 }
 
 #else
@@ -47,36 +47,36 @@ static u64 ReadOSTimer(void)
 
 inline u64 ReadCPUTimer(void)
 {
-	// If you were on ARM, you would need to replace __rdtsc with one of
-	// their performance counter read instructions, depending on which
-	// ones are available on your platform.
-	return __rdtsc();
+    // If you were on ARM, you would need to replace __rdtsc with one of
+    // their performance counter read instructions, depending on which
+    // ones are available on your platform.
+    return __rdtsc();
 }
 
 static u64 EstimateCPUTimerFreq(void)
 {
-	u64 MillisecondsToWait = 100;
-	u64 OSFreq = GetOSTimerFreq();
+    u64 MillisecondsToWait = 100;
+    u64 OSFreq = GetOSTimerFreq();
 
-	u64 CPUStart = ReadCPUTimer();
-	u64 OSStart = ReadOSTimer();
-	u64 OSEnd = 0;
-	u64 OSElapsed = 0;
-	u64 OSWaitTime = OSFreq * MillisecondsToWait / 1000;
-	while(OSElapsed < OSWaitTime)
-	{
-		OSEnd = ReadOSTimer();
-		OSElapsed = OSEnd - OSStart;
-	}
-	
-	u64 CPUEnd = ReadCPUTimer();
-	u64 CPUElapsed = CPUEnd - CPUStart;
-	
-	u64 CPUFreq = 0;
-	if(OSElapsed)
-	{
-		CPUFreq = OSFreq * CPUElapsed / OSElapsed;
-	}
-	
-	return CPUFreq;
+    u64 CPUStart = ReadCPUTimer();
+    u64 OSStart = ReadOSTimer();
+    u64 OSEnd = 0;
+    u64 OSElapsed = 0;
+    u64 OSWaitTime = OSFreq * MillisecondsToWait / 1000;
+    while (OSElapsed < OSWaitTime)
+    {
+        OSEnd = ReadOSTimer();
+        OSElapsed = OSEnd - OSStart;
+    }
+
+    u64 CPUEnd = ReadCPUTimer();
+    u64 CPUElapsed = CPUEnd - CPUStart;
+
+    u64 CPUFreq = 0;
+    if (OSElapsed)
+    {
+        CPUFreq = OSFreq * CPUElapsed / OSElapsed;
+    }
+
+    return CPUFreq;
 }

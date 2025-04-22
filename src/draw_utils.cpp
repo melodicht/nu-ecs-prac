@@ -4,7 +4,7 @@
 // width and height, on the given SDL_Renderer, with the given RGB
 // color. 
 void DrawRect(SDL_Renderer *renderer, u32 topLeftX, u32 topLeftY, u32 w, u32 h,
-							u32 r, u32 g, u32 b)
+              u32 r, u32 g, u32 b)
 {
     SDL_FRect rect;
     rect.x = topLeftX;
@@ -17,18 +17,19 @@ void DrawRect(SDL_Renderer *renderer, u32 topLeftX, u32 topLeftY, u32 w, u32 h,
 }
 
 // Source: https://gist.github.com/Gumichan01/332c26f6197a432db91cc4327fcabb1c
-int DrawOutlinedCricle(SDL_Renderer* renderer, int x, int y, int radius, u32 r, u32 g, u32 b)
+int DrawOutlinedCricle(SDL_Renderer *renderer, int x, int y, int radius, u32 r, u32 g, u32 b)
 {
     int offsetx, offsety, d;
     int status;
 
     offsetx = 0;
     offsety = radius;
-    d = radius -1;
+    d = radius - 1;
     status = 0;
 
     SDL_SetRenderDrawColor(renderer, r, g, b, 255);
-    while (offsety >= offsetx) {
+    while (offsety >= offsetx)
+    {
         status += SDL_RenderPoint(renderer, x + offsetx, y + offsety);
         status += SDL_RenderPoint(renderer, x + offsety, y + offsetx);
         status += SDL_RenderPoint(renderer, x - offsetx, y + offsety);
@@ -38,20 +39,24 @@ int DrawOutlinedCricle(SDL_Renderer* renderer, int x, int y, int radius, u32 r, 
         status += SDL_RenderPoint(renderer, x - offsetx, y - offsety);
         status += SDL_RenderPoint(renderer, x - offsety, y - offsetx);
 
-        if (status < 0) {
+        if (status < 0)
+        {
             status = -1;
             break;
         }
 
-        if (d >= 2*offsetx) {
-            d -= 2*offsetx + 1;
-            offsetx +=1;
+        if (d >= 2 * offsetx)
+        {
+            d -= 2 * offsetx + 1;
+            offsetx += 1;
         }
-        else if (d < 2 * (radius - offsety)) {
+        else if (d < 2 * (radius - offsety))
+        {
             d += 2 * offsety - 1;
             offsety -= 1;
         }
-        else {
+        else
+        {
             d += 2 * (offsety - offsetx - 1);
             offsety -= 1;
             offsetx += 1;
@@ -62,42 +67,46 @@ int DrawOutlinedCricle(SDL_Renderer* renderer, int x, int y, int radius, u32 r, 
 }
 
 // source same as above
-int DrawFilledCircle(SDL_Renderer * renderer, int x, int y, int radius, u32 r, u32 g, u32 b)
+int DrawFilledCircle(SDL_Renderer *renderer, int x, int y, int radius, u32 r, u32 g, u32 b)
 {
     int offsetx, offsety, d;
     int status;
 
     offsetx = 0;
     offsety = radius;
-    d = radius -1;
+    d = radius - 1;
     status = 0;
 
     SDL_SetRenderDrawColor(renderer, r, g, b, 255);
-    while (offsety >= offsetx) {
-
+    while (offsety >= offsetx)
+    {
         status += SDL_RenderLine(renderer, x - offsety, y + offsetx,
-                                     x + offsety, y + offsetx);
+                                 x + offsety, y + offsetx);
         status += SDL_RenderLine(renderer, x - offsetx, y + offsety,
-                                     x + offsetx, y + offsety);
+                                 x + offsetx, y + offsety);
         status += SDL_RenderLine(renderer, x - offsetx, y - offsety,
-                                     x + offsetx, y - offsety);
+                                 x + offsetx, y - offsety);
         status += SDL_RenderLine(renderer, x - offsety, y - offsetx,
-                                     x + offsety, y - offsetx);
+                                 x + offsety, y - offsetx);
 
-        if (status < 0) {
+        if (status < 0)
+        {
             status = -1;
             break;
         }
 
-        if (d >= 2*offsetx) {
-            d -= 2*offsetx + 1;
-            offsetx +=1;
+        if (d >= 2 * offsetx)
+        {
+            d -= 2 * offsetx + 1;
+            offsetx += 1;
         }
-        else if (d < 2 * (radius - offsety)) {
+        else if (d < 2 * (radius - offsety))
+        {
             d += 2 * offsety - 1;
             offsety -= 1;
         }
-        else {
+        else
+        {
             d += 2 * (offsety - offsetx - 1);
             offsety -= 1;
             offsetx += 1;
@@ -110,6 +119,4 @@ int DrawFilledCircle(SDL_Renderer * renderer, int x, int y, int radius, u32 r, u
 
 // Draws the given text on the window at the given top-left 2D coordinate.
 // TODO: Change to SDL
-void DrawText(SDL_Renderer* renderer, char *text, u32 topLeftX, u32 topLeftY)
-{
-}
+void DrawText(SDL_Renderer *renderer, char *text, u32 topLeftX, u32 topLeftY) {}
