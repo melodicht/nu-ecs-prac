@@ -78,12 +78,6 @@ class RenderSystem : public System
 {
     void OnUpdate(Scene *scene)
     {
-        glClearColor(0.0, 0.0, 0.0, 1.0);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        glUseProgram(shaderProgram);
-        glBindVertexArray(VAO);
-
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
         {
@@ -97,10 +91,7 @@ class RenderSystem : public System
         float aspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
-        int viewLoc = glGetUniformLocation(shaderProgram, "view");
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-        int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(proj));
+        InitFrame(view, proj);
 
         // Forward movement, collision, rendering
         for (EntityID ent: SceneView<Transform3D, Rigidbody, ColorComponent>(*scene))
@@ -116,10 +107,7 @@ class RenderSystem : public System
 
             glm::mat4 model = GetTransformMatrix(t);
 
-            int modelLoc = glGetUniformLocation(shaderProgram, "model");
-            glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
-
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+            RenderMesh(model);
         }
     }
 };
