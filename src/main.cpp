@@ -28,7 +28,6 @@ typedef double f64;
 #include "math_utils.cpp"
 
 #include "renderer_gl.cpp"
-#include "draw_utils.cpp"
 #include "ecs.cpp"
 
 #include "game.h"
