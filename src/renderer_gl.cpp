@@ -1,3 +1,4 @@
+#include <vector>
 f32 vertices[] =
 {
     0.0f, -5.0f, -5.0f,
@@ -15,14 +16,17 @@ u32 indices[] =
 const char *vertexSource =
         "#version 460 core\n"
         "layout (location = 0) in vec3 aPos;"
+        "layout(std430, binding = 0) buffer objectBuffer"
+        "{"
+            "mat4 models[];"
+        "};"
 
-        "uniform mat4 model;"
         "uniform mat4 view;"
         "uniform mat4 projection;"
 
         "void main()"
         "{"
-        "  gl_Position = projection * view * model * vec4(aPos.x, aPos.y, aPos.z, 1.0);"
+        "  gl_Position = projection * view * models[gl_InstanceID + gl_BaseInstance] * vec4(aPos.x, aPos.y, aPos.z, 1.0);"
         "}";
 
 const char *fragmentSource =
@@ -34,20 +38,23 @@ const char *fragmentSource =
         "  fragColor = vec4(0.2f, 1.0f, 0.4f, 1.0f);"
         "}";
 
-unsigned int VBO;
-unsigned int EBO;
-unsigned int shaderProgram;
-unsigned int VAO;
+GLuint vertBuffer;
+GLuint elemBuffer;
+GLuint objectBuffer;
+GLuint shaderProgram;
+GLuint vertArray;
+
+int modelLoc;
 
 void InitRenderer()
 {
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexSource, NULL);
     glCompileShader(vertexShader);
-    int vertSuccess;
-    char vertInfoLog[512];
+    GLint vertSuccess;
+    GLchar vertInfoLog[512];
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &vertSuccess);
     if (!vertSuccess)
     {
@@ -55,11 +62,11 @@ void InitRenderer()
         std::cout << "Vertex shader failed to compile: " << vertInfoLog;
     }
 
-    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(fragmentShader, 1, &fragmentSource, NULL);
     glCompileShader(fragmentShader);
-    int fragSuccess;
-    char fragInfoLog[512];
+    GLint fragSuccess;
+    GLchar fragInfoLog[512];
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &fragSuccess);
     if (!fragSuccess)
     {
@@ -74,19 +81,24 @@ void InitRenderer()
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
+    glGenVertexArrays(1, &vertArray);
+    glBindVertexArray(vertArray);
 
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glGenBuffers(1, &vertBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, vertBuffer);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    glGenBuffers(1, &EBO);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glGenBuffers(1, &elemBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elemBuffer);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT,GL_FALSE, 3 * sizeof(float), (void *) 0);
+    glGenBuffers(1, &objectBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, objectBuffer);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT,GL_FALSE, 3 * sizeof(f32), (void *) 0);
     glEnableVertexAttribArray(0);
+
+    glUseProgram(shaderProgram);
 }
 
 void InitFrame(glm::mat4 view, glm::mat4 proj)
@@ -94,19 +106,25 @@ void InitFrame(glm::mat4 view, glm::mat4 proj)
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glUseProgram(shaderProgram);
-    glBindVertexArray(VAO);
-
-    int viewLoc = glGetUniformLocation(shaderProgram, "view");
+    GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-    int projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    GLint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(proj));
+    modelLoc = glGetUniformLocation(shaderProgram, "model");
 }
 
-void RenderMesh(glm::mat4 model)
+void SendModelMatrices(std::vector<glm::mat4>& modelMatrices)
 {
-    int modelLoc = glGetUniformLocation(shaderProgram, "model");
-    glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, objectBuffer);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::mat4) * modelMatrices.size(), modelMatrices.data(), GL_DYNAMIC_DRAW);
+}
 
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+void RenderMesh(int index)
+{
+    glDrawElementsInstancedBaseInstance(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, 1, index);
+}
+
+void RenderMeshes(int count, int startIndex)
+{
+    glDrawElementsInstancedBaseInstance(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, count, startIndex);
 }

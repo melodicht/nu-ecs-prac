@@ -58,13 +58,13 @@ class CollisionSystem : public System
             t->position.z += rb->v_y;
 
             // Collision check x-axis
-            if ((t->position.y - radius) < 0 || (t->position.y + radius) > WINDOW_WIDTH)
+            if ((t->position.y - radius) < (WINDOW_WIDTH / -2.0f) || (t->position.y + radius) > (WINDOW_WIDTH / 2.0f))
             {
                 rb->v_x *= -1;
             }
 
             // Collision check y-axis
-            if ((t->position.z - radius) < 0 || (t->position.z + radius) > WINDOW_HEIGHT)
+            if ((t->position.z - radius) < (WINDOW_HEIGHT / -2.0f) || (t->position.z + radius) > (WINDOW_HEIGHT / 2.0f))
             {
                 rb->v_y *= -1;
             }
@@ -93,21 +93,34 @@ class RenderSystem : public System
 
         InitFrame(view, proj);
 
-        // Forward movement, collision, rendering
+        std::vector<glm::mat4> objects;
+
         for (EntityID ent: SceneView<Transform3D, Rigidbody, ColorComponent>(*scene))
         {
             Transform3D *t = scene->Get<Transform3D>(ent);
-            Rigidbody *rb = scene->Get<Rigidbody>(ent);
-            ColorComponent *colc = scene->Get<ColorComponent>(ent);
-
-            // float colorBrighteningFactor = std::min(sqrt((rb->v_x * rb->v_x) + (rb->v_y * rb->v_y)), 1.0f);
-            // u32 r = (u32) ((t->position.y / WINDOW_WIDTH) * 255);
-            // u32 g = (u32) ((t->position.z / WINDOW_HEIGHT) * 255);
-            // u32 b = (u32) (colc->b * colorBrighteningFactor) % 256;
 
             glm::mat4 model = GetTransformMatrix(t);
 
-            RenderMesh(model);
+            objects.push_back(model);
         }
+
+        SendModelMatrices(objects);
+
+        // int index = 0;
+        // // Forward movement, collision, rendering
+        // for (EntityID ent: SceneView<Transform3D, Rigidbody, ColorComponent>(*scene))
+        // {
+        //     Rigidbody *rb = scene->Get<Rigidbody>(ent);
+        //     ColorComponent *colc = scene->Get<ColorComponent>(ent);
+        //
+        //     // float colorBrighteningFactor = std::min(sqrt((rb->v_x * rb->v_x) + (rb->v_y * rb->v_y)), 1.0f);
+        //     // u32 r = (u32) ((t->position.y / WINDOW_WIDTH) * 255);
+        //     // u32 g = (u32) ((t->position.z / WINDOW_HEIGHT) * 255);
+        //     // u32 b = (u32) (colc->b * colorBrighteningFactor) % 256;
+        //
+        //     RenderMesh(index++);
+        // }
+
+        RenderMeshes(objects.size(), 0);
     }
 };
