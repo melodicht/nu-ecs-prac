@@ -4,6 +4,7 @@
 #include <ctime>
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 #define WINDOW_WIDTH 800
@@ -41,7 +42,7 @@ typedef double f64;
 int main()
 {
     srand(static_cast<unsigned>(time(0)));
-    u64 cpuTimerFreq = EstimateCPUTimerFreq();
+    u64 cpuTimerFreq = GetOSTimerFreq();
 
     SDL_Window *window = NULL;
     SDL_Surface *screenSurface = NULL;
@@ -55,7 +56,7 @@ int main()
 
     SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
     window = SDL_CreateWindow("SDL Tutorial", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
@@ -86,7 +87,7 @@ int main()
     Scene scene;
     GameInitialize(scene);
 
-    u64 lastCounter = ReadCPUTimer();
+    u64 lastCounter = ReadOSTimer();
 
 
     SDL_Event e;
@@ -128,7 +129,7 @@ int main()
         GameUpdateAndRender(scene, window);
         SDL_GL_SwapWindow(window);
 
-        u64 endCounter = ReadCPUTimer();
+        u64 endCounter = ReadOSTimer();
 
         u64 counterElapsed = endCounter - lastCounter;
         f32 msPerFrame = 1000.0f * (f32) counterElapsed / (f32) cpuTimerFreq;

@@ -116,7 +116,7 @@ class RenderSystem : public System
         }
 
 
-        glm::mat4 matrices[totalCount];
+        std::vector<glm::mat4> matrices(totalCount);
 
 
         // 4. Iterate through scene view once more and fill in the fixed size array.
@@ -130,7 +130,7 @@ class RenderSystem : public System
             matrices[offsets[mesh]++] = model;
         }
 
-        SendModelMatrices(totalCount, &matrices[0]);
+        SendModelMatrices(matrices);
 
         int startIndex = 0;
         for (std::pair<Mesh *, u32> pair: meshCounts)

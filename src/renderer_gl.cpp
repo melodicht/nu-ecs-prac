@@ -1,7 +1,7 @@
 const char *vertexSource =
-        "#version 410 core\n"
+        "#version 460 core\n"
         "layout (location = 0) in vec3 aPos;"
-        "layout(std430, binding = 0) buffer objectBuffer;"
+        "layout(std430, binding = 0) buffer objectBuffer"
         "{"
             "mat4 models[];"
         "};"
@@ -15,7 +15,7 @@ const char *vertexSource =
         "}";
 
 const char *fragmentSource =
-        "#version 410 core\n"
+        "#version 460 core\n"
         "out vec4 fragColor;"
 
         "void main()"
@@ -113,10 +113,10 @@ void SetCamera(glm::mat4 view, glm::mat4 proj)
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(proj));
 }
 
-void SendModelMatrices(u32 numObjects, glm::mat4* modelMatrices)
+void SendModelMatrices(std::vector<glm::mat4>& matrices)
 {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, objectBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::mat4) * numObjects, modelMatrices, GL_DYNAMIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::mat4) * matrices.size(), matrices.data(), GL_DYNAMIC_DRAW);
 }
 
 void SetMesh(Mesh* mesh)
