@@ -1,7 +1,7 @@
 const char *vertexSource =
-        "#version 460 core\n"
+        "#version 410 core\n"
         "layout (location = 0) in vec3 aPos;"
-        "layout(std430, binding = 0) buffer objectBuffer"
+        "layout(std430, binding = 0) buffer objectBuffer;"
         "{"
             "mat4 models[];"
         "};"
@@ -15,7 +15,7 @@ const char *vertexSource =
         "}";
 
 const char *fragmentSource =
-        "#version 460 core\n"
+        "#version 410 core\n"
         "out vec4 fragColor;"
 
         "void main()"

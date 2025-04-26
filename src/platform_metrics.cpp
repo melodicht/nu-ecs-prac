@@ -24,6 +24,29 @@ static u64 ReadOSTimer(void)
     return Value.QuadPart;
 }
 
+
+#elif __APPLE__
+static u64 GetOSTimerFreq(void)
+{
+    return 0;
+}
+
+static u64 ReadOSTimer(void)
+{
+    return 0;
+}
+
+
+inline u64 ReadCPUTimer(void)
+{
+    return 0;
+}
+
+static u64 EstimateCPUTimerFreq(void)
+{
+    return 0;
+}
+
 #else
 
 #include <x86intrin.h>
@@ -42,8 +65,6 @@ static u64 ReadOSTimer(void)
 	u64 Result = GetOSTimerFreq()*(u64)Value.tv_sec + (u64)Value.tv_usec;
 	return Result;
 }
-
-#endif
 
 inline u64 ReadCPUTimer(void)
 {
@@ -80,3 +101,4 @@ static u64 EstimateCPUTimerFreq(void)
 
     return CPUFreq;
 }
+#endif
