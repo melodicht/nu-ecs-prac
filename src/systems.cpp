@@ -76,26 +76,30 @@ class CollisionSystem : public System
 
 class RenderSystem : public System
 {
+    Mesh* currentMesh = nullptr;
+
     void OnUpdate(Scene *scene)
     {
+        InitFrame();
+
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
         {
-            std::cout << "No camera found" << std::endl;
             return;
         }
+
         EntityID cameraEnt = *cameraView.begin();
         CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
         Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
         glm::mat4 view = GetViewMatrix(cameraTransform);
-        float aspect = (float)WINDOW_WIDTH / (float)WINDOW_HEIGHT;
+        f32 aspect = (f32)WINDOW_WIDTH / (f32)WINDOW_HEIGHT;
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
-        InitFrame(view, proj);
+        SetCamera(view, proj);
 
         std::vector<glm::mat4> objects;
 
-        for (EntityID ent: SceneView<Transform3D, Rigidbody, ColorComponent>(*scene))
+        for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
         {
             Transform3D *t = scene->Get<Transform3D>(ent);
 
@@ -106,21 +110,18 @@ class RenderSystem : public System
 
         SendModelMatrices(objects);
 
-        // int index = 0;
-        // // Forward movement, collision, rendering
-        // for (EntityID ent: SceneView<Transform3D, Rigidbody, ColorComponent>(*scene))
-        // {
-        //     Rigidbody *rb = scene->Get<Rigidbody>(ent);
-        //     ColorComponent *colc = scene->Get<ColorComponent>(ent);
-        //
-        //     // float colorBrighteningFactor = std::min(sqrt((rb->v_x * rb->v_x) + (rb->v_y * rb->v_y)), 1.0f);
-        //     // u32 r = (u32) ((t->position.y / WINDOW_WIDTH) * 255);
-        //     // u32 g = (u32) ((t->position.z / WINDOW_HEIGHT) * 255);
-        //     // u32 b = (u32) (colc->b * colorBrighteningFactor) % 256;
-        //
-        //     RenderMesh(index++);
-        // }
+        int index = 0;
+        for (EntityID ent: SceneView<Transform3D, MeshComponent>(*scene))
+        {
+            MeshComponent *meshc = scene->Get<MeshComponent>(ent);
+            Mesh *mesh = meshc->mesh;
+            if (currentMesh != mesh)
+            {
+                SetMesh(mesh);
+                currentMesh = mesh;
+            }
 
-        RenderMeshes(objects.size(), 0);
+            DrawObject(index++);
+        }
     }
 };

@@ -110,7 +110,9 @@ struct Scene;
 class System
 {
 public:
-    virtual void OnUpdate(Scene *scene) = 0;
+    virtual void OnStart(Scene *scene) {};
+    virtual void OnUpdate(Scene *scene) {};
+    virtual ~System() = default;
 };
 
 /*
@@ -137,6 +139,14 @@ struct Scene
     void AddSystem(System *sys)
     {
         systems.push_back(sys);
+    }
+
+    void InitSystems()
+    {
+        for (System *sys : systems)
+        {
+            sys->OnStart(this);
+        }
     }
 
     void UpdateSystems()

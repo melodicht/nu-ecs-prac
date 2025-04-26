@@ -33,6 +33,11 @@ struct ColorComponent
     u32 b;
 };
 
+struct MeshComponent
+{
+    Mesh* mesh;
+};
+
 struct CameraComponent
 {
     float fov;

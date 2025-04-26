@@ -1,18 +1,3 @@
-#include <vector>
-f32 vertices[] =
-{
-    0.0f, -5.0f, -5.0f,
-    0.0f, 5.0f, -5.0f,
-    0.0f, -5.0f, 5.0f,
-    0.0f, 5.0f, 5.0f
-};
-
-u32 indices[] =
-{
-    0, 1, 2,
-    1, 2, 3,
-};
-
 const char *vertexSource =
         "#version 460 core\n"
         "layout (location = 0) in vec3 aPos;"
@@ -38,13 +23,40 @@ const char *fragmentSource =
         "  fragColor = vec4(0.2f, 1.0f, 0.4f, 1.0f);"
         "}";
 
-GLuint vertBuffer;
-GLuint elemBuffer;
+struct Mesh
+{
+    GLuint vertArray;
+    GLuint vertBuffer;
+    GLuint elemBuffer;
+
+    Mesh(u32 vertCount, f32* vertices, u32 indexCount, u32* indices)
+    {
+        glGenVertexArrays(1, &vertArray);
+        glBindVertexArray(vertArray);
+
+        glGenBuffers(1, &vertBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, vertBuffer);
+        glBufferData(GL_ARRAY_BUFFER, 3 * sizeof(f32) * vertCount, vertices, GL_STATIC_DRAW);
+
+        glGenBuffers(1, &elemBuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elemBuffer);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * indexCount, indices, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT,GL_FALSE, 3 * sizeof(f32), (void *) 0);
+        glEnableVertexAttribArray(0);
+    }
+
+    ~Mesh()
+    {
+        glDeleteBuffers(1, &vertBuffer);
+        glDeleteBuffers(1, &elemBuffer);
+        glDeleteVertexArrays(1, &vertArray);
+    }
+};
+
 GLuint objectBuffer;
 GLuint shaderProgram;
-GLuint vertArray;
 
-int modelLoc;
 
 void InitRenderer()
 {
@@ -81,36 +93,24 @@ void InitRenderer()
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    glGenVertexArrays(1, &vertArray);
-    glBindVertexArray(vertArray);
-
-    glGenBuffers(1, &vertBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, vertBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glGenBuffers(1, &elemBuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elemBuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
     glGenBuffers(1, &objectBuffer);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, objectBuffer);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT,GL_FALSE, 3 * sizeof(f32), (void *) 0);
-    glEnableVertexAttribArray(0);
 
     glUseProgram(shaderProgram);
 }
 
-void InitFrame(glm::mat4 view, glm::mat4 proj)
+void InitFrame()
 {
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
+}
 
+void SetCamera(glm::mat4 view, glm::mat4 proj)
+{
     GLint viewLoc = glGetUniformLocation(shaderProgram, "view");
     glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
     GLint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(proj));
-    modelLoc = glGetUniformLocation(shaderProgram, "model");
 }
 
 void SendModelMatrices(std::vector<glm::mat4>& modelMatrices)
@@ -119,12 +119,17 @@ void SendModelMatrices(std::vector<glm::mat4>& modelMatrices)
     glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::mat4) * modelMatrices.size(), modelMatrices.data(), GL_DYNAMIC_DRAW);
 }
 
-void RenderMesh(int index)
+void SetMesh(Mesh* mesh)
+{
+    glBindVertexArray(mesh->vertArray);
+}
+
+void DrawObject(int index)
 {
     glDrawElementsInstancedBaseInstance(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, 1, index);
 }
 
-void RenderMeshes(int count, int startIndex)
+void DrawObjects(int count, int startIndex)
 {
     glDrawElementsInstancedBaseInstance(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, count, startIndex);
 }
