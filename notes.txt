@@ -1,0 +1,7 @@
+Issue with copying Mesh struct
+document rendering functions
+delete currentMesh
+create macro for begin() == end()
+SceneView get first method
+put comments in the render system update method to split into parts
+
