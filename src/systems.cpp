@@ -109,6 +109,13 @@ class RenderSystem : public System
         }
 
 				// 1. Gather counts of each unique mesh pointer.
+				std::map<Mesh *, u32> meshCounts;
+				for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
+        {
+            MeshComponent *m = scene->Get<MeshComponent>(ent);
+						++meshCounts[m];  // TODO: Verify the legitness of this
+        }
+				
 				// 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
 				// 3. Get pointers to the start of each segment of unique mesh pointer.
 				// 4. Iterate through scene view once more and fill in the fixed size array.
