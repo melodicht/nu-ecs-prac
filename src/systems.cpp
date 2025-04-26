@@ -108,6 +108,11 @@ class RenderSystem : public System
             objects.push_back(model);
         }
 
+				// 1. Gather counts of each unique mesh pointer.
+				// 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
+				// 3. Get pointers to the start of each segment of unique mesh pointer.
+				// 4. Iterate through scene view once more and fill in the fixed size array.
+
         SendModelMatrices(objects);
 
         int index = 0;
