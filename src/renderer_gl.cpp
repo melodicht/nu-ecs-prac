@@ -113,10 +113,10 @@ void SetCamera(glm::mat4 view, glm::mat4 proj)
     glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(proj));
 }
 
-void SendModelMatrices(std::vector<glm::mat4>& modelMatrices)
+void SendModelMatrices(u32 numObjects, glm::mat4* modelMatrices)
 {
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, objectBuffer);
-    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::mat4) * modelMatrices.size(), modelMatrices.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(glm::mat4) * numObjects, modelMatrices, GL_DYNAMIC_DRAW);
 }
 
 void SetMesh(Mesh* mesh)

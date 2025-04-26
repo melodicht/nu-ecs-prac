@@ -97,43 +97,47 @@ class RenderSystem : public System
 
         SetCamera(view, proj);
 
-        std::vector<glm::mat4> objects;
+        // 1. Gather counts of each unique mesh pointer.
+        std::map<Mesh *, u32> meshCounts;
+        for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
+        {
+            MeshComponent *m = scene->Get<MeshComponent>(ent);
+						++meshCounts[m->mesh];  // TODO: Verify the legitness of this
+        }
 
+        // 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
+        // 3. Get pointers to the start of each segment of unique mesh pointer.
+        u32 totalCount = 0;
+        std::unordered_map<Mesh *, u32> offsets;
+        for (std::pair<Mesh *, u32> pair: meshCounts)
+        {
+            offsets[pair.first] = totalCount;
+            totalCount += pair.second;
+        }
+
+
+        glm::mat4 matrices[totalCount];
+
+
+        // 4. Iterate through scene view once more and fill in the fixed size array.
         for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
         {
             Transform3D *t = scene->Get<Transform3D>(ent);
-
             glm::mat4 model = GetTransformMatrix(t);
-
-            objects.push_back(model);
-        }
-
-				// 1. Gather counts of each unique mesh pointer.
-				std::map<Mesh *, u32> meshCounts;
-				for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
-        {
             MeshComponent *m = scene->Get<MeshComponent>(ent);
-						++meshCounts[m];  // TODO: Verify the legitness of this
+            Mesh *mesh = m->mesh;
+
+            matrices[offsets[mesh]++] = model;
         }
-				
-				// 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
-				// 3. Get pointers to the start of each segment of unique mesh pointer.
-				// 4. Iterate through scene view once more and fill in the fixed size array.
 
-        SendModelMatrices(objects);
+        SendModelMatrices(totalCount, &matrices[0]);
 
-        int index = 0;
-        for (EntityID ent: SceneView<Transform3D, MeshComponent>(*scene))
+        int startIndex = 0;
+        for (std::pair<Mesh *, u32> pair: meshCounts)
         {
-            MeshComponent *meshc = scene->Get<MeshComponent>(ent);
-            Mesh *mesh = meshc->mesh;
-            if (currentMesh != mesh)
-            {
-                SetMesh(mesh);
-                currentMesh = mesh;
-            }
-
-            DrawObject(index++);
+            SetMesh(pair.first);
+            DrawObjects(pair.second, startIndex);
+            startIndex += pair.second;
         }
     }
 };
