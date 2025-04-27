@@ -18,10 +18,12 @@ typedef double f64;
 
 #define SDL_MAIN_HANDLED
 
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
-#define GLAD_GL_IMPLEMENTATION
-#include <glad/gl.h>
+
+#define GLAD_VULKAN_IMPLEMENTATION
+#include <glad/vulkan.h>
 
 #define GLM_FORCE_LEFT_HANDED
 #include <glm/glm.hpp>
@@ -30,7 +32,7 @@ typedef double f64;
 
 #include "math_utils.cpp"
 
-#include "renderer_gl.cpp"
+#include "renderer_vk.cpp"
 #include "ecs.cpp"
 
 #include "game.h"
@@ -52,37 +54,16 @@ int main()
         return 1;
     }
 
-    SDL_GL_LoadLibrary(NULL);
+    InitAPI();
 
-    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-    window = SDL_CreateWindow("SDL Tutorial", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
+    window = SDL_CreateWindow("SDL Tutorial", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN);
     if (window == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
         return 1;
     }
 
-    SDL_GLContext context = SDL_GL_CreateContext(window);
-    if (context == NULL)
-    {
-        printf("OpenGL context could not be created: %s\n!", SDL_GetError());
-        return 1;
-    }
-
-    if (!gladLoadGL(SDL_GL_GetProcAddress))
-    {
-        printf("Failed to initialize GLAD!");
-        return 1;
-    }
-
     InitRenderer();
-
-    screenSurface = SDL_GetWindowSurface(window);
-    // Creates a renderer on the first driver that supports our 0 flags
 
     Scene scene;
     GameInitialize(scene);
