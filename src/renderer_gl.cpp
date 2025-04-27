@@ -99,7 +99,7 @@ void InitRenderer()
     glUseProgram(shaderProgram);
 }
 
-void InitFrame()
+void ClearFrame()
 {
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);

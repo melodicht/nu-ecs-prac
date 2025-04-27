@@ -80,7 +80,7 @@ class RenderSystem : public System
 
     void OnUpdate(Scene *scene)
     {
-        InitFrame();
+        ClearFrame();
 
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
