@@ -1,9 +1,9 @@
-f32 squareVertices[] =
+glm::vec4 squareVertices[] =
 {
-    0.0f, -5.0f, -5.0f,
-    0.0f, 5.0f, -5.0f,
-    0.0f, -5.0f, 5.0f,
-    0.0f, 5.0f, 5.0f
+    {0.0f, -5.0f, -5.0f, 1.0f},
+    {0.0f, 5.0f, -5.0f, 1.0f},
+    {0.0f, -5.0f, 5.0f, 1.0f},
+    {0.0f, 5.0f, 5.0f, 1.0f}
 };
 
 u32 squareIndices[] =
@@ -12,11 +12,11 @@ u32 squareIndices[] =
     1, 2, 3,
 };
 
-f32 triangleVertices[] =
+glm::vec4 triangleVertices[] =
 {
-    0.0f, -5.0f, -5.0f,
-    0.0f, 5.0f, -5.0f,
-    0.0f, 0.0f, 5.0f,
+    {0.0f, -5.0f, -5.0f, 1.0f},
+    {0.0f, 5.0f, -5.0f, 1.0f},
+    {0.0f, 0.0f, 5.0f, 1.0f}
 };
 
 u32 triangleIndices[] =
@@ -62,8 +62,8 @@ inline EntityID SpawnBall(Scene &scene, float radius, bool hasGravity, bool tria
 
 void GameInitialize(Scene &scene)
 {
-    squareMesh = new Mesh(4, &squareVertices[0], 6, &squareIndices[0]);
-    triangleMesh = new Mesh(3, &triangleVertices[0], 3, &triangleIndices[0]);
+    squareMesh = UploadMesh(4, &squareVertices[0], 6, &squareIndices[0]);
+    triangleMesh = UploadMesh(3, &triangleVertices[0], 3, &triangleIndices[0]);
 
     GravitySystem *gravitySys = new GravitySystem();
     CollisionSystem *collisionSys = new CollisionSystem();

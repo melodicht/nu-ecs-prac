@@ -18,13 +18,17 @@ typedef double f64;
 
 #define SDL_MAIN_HANDLED
 
-
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_vulkan.h>
 
-#define GLAD_VULKAN_IMPLEMENTATION
-#include <glad/vulkan.h>
+#define VOLK_IMPLEMENTATION
+#include <Volk/volk.h>
+#include <VkBootstrap.h>
 
+#include "vma_no_warnings.h"
+
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -46,6 +50,12 @@ int main()
     srand(static_cast<unsigned>(time(0)));
     u64 cpuTimerFreq = GetOSTimerFreq();
 
+    if (volkInitialize() != VK_SUCCESS)
+    {
+        printf("Volk could not initialize!");
+        return 1;
+    }
+
     SDL_Window *window = NULL;
     SDL_Surface *screenSurface = NULL;
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
@@ -54,16 +64,14 @@ int main()
         return 1;
     }
 
-    InitAPI();
-
-    window = SDL_CreateWindow("SDL Tutorial", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN);
+    window = SDL_CreateWindow("Untitled Engine", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN);
     if (window == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
         return 1;
     }
 
-    InitRenderer();
+    InitRenderer(window);
 
     Scene scene;
     GameInitialize(scene);
@@ -108,7 +116,6 @@ int main()
         }
 
         GameUpdateAndRender(scene, window);
-        SDL_GL_SwapWindow(window);
 
         u64 endCounter = ReadOSTimer();
 

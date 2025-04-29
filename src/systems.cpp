@@ -80,7 +80,7 @@ class RenderSystem : public System
 
     void OnUpdate(Scene *scene)
     {
-        ClearFrame();
+        InitFrame();
 
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
@@ -139,5 +139,7 @@ class RenderSystem : public System
             DrawObjects(pair.second, startIndex);
             startIndex += pair.second;
         }
+
+        EndFrame();
     }
 };

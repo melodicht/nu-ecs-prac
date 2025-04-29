@@ -1,3 +1,5 @@
+#include <glad/gl.h>
+
 const char *vertexSource =
         "#version 460 core\n"
         "layout (location = 0) in vec3 aPos;"
@@ -29,36 +31,45 @@ struct Mesh
     GLuint vertBuffer;
     GLuint elemBuffer;
 
-    Mesh(u32 vertCount, f32* vertices, u32 indexCount, u32* indices)
-    {
-        glGenVertexArrays(1, &vertArray);
-        glBindVertexArray(vertArray);
-
-        glGenBuffers(1, &vertBuffer);
-        glBindBuffer(GL_ARRAY_BUFFER, vertBuffer);
-        glBufferData(GL_ARRAY_BUFFER, 3 * sizeof(f32) * vertCount, vertices, GL_STATIC_DRAW);
-
-        glGenBuffers(1, &elemBuffer);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elemBuffer);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * indexCount, indices, GL_STATIC_DRAW);
-
-        glVertexAttribPointer(0, 3, GL_FLOAT,GL_FALSE, 3 * sizeof(f32), (void *) 0);
-        glEnableVertexAttribArray(0);
-    }
-
-    ~Mesh()
-    {
-        glDeleteBuffers(1, &vertBuffer);
-        glDeleteBuffers(1, &elemBuffer);
-        glDeleteVertexArrays(1, &vertArray);
-    }
+    u32 numElems;
 };
 
 GLuint objectBuffer;
 GLuint shaderProgram;
 
+u32 numElems;
 
-void InitRenderer()
+Mesh* UploadMesh(u32 vertCount, glm::vec4* vertices, u32 indexCount, u32* indices)
+{
+    Mesh* mesh = new Mesh();
+
+    glGenVertexArrays(1, &mesh->vertArray);
+    glBindVertexArray(mesh->vertArray);
+
+    glGenBuffers(1, &mesh->vertBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, mesh->vertBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec4) * vertCount, vertices, GL_STATIC_DRAW);
+
+    glGenBuffers(1, &mesh->elemBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->elemBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(u32) * indexCount, indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT,GL_FALSE, sizeof(glm::vec4), (void *) 0);
+    glEnableVertexAttribArray(0);
+
+    numElems = indexCount;
+
+    return mesh;
+}
+
+void DestroyMesh(Mesh* mesh)
+{
+    glDeleteBuffers(1, &mesh->vertBuffer);
+    glDeleteBuffers(1, &mesh->elemBuffer);
+    glDeleteVertexArrays(1, &mesh->vertArray);
+}
+
+void InitRenderer(SDL_Window *window)
 {
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
@@ -99,7 +110,7 @@ void InitRenderer()
     glUseProgram(shaderProgram);
 }
 
-void ClearFrame()
+void InitFrame()
 {
     glClearColor(0.0, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -121,15 +132,21 @@ void SendModelMatrices(std::vector<glm::mat4>& matrices)
 
 void SetMesh(Mesh* mesh)
 {
+    numElems = mesh->numElems;
     glBindVertexArray(mesh->vertArray);
 }
 
 void DrawObject(int index)
 {
-    glDrawElementsInstancedBaseInstance(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, 1, index);
+    glDrawElementsInstancedBaseInstance(GL_TRIANGLES, numElems, GL_UNSIGNED_INT, 0, 1, index);
 }
 
 void DrawObjects(int count, int startIndex)
 {
-    glDrawElementsInstancedBaseInstance(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0, count, startIndex);
+    glDrawElementsInstancedBaseInstance(GL_TRIANGLES, numElems, GL_UNSIGNED_INT, 0, count, startIndex);
+}
+
+void EndFrame()
+{
+
 }
