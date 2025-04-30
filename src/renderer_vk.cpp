@@ -44,12 +44,7 @@ FrameData frames[NUM_FRAMES];
 VkPipelineLayout pipelineLayout;
 VkPipeline graphicsPipeline;
 
-u32 frameCount;
-
-inline FrameData &getCurrentFrame()
-{
-    return frames[frameCount % NUM_FRAMES];
-}
+u32 frameNum;
 
 
 // Upload a mesh to the gpu
@@ -471,14 +466,14 @@ uint32_t swapIndex;
 void InitFrame()
 {
     //Set up commands
-    VkCommandBuffer& cmd = getCurrentFrame().commandBuffer;
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     //Synchronize and get images
-    VK_CHECK(vkWaitForFences(device, 1, &getCurrentFrame().renderFence, true, 1000000000));
+    VK_CHECK(vkWaitForFences(device, 1, &frames[frameNum].renderFence, true, 1000000000));
 
-    vkAcquireNextImageKHR(device, swapchain, 1000000000, getCurrentFrame().presentSemaphore, nullptr, &swapIndex);
+    vkAcquireNextImageKHR(device, swapchain, 1000000000, frames[frameNum].presentSemaphore, nullptr, &swapIndex);
 
-    VK_CHECK(vkResetFences(device, 1, &getCurrentFrame().renderFence));
+    VK_CHECK(vkResetFences(device, 1, &frames[frameNum].renderFence));
 
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
 
@@ -550,14 +545,14 @@ void InitFrame()
 void SetCamera(glm::mat4 view, glm::mat4 proj)
 {
     CameraMats camera{view, proj};
-    void* cameraData = getCurrentFrame().cameraBuffer.allocation->GetMappedData();
+    void* cameraData = frames[frameNum].cameraBuffer.allocation->GetMappedData();
     memcpy(cameraData, &camera, sizeof(CameraMats));
 }
 
 // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
 void SendModelMatrices(std::vector<glm::mat4>& matrices)
 {
-    void* objectData = getCurrentFrame().objectBuffer.allocation->GetMappedData();
+    void* objectData = frames[frameNum].objectBuffer.allocation->GetMappedData();
     memcpy(objectData, matrices.data(), sizeof(glm::mat4) * matrices.size());
 }
 
@@ -567,8 +562,8 @@ u32 indexCount;
 void SetMesh(Mesh* mesh)
 {
     // Send addresses to camera, object, and vertex buffers as push constants
-    VkCommandBuffer& cmd = getCurrentFrame().commandBuffer;
-    PushConstants pushConstants = {getCurrentFrame().cameraAddress, getCurrentFrame().objectAddress, mesh->vertAddress};
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+    PushConstants pushConstants = {frames[frameNum].cameraAddress, frames[frameNum].objectAddress, mesh->vertAddress};
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants), &pushConstants);
     // Bind the index buffer
     vkCmdBindIndexBuffer(cmd, mesh->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -579,14 +574,14 @@ void SetMesh(Mesh* mesh)
 // Draw multiple objects to the screen (Must be called between InitFrame and EndFrame and after SetMesh)
 void DrawObjects(int count, int startIndex)
 {
-    vkCmdDrawIndexed(getCurrentFrame().commandBuffer, indexCount, count, 0, 0, startIndex);
+    vkCmdDrawIndexed(frames[frameNum].commandBuffer, indexCount, count, 0, 0, startIndex);
 }
 
 // End the frame and present it to the screen
 void EndFrame()
 {
     // End dynamic rendering and commands
-    VkCommandBuffer& cmd = getCurrentFrame().commandBuffer;
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     vkCmdEndRendering(cmd);
     TransitionImage(cmd, swapImages[swapIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -602,13 +597,13 @@ void EndFrame()
 
     submit.pWaitDstStageMask = &waitStage;
     submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores = &getCurrentFrame().presentSemaphore;
+    submit.pWaitSemaphores = &frames[frameNum].presentSemaphore;
     submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores = &getCurrentFrame().renderSemaphore;
+    submit.pSignalSemaphores = &frames[frameNum].renderSemaphore;
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &cmd;
 
-    VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submit, getCurrentFrame().renderFence));
+    VK_CHECK(vkQueueSubmit(graphicsQueue, 1, &submit, frames[frameNum].renderFence));
 
     //Draw to screen
     VkPresentInfoKHR presentInfo = {};
@@ -618,12 +613,13 @@ void EndFrame()
     presentInfo.pSwapchains = &swapchain;
     presentInfo.swapchainCount = 1;
 
-    presentInfo.pWaitSemaphores = &getCurrentFrame().renderSemaphore;
+    presentInfo.pWaitSemaphores = &frames[frameNum].renderSemaphore;
     presentInfo.waitSemaphoreCount = 1;
 
     presentInfo.pImageIndices = &swapIndex;
 
     VK_CHECK(vkQueuePresentKHR(graphicsQueue, &presentInfo));
 
-    frameCount++;
+    frameNum++;
+    frameNum %= NUM_FRAMES;
 }
