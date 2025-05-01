@@ -52,6 +52,11 @@ AllocatedImage CreateImage(VmaAllocator allocator, VkFormat format, VkImageUsage
     return image;
 }
 
+void DestroyImage(VmaAllocator allocator, AllocatedImage image)
+{
+    vmaDestroyImage(allocator, image.image, image.allocation);
+}
+
 VkImageSubresourceRange ImageSubresourceRange(VkImageAspectFlags aspectMask)
 {
     VkImageSubresourceRange subImage {};

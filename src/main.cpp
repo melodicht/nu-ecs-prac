@@ -36,6 +36,9 @@ typedef double f64;
 
 #include "math_utils.cpp"
 
+int windowWidth = WINDOW_WIDTH;
+int windowHeight = WINDOW_HEIGHT;
+
 #include "renderer_vk.cpp"
 #include "ecs.cpp"
 
@@ -89,31 +92,9 @@ int main()
             {
                 playing = false;
             }
-            /*
-
-                else if(e.window.event == SDL_WINDOWEVENT_RESIZED)
-                {
-                    screenSurface = SDL_GetWindowSurface(window);
-                }
-                else if(e.window.event == SDL_WINDOWEVENT_CLOSE)
-                {
-                    playing = false;
-                }
-                else if(e.type == SDL_MOUSEMOTION)
-                {
-                    SDL_MouseMotionEvent motionEvent = e.motion;
-                    // motionEvent.x
-                    // motionEvent.y
-                    // https://wiki.libsdl.org/SDL2/SDL_MouseMotionEvent
-                    // Mapping from pixel to world like sfml?
-                }
-                else if (e.type == SDL_MOUSEBUTTONDOWN)
-                {
-                    SDL_MouseButtonEvent buttonEvent = e.button;
-                    // https://wiki.libsdl.org/SDL2/SDL_MouseButtonEvent
-                }
-            */
         }
+
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
         GameUpdateAndRender(scene, window);
 

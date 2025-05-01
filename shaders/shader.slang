@@ -6,7 +6,7 @@ struct CameraMats
 
 struct PushConstants
 {
-    CameraMats* camera;
+    CameraMats *camera;
     float4x4 *objects;
     float4 *vertices;
 };

@@ -116,6 +116,92 @@ void DestroyMesh(Mesh* mesh)
 }
 
 
+// Create swapchain or recreate to change size
+void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
+{
+    // Create the swapchain
+    vkb::SwapchainBuilder swapBuilder{physDevice, device, surface};
+
+    swapchainFormat = VK_FORMAT_B8G8R8A8_UNORM;
+
+    vkb::Swapchain vkbSwapchain = swapBuilder
+            .set_desired_format(VkSurfaceFormatKHR{.format = swapchainFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
+            .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
+            .set_desired_extent(width, height)
+            .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+            .set_old_swapchain(oldSwapchain)
+            .build().value();
+
+    swapchain = vkbSwapchain.swapchain;
+    swapExtent = vkbSwapchain.extent;
+    swapImages = vkbSwapchain.get_images().value();
+    swapImageViews = vkbSwapchain.get_image_views().value();
+
+
+    // Create the depth buffer
+    depthFormat = VK_FORMAT_D32_SFLOAT;
+
+    VkExtent3D depthImageExtent =
+            {
+                    swapExtent.width,
+                    swapExtent.height,
+                    1
+            };
+
+    depthImage = CreateImage(allocator,
+                             depthFormat,
+                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+                             depthImageExtent,
+                             VMA_MEMORY_USAGE_GPU_ONLY,
+                             VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+
+    VkImageViewCreateInfo depthViewInfo{};
+    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    depthViewInfo.format = depthFormat;
+    depthViewInfo.image = depthImage.image;
+    depthViewInfo.subresourceRange.baseMipLevel = 0;
+    depthViewInfo.subresourceRange.levelCount = 1;
+    depthViewInfo.subresourceRange.baseArrayLayer = 0;
+    depthViewInfo.subresourceRange.layerCount = 1;
+    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthImageView));
+}
+
+void DestroySwapResources()
+{
+    vkDestroyImageView(device, depthImageView, nullptr);
+    DestroyImage(allocator, depthImage);
+
+    for (VkImageView imageView : swapImageViews)
+    {
+        vkDestroyImageView(device, imageView, nullptr);
+    }
+}
+
+void RecreateSwapchain()
+{
+    VkSurfaceCapabilitiesKHR surfaceCapabilities;
+    vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physDevice, surface, &surfaceCapabilities);
+
+    u32 width = surfaceCapabilities.currentExtent.width;
+    u32 height = surfaceCapabilities.currentExtent.height;
+
+    if (width == 0 || height == 0)
+    {
+        return;
+    }
+
+    vkDeviceWaitIdle(device);
+
+    DestroySwapResources();
+
+    VkSwapchainKHR old = swapchain;
+    CreateSwapchain(width, height, old);
+    vkDestroySwapchainKHR(device, old, nullptr);
+}
+
 
 // Initialize the rendering API
 void InitRenderer(SDL_Window *window)
@@ -185,54 +271,8 @@ void InitRenderer(SDL_Window *window)
 
     VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator));
 
-    // Create the depth buffer
-    depthFormat = VK_FORMAT_D32_SFLOAT;
-
-    VkExtent3D depthImageExtent =
-            {
-                    WINDOW_WIDTH,
-                    WINDOW_HEIGHT,
-                    1
-            };
-
-    depthImage = CreateImage(allocator,
-                             depthFormat,
-                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                             depthImageExtent,
-                             VMA_MEMORY_USAGE_GPU_ONLY,
-                             VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
-
-    VkImageViewCreateInfo depthViewInfo{};
-    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-    depthViewInfo.format = depthFormat;
-    depthViewInfo.image = depthImage.image;
-    depthViewInfo.subresourceRange.baseMipLevel = 0;
-    depthViewInfo.subresourceRange.levelCount = 1;
-    depthViewInfo.subresourceRange.baseArrayLayer = 0;
-    depthViewInfo.subresourceRange.layerCount = 1;
-    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-
-    VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthImageView));
-
-
-    // Create the swapchain
-    vkb::SwapchainBuilder swapBuilder{physDevice, device, surface};
-
-    swapchainFormat = VK_FORMAT_B8G8R8A8_UNORM;
-
-    vkb::Swapchain vkbSwapchain = swapBuilder
-            .set_desired_format(VkSurfaceFormatKHR{.format = swapchainFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-            .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR)
-            .set_desired_extent(WINDOW_WIDTH, WINDOW_HEIGHT)
-            .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-            .build().value();
-
-    swapchain = vkbSwapchain.swapchain;
-    swapExtent = vkbSwapchain.extent;
-    swapImages = vkbSwapchain.get_images().value();
-    swapImageViews = vkbSwapchain.get_image_views().value();
-
+    // Create the swapchain and associated resources at the default dimensions
+    CreateSwapchain(WINDOW_WIDTH, WINDOW_HEIGHT, nullptr);
 
     // Create the command pools and command buffers
     VkCommandPoolCreateInfo commandPoolInfo = {};
@@ -462,8 +502,10 @@ void InitRenderer(SDL_Window *window)
 
 uint32_t swapIndex;
 
+bool resize = false;
+
 // Set up frame and begin capturing draw calls
-void InitFrame()
+bool InitFrame()
 {
     //Set up commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
@@ -471,7 +513,16 @@ void InitFrame()
     //Synchronize and get images
     VK_CHECK(vkWaitForFences(device, 1, &frames[frameNum].renderFence, true, 1000000000));
 
-    vkAcquireNextImageKHR(device, swapchain, 1000000000, frames[frameNum].presentSemaphore, nullptr, &swapIndex);
+    VkResult acquireResult = vkAcquireNextImageKHR(device, swapchain, 1000000000, frames[frameNum].presentSemaphore, nullptr, &swapIndex);
+    if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        RecreateSwapchain();
+        return false;
+    }
+    if (acquireResult == VK_SUBOPTIMAL_KHR)
+    {
+        resize = true;
+    }
 
     VK_CHECK(vkResetFences(device, 1, &frames[frameNum].renderFence));
 
@@ -539,6 +590,8 @@ void InitFrame()
     scissor.extent.height = swapExtent.height;
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    return true;
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
@@ -618,7 +671,12 @@ void EndFrame()
 
     presentInfo.pImageIndices = &swapIndex;
 
-    VK_CHECK(vkQueuePresentKHR(graphicsQueue, &presentInfo));
+    VkResult presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
+    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR || resize)
+    {
+        resize = false;
+        RecreateSwapchain();
+    }
 
     frameNum++;
     frameNum %= NUM_FRAMES;

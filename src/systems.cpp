@@ -80,7 +80,10 @@ class RenderSystem : public System
 
     void OnUpdate(Scene *scene)
     {
-        InitFrame();
+        if (!InitFrame())
+        {
+            return;
+        }
 
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
@@ -92,7 +95,7 @@ class RenderSystem : public System
         CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
         Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
         glm::mat4 view = GetViewMatrix(cameraTransform);
-        f32 aspect = (f32)WINDOW_WIDTH / (f32)WINDOW_HEIGHT;
+        f32 aspect = (f32)windowWidth / (f32)windowHeight;
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
         SetCamera(view, proj);
