@@ -92,6 +92,10 @@ int main()
             {
                 playing = false;
             }
+            if (e.type == SDL_EVENT_KEY_DOWN)
+            {
+                SDL_GetKeyName(e.key.key);
+            }
         }
 
         SDL_GetWindowSize(window, &windowWidth, &windowHeight);
