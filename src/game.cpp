@@ -68,16 +68,21 @@ void GameInitialize(Scene &scene)
     GravitySystem *gravitySys = new GravitySystem();
     CollisionSystem *collisionSys = new CollisionSystem();
     RenderSystem *renderSys = new RenderSystem();
+    MovementSystem *movementSys = new MovementSystem();
     scene.AddSystem(gravitySys);
     scene.AddSystem(collisionSys);
     scene.AddSystem(renderSys);
+    scene.AddSystem(movementSys);
 
     EntityID player = scene.NewEntity();
     Transform3D *playerTransform = scene.Assign<Transform3D>(player);
     CameraComponent *playerCamera = scene.Assign<CameraComponent>(player);
+    FlyingMovement *playerMovement = scene.Assign<FlyingMovement>(player);
     playerCamera->fov = 90.0f;
     playerCamera->far = 5000.0f;
     playerCamera->near = 0.15f;
+    playerMovement->moveSpeed = 100.0f;
+    playerMovement->turnSpeed = 0.25f;
     playerTransform->position.x = WINDOW_HEIGHT / -2.0f;
     playerTransform->position.y = WINDOW_WIDTH / 2.0f;
     playerTransform->rotation.z = -45.0f;
@@ -90,7 +95,7 @@ void GameInitialize(Scene &scene)
     scene.InitSystems();
 }
 
-void GameUpdateAndRender(Scene &scene, SDL_Window *window)
+void GameUpdateAndRender(Scene &scene, SDL_Window *window, f32 deltaTime)
 {
-    scene.UpdateSystems();
+    scene.UpdateSystems(deltaTime);
 }

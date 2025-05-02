@@ -23,7 +23,7 @@ typedef double f64;
 #include <SDL3/SDL_vulkan.h>
 
 #define VOLK_IMPLEMENTATION
-#include <volk.h>
+#include <Volk/volk.h>
 #include <VkBootstrap.h>
 
 #include "vma_no_warnings.h"
@@ -38,6 +38,10 @@ typedef double f64;
 
 int windowWidth = WINDOW_WIDTH;
 int windowHeight = WINDOW_HEIGHT;
+
+std::unordered_map<std::string, bool> keysDown;
+f32 mouseRelX = 0;
+f32 mouseRelY = 0;
 
 #include "renderer_vk.cpp"
 #include "ecs.cpp"
@@ -74,6 +78,8 @@ int main()
         return 1;
     }
 
+    SDL_SetWindowRelativeMouseMode(window, true);
+
     InitRenderer(window);
 
     Scene scene;
@@ -84,30 +90,55 @@ int main()
 
     SDL_Event e;
     bool playing = true;
+
+    u64 now = SDL_GetPerformanceCounter();
+    u64 last = 0;
     while (playing)
     {
+        last = now;
+        now = SDL_GetPerformanceCounter();
+
+        f32 deltaTime = (f32)((now - last) / (f32)SDL_GetPerformanceFrequency());
+
         while (SDL_PollEvent(&e))
         {
-            if (e.type == SDL_EVENT_QUIT)
+            switch (e.type)
             {
-                playing = false;
-            }
-            if (e.type == SDL_EVENT_KEY_DOWN)
-            {
-                SDL_GetKeyName(e.key.key);
+                case SDL_EVENT_QUIT:
+                    playing = false;
+                    break;
+                case SDL_EVENT_KEY_DOWN:
+                    if (e.key.key == SDLK_ESCAPE)
+                    {
+                        playing = false;
+                    }
+                    std::cout << SDL_GetKeyName(e.key.key) << '\n';
+                    keysDown[SDL_GetKeyName(e.key.key)] = true;
+                    break;
+                case SDL_EVENT_KEY_UP:
+                    std::cout << SDL_GetKeyName(e.key.key) << '\n';
+                    keysDown[SDL_GetKeyName(e.key.key)] = false;
+                    break;
+                case SDL_EVENT_MOUSE_MOTION:
+                    mouseRelX = e.motion.xrel;
+                    mouseRelY = e.motion.yrel;
+                    break;
             }
         }
 
         SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
-        GameUpdateAndRender(scene, window);
+        GameUpdateAndRender(scene, window, deltaTime);
+
+        mouseRelX = 0;
+        mouseRelY = 0;
 
         u64 endCounter = ReadOSTimer();
 
         u64 counterElapsed = endCounter - lastCounter;
         f32 msPerFrame = 1000.0f * (f32) counterElapsed / (f32) cpuTimerFreq;
         f32 fps = (f32) cpuTimerFreq / (f32) counterElapsed;
-        printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+        //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
         lastCounter = endCounter;
     }
 

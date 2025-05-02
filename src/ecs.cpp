@@ -111,7 +111,7 @@ class System
 {
 public:
     virtual void OnStart(Scene *scene) {};
-    virtual void OnUpdate(Scene *scene) {};
+    virtual void OnUpdate(Scene *scene, f32 deltaTime) {};
     virtual ~System() = default;
 };
 
@@ -149,11 +149,11 @@ struct Scene
         }
     }
 
-    void UpdateSystems()
+    void UpdateSystems(f32 deltaTime)
     {
         for (System *sys: systems)
         {
-            sys->OnUpdate(this);
+            sys->OnUpdate(this, deltaTime);
         }
     }
 

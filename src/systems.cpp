@@ -1,6 +1,6 @@
 class GravitySystem : public System
 {
-    void OnUpdate(Scene *scene)
+    void OnUpdate(Scene *scene, f32 deltaTime)
     {
         for (EntityID ent: SceneView<Rigidbody, GravityComponent>(*scene))
         {
@@ -43,7 +43,7 @@ void scanCollision(CircleCollider *checkCollider, Rigidbody *accessRigid, Transf
 
 class CollisionSystem : public System
 {
-    void OnUpdate(Scene *scene)
+    void OnUpdate(Scene *scene, f32 deltaTime)
     {
         // Forward movement, collision, rendering
         for (EntityID ent: SceneView<Transform3D, Rigidbody, CircleCollider>(*scene))
@@ -78,7 +78,7 @@ class RenderSystem : public System
 {
     Mesh* currentMesh = nullptr;
 
-    void OnUpdate(Scene *scene)
+    void OnUpdate(Scene *scene, f32 deltaTime)
     {
         if (!InitFrame())
         {
@@ -144,5 +144,41 @@ class RenderSystem : public System
         }
 
         EndFrame();
+    }
+};
+
+class MovementSystem : public System
+{
+    void OnUpdate(Scene *scene, f32 deltaTime)
+    {
+        for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
+        {
+            FlyingMovement *f = scene->Get<FlyingMovement>(ent);
+            Transform3D *t = scene->Get<Transform3D>(ent);
+
+            t->rotation.z += mouseRelX * f->turnSpeed;
+            t->rotation.y += mouseRelY * f->turnSpeed;
+            t->rotation.y = std::min(std::max(t->rotation.y, -90.0f), 90.0f);
+
+            if (keysDown["W"])
+            {
+                t->position += GetForwardVector(t) * f->moveSpeed * deltaTime;
+            }
+
+            if (keysDown["S"])
+            {
+                t->position -= GetForwardVector(t) * f->moveSpeed * deltaTime;
+            }
+
+            if (keysDown["D"])
+            {
+                t->position += GetRightVector(t) * f->moveSpeed * deltaTime;
+            }
+
+            if (keysDown["A"])
+            {
+                t->position -= GetRightVector(t) * f->moveSpeed * deltaTime;
+            }
+        }
     }
 };
