@@ -6,7 +6,7 @@ slangc = find_program('slangc')
 sdl3_dep = dependency('sdl3')
 imgui_dep = dependency('imgui')
 glm_dep = dependency('glm')
-vulkan_dep = dependency('vulkan')
+vulkan_dep = dependency('vulkan', method: 'auto')
 
 incdir = include_directories('include')
 
