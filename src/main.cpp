@@ -23,7 +23,7 @@ typedef double f64;
 #include <SDL3/SDL_vulkan.h>
 
 #define VOLK_IMPLEMENTATION
-#include <Volk/volk.h>
+#include <volk.h>
 #include <VkBootstrap.h>
 
 #include "vma_no_warnings.h"
