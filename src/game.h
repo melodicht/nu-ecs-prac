@@ -5,10 +5,15 @@ void GameInitialize(Scene &scene);
 void GameUpdateAndRender(Scene &scene, SDL_Window *window, SDL_Renderer *renderer);
 
 #define BALL_RADIUS 5
-#define NUM_BALLS 500
+#define NUM_BALLS 100
 
 #define GRAVITY_MIN 0.25
 #define GRAVITY_MAX 0.5
+
+Mesh* cuboidMesh;
+Mesh* trapMesh;
+Mesh* pyraMesh;
+Mesh* prismMesh;
 
 struct Rigidbody
 {
@@ -50,3 +55,12 @@ struct FlyingMovement
     float moveSpeed;
     float turnSpeed;
 };
+
+struct Point;
+
+struct Plane
+{
+    f32 width;
+    f32 length;
+};
+// Centered on the transform position

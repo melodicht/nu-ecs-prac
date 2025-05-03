@@ -182,3 +182,146 @@ class MovementSystem : public System
         }
     }
 };
+
+
+// A vocabulary
+//
+// - EC: Road systems with extra credit
+//
+// A set of production rules
+//
+// - Subdivide: 5 -> 55
+// - Plane Extend: 5 -> 5
+//   - Rotate (inscribe)
+//   - Place cuboid                - DONE
+//   - Place trapezoid             - DONE
+// - Pyramid Roof: 5 -> (6 | T)
+// - Prism Roof: 5 -> T
+// - Antenna: 6 -> T               - DONE
+//
+// An “axiom” (i.e. start state)
+// 5
+// A flat 2D plane that spans our entire city.
+
+class BuilderSystem : public System
+{
+    f32 timer = 0.0f; // Seconds until next step
+    f32 rate = 0.5;   // Steps per second
+
+    void OnUpdate(Scene *scene, f32 deltaTime)
+    {
+        if (timer > 0.0f)
+        {
+            timer -= deltaTime;
+        }
+        else
+        {
+            timer = 1.0f / rate;
+            Step(scene);
+        }
+    }
+
+    constexpr static f32 antennaHeightMin = 128;
+    constexpr static f32 antennaHeightMax = 192;
+    constexpr static f32 antennaWidth = 8;
+
+    constexpr static f32 cuboidHeightMin = 32;
+    constexpr static f32 cuboidHeightMax = 96;
+
+    constexpr static f32 trapHeightMin = 24;
+    constexpr static f32 trapHeightMax = 48;
+
+    void Step(Scene* scene)
+    {
+        // Point Rules
+        for (EntityID ent: SceneView<Point, Transform3D>(*scene))
+        {
+            Transform3D *t = scene->Get<Transform3D>(ent);
+
+            f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
+            t->position.z += antennaHeight / 2;
+            t->scale.z = antennaHeight;
+            t->scale.x = antennaWidth;
+            t->scale.y = antennaWidth;
+
+
+            MeshComponent *m = scene->Assign<MeshComponent>(ent);
+            m->mesh = cuboidMesh;
+
+            scene->Remove<Point>(ent);
+        }
+
+        // Plane Rules
+        for (EntityID ent: SceneView<Plane, Transform3D>(*scene))
+        {
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            Plane *plane = scene->Get<Plane>(ent);
+
+            switch (RandInt(0, 5))
+            {
+            case 0:
+                {
+
+                }
+            case 1:
+                {
+
+                }
+            case 2:
+                {
+                    Transform3D *t = scene->Get<Transform3D>(ent);
+
+                    f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
+                    t->position.z += cuboidHeight / 2;
+                    t->scale.z = cuboidHeight;
+                    t->scale.x = plane->length;
+                    t->scale.y = plane->width;
+
+                    MeshComponent *m = scene->Assign<MeshComponent>(ent);
+                    m->mesh = cuboidMesh;
+
+                    EntityID newPlane = scene->NewEntity();
+                    Transform3D *newT = scene->Assign<Transform3D>(newPlane);
+                    Plane *p = scene->Assign<Plane>(newPlane);
+                    *newT = *t;
+                    newT->position += cuboidHeight / 2;
+                    *p = *plane;
+
+                    scene->Remove<Plane>(ent);
+                    break;
+                }
+            case 3:
+                {
+                    Transform3D *t = scene->Get<Transform3D>(ent);
+
+                    f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
+                    t->position.z += trapHeight / 2;
+                    t->scale.z = trapHeight;
+                    t->scale.x = plane->length;
+                    t->scale.y = plane->width;
+
+                    MeshComponent *m = scene->Assign<MeshComponent>(ent);
+                    m->mesh = trapMesh;
+
+                    EntityID newPlane = scene->NewEntity();
+                    Transform3D *newT = scene->Assign<Transform3D>(newPlane);
+                    Plane *p = scene->Assign<Plane>(newPlane);
+                    *newT = *t;
+                    newT->position += trapHeight / 2;
+                    *p = *plane;
+
+                    scene->Remove<Plane>(ent);
+                    break;
+                }
+            case 4:
+                {
+
+                }
+            case 5:
+                {
+
+                }
+            }
+        }
+    }
+};

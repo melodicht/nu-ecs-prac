@@ -1,31 +1,84 @@
-glm::vec4 squareVertices[] =
+glm::vec4 cubeVerts[] =
 {
-    {0.0f, -5.0f, -5.0f, 1.0f},
-    {0.0f, 5.0f, -5.0f, 1.0f},
-    {0.0f, -5.0f, 5.0f, 1.0f},
-    {0.0f, 5.0f, 5.0f, 1.0f}
+    {-0.5f, -0.5f, -0.5f, 1.0f}, // 0: Back-Left-Bottom
+    {0.5f, -0.5f, -0.5f, 1.0f},  // 1: Front-Left-Bottom
+    {-0.5f, 0.5f, -0.5f, 1.0f},  // 2: Back-Right-Bottom
+    {0.5f, 0.5f, -0.5f, 1.0f},   // 3: Front-Right-Bottom
+    {-0.5f, -0.5f, 0.5f, 1.0f},  // 4: Back-Left-Top
+    {0.5f, -0.5f, 0.5f, 1.0f},   // 5: Front-Left-Top
+    {-0.5f, 0.5f, 0.5f, 1.0f},   // 6: Back-Right-Top
+    {0.5f, 0.5f, 0.5f, 1.0f}     // 7: Front-Right-Top
 };
 
-u32 squareIndices[] =
+glm::vec4 trapVerts[] =
 {
-    0, 1, 2,
+    {-0.5f, -0.5f, -0.5f, 1.0f}, // 0: Back-Left-Bottom
+    {0.5f, -0.5f, -0.5f, 1.0f},  // 1: Front-Left-Bottom
+    {-0.5f, 0.5f, -0.5f, 1.0f},  // 2: Back-Right-Bottom
+    {0.5f, 0.5f, -0.5f, 1.0f},   // 3: Front-Right-Bottom
+    {-0.25f, -0.25f, 0.25f, 1.0f},  // 4: Back-Left-Top
+    {0.25f, -0.25f, 0.25f, 1.0f},   // 5: Front-Left-Top
+    {-0.25f, 0.25f, 0.25f, 1.0f},   // 6: Back-Right-Top
+    {0.25f, 0.25f, 0.25f, 1.0f}     // 7: Front-Right-Top
+};
+
+u32 cubeTrapIndices[] =
+{
+    0, 1, 2,  // Bottom Face
     1, 2, 3,
+    4, 5, 6,  // Top Face
+    5, 6, 7,
+    1, 3, 5,  // Front Face
+    3, 5, 7,
+    0, 2, 4,  // Back Face
+    2, 4, 6,
+    0, 1, 4,  // Left Face
+    1, 4, 5,
+    2, 3, 6,  // Right Face
+    3, 6, 7
 };
 
-glm::vec4 triangleVertices[] =
+glm::vec4 pyraVerts[] =
 {
-    {0.0f, -5.0f, -5.0f, 1.0f},
-    {0.0f, 5.0f, -5.0f, 1.0f},
-    {0.0f, 0.0f, 5.0f, 1.0f}
+    {-0.5f, -0.5f, -0.5f, 1.0f}, // 0: Back-Left-Bottom
+    {0.5f, -0.5f, -0.5f, 1.0f},  // 1: Front-Left-Bottom
+    {-0.5f, 0.5f, -0.5f, 1.0f},  // 2: Back-Right-Bottom
+    {0.5f, 0.5f, -0.5f, 1.0f},   // 3: Front-Right-Bottom
+    {0.0f, 0.0f, 0.5f, 1.0f}     // 4: Top
 };
 
-u32 triangleIndices[] =
+u32 pyraIndices[] =
 {
-    0, 1, 2,
+    0, 1, 2,  // Bottom Face
+    1, 2, 3,
+    1, 3, 4,  // Front Face
+    0, 2, 4,  // Back Face
+    0, 1, 4,  // Left Face
+    2, 3, 4   // Right Face
 };
 
-Mesh* squareMesh = nullptr;
-Mesh* triangleMesh = nullptr;
+glm::vec4 prismVerts[] =
+{
+    {-0.5f, -0.5f, -0.5f, 1.0f}, // 0: Back-Left-Bottom
+    {0.5f, -0.5f, -0.5f, 1.0f},  // 1: Front-Left-Bottom
+    {-0.5f, 0.5f, -0.5f, 1.0f},  // 2: Back-Right-Bottom
+    {0.5f, 0.5f, -0.5f, 1.0f},   // 3: Front-Right-Bottom
+    {-0.5f, 0.0f, 0.5f, 1.0f},   // 4: Back-Top
+    {0.5f, 0.0f, 0.5f, 1.0f}     // 5: Front-Top
+};
+
+u32 prismIndices[] =
+{
+    0, 1, 2,  // Bottom Face
+    1, 2, 3,
+    1, 3, 5,  // Front Face
+    0, 2, 4,  // Back Face
+    0, 1, 4,  // Left Face
+    1, 4, 5,
+    2, 3, 4,  // Right Face
+    3, 4, 5   // Right Face
+};
+
 
 // Spawns a ball with the given radius in the given scene.
 inline EntityID SpawnBall(Scene &scene, float radius, bool hasGravity, bool triangle)
@@ -44,17 +97,18 @@ inline EntityID SpawnBall(Scene &scene, float radius, bool hasGravity, bool tria
 
     pBallTransform->position.y = RandInBetween((WINDOW_WIDTH / -2.0f) + radius, (WINDOW_WIDTH / 2.0f) - radius);
     pBallTransform->position.z = RandInBetween((WINDOW_HEIGHT / -2.0f) + radius, (WINDOW_HEIGHT / 2.0f) - radius);
+    pBallTransform->scale = glm::vec3(10.0f);
     pBallRb->v_x = RandInBetween(0.1, 0.2);
     pBallRb->v_y = RandInBetween(0.1, 0.2);
     pBallCC->radius = radius;
 
     if (triangle)
     {
-        pBallMesh->mesh = triangleMesh;
+        pBallMesh->mesh = pyraMesh;
     }
     else
     {
-        pBallMesh->mesh = squareMesh;
+        pBallMesh->mesh = prismMesh;
     }
 
     return ball;
@@ -62,8 +116,11 @@ inline EntityID SpawnBall(Scene &scene, float radius, bool hasGravity, bool tria
 
 void GameInitialize(Scene &scene)
 {
-    squareMesh = UploadMesh(4, &squareVertices[0], 6, &squareIndices[0]);
-    triangleMesh = UploadMesh(3, &triangleVertices[0], 3, &triangleIndices[0]);
+    cuboidMesh = UploadMesh(8, &cubeVerts[0], 36, &cubeTrapIndices[0]);
+    trapMesh = UploadMesh(8, &trapVerts[0], 36, &cubeTrapIndices[0]);
+    pyraMesh = UploadMesh(5, &pyraVerts[0], 18, &pyraIndices[0]);
+    prismMesh = UploadMesh(6, &prismVerts[0], 24, &prismIndices[0]);
+
 
     GravitySystem *gravitySys = new GravitySystem();
     CollisionSystem *collisionSys = new CollisionSystem();

@@ -6,6 +6,7 @@
 #include <map>
 #include <unordered_map>
 #include <vector>
+#include <random>
 
 #define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 600

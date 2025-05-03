@@ -58,8 +58,16 @@ glm::mat4 GetViewMatrix(Transform3D *transform)
 
 // Generates a random float in the inclusive range of the two given
 // floats.
-float RandInBetween(float LO, float HI)
+f32 RandInBetween(f32 LO, f32 HI)
 {
     // From https://stackoverflow.com/questions/686353/random-float-number-generation
-    return LO + static_cast<float>(rand()) / (static_cast<float>(RAND_MAX / (HI - LO)));
+    return LO + static_cast<f32>(rand()) / (static_cast<f32>(RAND_MAX / (HI - LO)));
+}
+
+u32 RandInt(u32 min, u32 max)
+{
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<u32> distribution(min, max);
+    return distribution(gen);
 }
