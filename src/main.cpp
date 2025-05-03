@@ -23,7 +23,7 @@ typedef double f64;
 #include <SDL3/SDL_vulkan.h>
 
 #define VOLK_IMPLEMENTATION
-#include <Volk/volk.h>
+#include <volk.h>
 #include <VkBootstrap.h>
 
 #include "vma_no_warnings.h"
@@ -112,19 +112,15 @@ int main()
                     {
                         playing = false;
                     }
-                    std::cout << SDL_GetKeyName(e.key.key) << '\n';
                     keysDown[SDL_GetKeyName(e.key.key)] = true;
                     break;
                 case SDL_EVENT_KEY_UP:
-                    std::cout << SDL_GetKeyName(e.key.key) << '\n';
                     keysDown[SDL_GetKeyName(e.key.key)] = false;
-                    break;
-                case SDL_EVENT_MOUSE_MOTION:
-                    mouseRelX = e.motion.xrel;
-                    mouseRelY = e.motion.yrel;
                     break;
             }
         }
+
+        SDL_GetRelativeMouseState(&mouseRelX, &mouseRelY);
 
         SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
@@ -138,7 +134,7 @@ int main()
         u64 counterElapsed = endCounter - lastCounter;
         f32 msPerFrame = 1000.0f * (f32) counterElapsed / (f32) cpuTimerFreq;
         f32 fps = (f32) cpuTimerFreq / (f32) counterElapsed;
-        //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+        printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
         lastCounter = endCounter;
     }
 

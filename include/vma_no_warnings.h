@@ -6,6 +6,6 @@
 #pragma clang diagnostic ignored "-Wunused-variable"
 
 #define VMA_IMPLEMENTATION
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 
 #pragma clang diagnostic pop

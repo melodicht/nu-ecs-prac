@@ -82,7 +82,7 @@ void GameInitialize(Scene &scene)
     playerCamera->far = 5000.0f;
     playerCamera->near = 0.15f;
     playerMovement->moveSpeed = 100.0f;
-    playerMovement->turnSpeed = 0.25f;
+    playerMovement->turnSpeed = 0.1f;
     playerTransform->position.x = WINDOW_HEIGHT / -2.0f;
     playerTransform->position.y = WINDOW_WIDTH / 2.0f;
     playerTransform->rotation.z = -45.0f;
