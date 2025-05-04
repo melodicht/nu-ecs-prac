@@ -8,8 +8,8 @@
 #include <vector>
 #include <random>
 
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
+#define WINDOW_WIDTH 1600
+#define WINDOW_HEIGHT 1200
 
 #define u8  uint8_t
 #define u32 uint32_t
@@ -41,8 +41,8 @@ int windowWidth = WINDOW_WIDTH;
 int windowHeight = WINDOW_HEIGHT;
 
 std::unordered_map<std::string, bool> keysDown;
-f32 mouseRelX = 0;
-f32 mouseRelY = 0;
+f32 mouseDeltaX = 0;
+f32 mouseDeltaY = 0;
 
 #include "renderer_vk.cpp"
 #include "ecs.cpp"
@@ -117,14 +117,14 @@ int main()
             }
         }
 
-        SDL_GetRelativeMouseState(&mouseRelX, &mouseRelY);
+        SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
 
         SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
         GameUpdateAndRender(scene, window, deltaTime);
 
-        mouseRelX = 0;
-        mouseRelY = 0;
+        mouseDeltaX = 0;
+        mouseDeltaY = 0;
 
         f32 msPerFrame =  1000.0f * deltaTime;
         f32 fps = 1 / deltaTime;

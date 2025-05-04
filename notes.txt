@@ -4,3 +4,9 @@ create macro for begin() == end()
 SceneView get first method
 put comments in the render system update method to split into parts
 
+
+
+5/3/25
+Fix unsafe macro by putting (x)
+name mouse movement mouseDeltaX and mouseDeltaY
+Repeated code when dealing with cuboids

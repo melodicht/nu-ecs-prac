@@ -137,14 +137,12 @@ void GameInitialize(Scene &scene)
     prismMesh = UploadMesh(6, &prismVerts[0], 24, &prismIndices[0]);
 
 
-    GravitySystem *gravitySys = new GravitySystem();
-    CollisionSystem *collisionSys = new CollisionSystem();
     RenderSystem *renderSys = new RenderSystem();
     MovementSystem *movementSys = new MovementSystem();
-    scene.AddSystem(gravitySys);
-    scene.AddSystem(collisionSys);
+    BuilderSystem *builderSys = new BuilderSystem();
     scene.AddSystem(renderSys);
     scene.AddSystem(movementSys);
+    scene.AddSystem(builderSys);
 
     EntityID player = scene.NewEntity();
     Transform3D *playerTransform = scene.Assign<Transform3D>(player);
@@ -159,10 +157,11 @@ void GameInitialize(Scene &scene)
     playerTransform->position.y = WINDOW_WIDTH / 2.0f;
     playerTransform->rotation.z = -45.0f;
 
-    for (u32 i = 0; i < NUM_BALLS; i++)
-    {
-        SpawnBall(scene, BALL_RADIUS, i % 10 == 0, RandInt(0, 3));
-    }
+    EntityID startPlane = scene.NewEntity();
+    scene.Assign<Transform3D>(startPlane);
+    Plane *planeSize = scene.Assign<Plane>(startPlane);
+    planeSize->width = 1024.0f;
+    planeSize->length = 1024.0f;
 
     scene.InitSystems();
 }

@@ -56,7 +56,7 @@ struct FlyingMovement
     float turnSpeed;
 };
 
-struct Point;
+struct Point {};
 
 struct Plane
 {
