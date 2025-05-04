@@ -260,6 +260,12 @@ class BuilderSystem : public System
             Transform3D *t = scene->Get<Transform3D>(ent);
             Plane *plane = scene->Get<Plane>(ent);
 
+            if (plane->width < 16 || plane->length < 16)
+            {
+                scene->DestroyEntity(ent);
+                continue;
+            }
+
             switch (RandInt(0, 11))
             {
             case 0:
@@ -368,30 +374,30 @@ class BuilderSystem : public System
                     if (RandInBetween(0, 1) > 0.5)
                     {
                         // Split X axis
-                        plane->length /= 2;
+                        plane->length /= 2.0f;
 
                         EntityID newPlane = scene->NewEntity();
                         Transform3D *newT = scene->Assign<Transform3D>(newPlane);
                         Plane *p = scene->Assign<Plane>(newPlane);
                         *newT = *t;
-                        newT->position.x += plane->length;
+                        newT->position += GetForwardVector(newT) * (plane->length / 2.0f);
                         *p = *plane;
 
-                        t->position.x -= plane->length;
+                        t->position -= GetForwardVector(newT) * (plane->length / 2.0f);
                     }
                     else
                     {
                         // Split Y axis
-                        plane->width /= 2;
+                        plane->width /= 2.0f;
 
                         EntityID newPlane = scene->NewEntity();
                         Transform3D *newT = scene->Assign<Transform3D>(newPlane);
                         Plane *p = scene->Assign<Plane>(newPlane);
                         *newT = *t;
-                        newT->position.y += plane->width;
+                        newT->position += GetRightVector(newT) * (plane->width / 2.0f);
                         *p = *plane;
 
-                        t->position.y -= plane->width;
+                        t->position -= GetRightVector(newT) * (plane->width / 2.0f);
                     }
                 }
             }

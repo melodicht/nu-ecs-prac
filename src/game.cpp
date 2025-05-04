@@ -16,10 +16,10 @@ glm::vec4 trapVerts[] =
     {0.5f, -0.5f, -0.5f, 1.0f},     // 1: Front-Left-Bottom
     {-0.5f, 0.5f, -0.5f, 1.0f},     // 2: Back-Right-Bottom
     {0.5f, 0.5f, -0.5f, 1.0f},      // 3: Front-Right-Bottom
-    {-0.25f, -0.25f, 0.25f, 1.0f},  // 4: Back-Left-Top
-    {0.25f, -0.25f, 0.25f, 1.0f},   // 5: Front-Left-Top
-    {-0.25f, 0.25f, 0.25f, 1.0f},   // 6: Back-Right-Top
-    {0.25f, 0.25f, 0.25f, 1.0f}     // 7: Front-Right-Top
+    {-0.25f, -0.25f, 0.5f, 1.0f},  // 4: Back-Left-Top
+    {0.25f, -0.25f, 0.5f, 1.0f},   // 5: Front-Left-Top
+    {-0.25f, 0.25f, 0.5f, 1.0f},   // 6: Back-Right-Top
+    {0.25f, 0.25f, 0.5f, 1.0f}     // 7: Front-Right-Top
 };
 
 u32 cubeTrapIndices[] =
@@ -153,15 +153,23 @@ void GameInitialize(Scene &scene)
     playerCamera->near = 0.15f;
     playerMovement->moveSpeed = 100.0f;
     playerMovement->turnSpeed = 0.1f;
-    playerTransform->position.x = WINDOW_HEIGHT / -2.0f;
-    playerTransform->position.y = WINDOW_WIDTH / 2.0f;
-    playerTransform->rotation.z = -45.0f;
+    playerTransform->position.x = -640.0f;
+    playerTransform->position.z = 256.0f;
 
     EntityID startPlane = scene.NewEntity();
     scene.Assign<Transform3D>(startPlane);
     Plane *planeSize = scene.Assign<Plane>(startPlane);
     planeSize->width = 1024.0f;
     planeSize->length = 1024.0f;
+
+    EntityID startCube = scene.NewEntity();
+    Transform3D* cubeTransform = scene.Assign<Transform3D>(startCube);
+    cubeTransform->scale.x = 1024.0f;
+    cubeTransform->scale.y = 1024.0f;
+    cubeTransform->scale.z = 16.0f;
+    cubeTransform->position.z = -8.0f;
+    MeshComponent* startCubeMesh = scene.Assign<MeshComponent>(startCube);
+    startCubeMesh->mesh = cuboidMesh;
 
     scene.InitSystems();
 }
