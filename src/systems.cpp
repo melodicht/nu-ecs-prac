@@ -98,7 +98,7 @@ class RenderSystem : public System
         f32 aspect = (f32)windowWidth / (f32)windowHeight;
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
-        SetCamera(view, proj);
+        SetCamera(view, proj, cameraTransform->position);
 
         // 1. Gather counts of each unique mesh pointer.
         std::map<Mesh *, u32> meshCounts;
@@ -239,7 +239,7 @@ class BuilderSystem : public System
             Transform3D *t = scene->Get<Transform3D>(ent);
 
             f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
-            t->position.z += antennaHeight / 2;
+            t->position.z += (antennaHeight / 2) - (antennaWidth / 2);
             t->scale.z = antennaHeight;
             t->scale.x = antennaWidth;
             t->scale.y = antennaWidth;
@@ -269,8 +269,6 @@ class BuilderSystem : public System
                 }
             case 2:
                 {
-                    Transform3D *t = scene->Get<Transform3D>(ent);
-
                     f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
                     t->position.z += cuboidHeight / 2;
                     t->scale.z = cuboidHeight;
@@ -292,8 +290,6 @@ class BuilderSystem : public System
                 }
             case 3:
                 {
-                    Transform3D *t = scene->Get<Transform3D>(ent);
-
                     f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
                     t->position.z += trapHeight / 2;
                     t->scale.z = trapHeight;

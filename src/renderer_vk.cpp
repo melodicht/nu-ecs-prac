@@ -321,7 +321,7 @@ void InitRenderer(SDL_Window *window)
     for (int i = 0; i < NUM_FRAMES; i++)
     {
         frames[i].cameraBuffer = CreateBuffer(allocator,
-                                              sizeof(CameraMats),
+                                              sizeof(CameraData),
                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                               | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                               VMA_ALLOCATION_CREATE_MAPPED_BIT
@@ -595,11 +595,11 @@ bool InitFrame()
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
-void SetCamera(glm::mat4 view, glm::mat4 proj)
+void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
 {
-    CameraMats camera{view, proj};
+    CameraData camera{view, proj, pos};
     void* cameraData = frames[frameNum].cameraBuffer.allocation->GetMappedData();
-    memcpy(cameraData, &camera, sizeof(CameraMats));
+    memcpy(cameraData, &camera, sizeof(CameraData));
 }
 
 // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)

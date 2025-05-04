@@ -22,10 +22,11 @@ struct Mesh
     u32 indexCount;
 };
 
-struct CameraMats
+struct CameraData
 {
     glm::mat4 view;
     glm::mat4 proj;
+    glm::vec3 pos;
 };
 
 struct PushConstants

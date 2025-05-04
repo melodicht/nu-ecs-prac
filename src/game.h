@@ -5,7 +5,7 @@ void GameInitialize(Scene &scene);
 void GameUpdateAndRender(Scene &scene, SDL_Window *window, SDL_Renderer *renderer);
 
 #define BALL_RADIUS 5
-#define NUM_BALLS 100
+#define NUM_BALLS 1000
 
 #define GRAVITY_MIN 0.25
 #define GRAVITY_MAX 0.5
