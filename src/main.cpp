@@ -56,7 +56,6 @@ f32 mouseRelY = 0;
 int main()
 {
     srand(static_cast<unsigned>(time(0)));
-    u64 cpuTimerFreq = GetOSTimerFreq();
 
     if (volkInitialize() != VK_SUCCESS)
     {
@@ -85,9 +84,6 @@ int main()
 
     Scene scene;
     GameInitialize(scene);
-
-    u64 lastCounter = ReadOSTimer();
-
 
     SDL_Event e;
     bool playing = true;
@@ -130,13 +126,9 @@ int main()
         mouseRelX = 0;
         mouseRelY = 0;
 
-        u64 endCounter = ReadOSTimer();
-
-        u64 counterElapsed = endCounter - lastCounter;
-        f32 msPerFrame = 1000.0f * (f32) counterElapsed / (f32) cpuTimerFreq;
-        f32 fps = (f32) cpuTimerFreq / (f32) counterElapsed;
+        f32 msPerFrame =  1000.0f * deltaTime;
+        f32 fps = 1 / deltaTime;
         printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
-        lastCounter = endCounter;
     }
 
     SDL_DestroyWindow(window);

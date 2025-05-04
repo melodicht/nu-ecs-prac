@@ -57,18 +57,6 @@ void DestroyImage(VmaAllocator allocator, AllocatedImage image)
     vmaDestroyImage(allocator, image.image, image.allocation);
 }
 
-VkImageSubresourceRange ImageSubresourceRange(VkImageAspectFlags aspectMask)
-{
-    VkImageSubresourceRange subImage {};
-    subImage.aspectMask = aspectMask;
-    subImage.baseMipLevel = 0;
-    subImage.levelCount = VK_REMAINING_MIP_LEVELS;
-    subImage.baseArrayLayer = 0;
-    subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
-
-    return subImage;
-}
-
 //Change layout of image
 void TransitionImage(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
 {
@@ -86,7 +74,12 @@ void TransitionImage(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout
     VkImageAspectFlags aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
             ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
-    VkImageSubresourceRange subImage = ImageSubresourceRange(aspectMask);
+    VkImageSubresourceRange subImage {};
+    subImage.aspectMask = aspectMask;
+    subImage.baseMipLevel = 0;
+    subImage.levelCount = VK_REMAINING_MIP_LEVELS;
+    subImage.baseArrayLayer = 0;
+    subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
     imageBarrier.subresourceRange = subImage;
     imageBarrier.image = image;

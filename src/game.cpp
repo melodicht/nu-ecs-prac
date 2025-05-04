@@ -12,10 +12,10 @@ glm::vec4 cubeVerts[] =
 
 glm::vec4 trapVerts[] =
 {
-    {-0.5f, -0.5f, -0.5f, 1.0f}, // 0: Back-Left-Bottom
-    {0.5f, -0.5f, -0.5f, 1.0f},  // 1: Front-Left-Bottom
-    {-0.5f, 0.5f, -0.5f, 1.0f},  // 2: Back-Right-Bottom
-    {0.5f, 0.5f, -0.5f, 1.0f},   // 3: Front-Right-Bottom
+    {-0.5f, -0.5f, -0.5f, 1.0f},    // 0: Back-Left-Bottom
+    {0.5f, -0.5f, -0.5f, 1.0f},     // 1: Front-Left-Bottom
+    {-0.5f, 0.5f, -0.5f, 1.0f},     // 2: Back-Right-Bottom
+    {0.5f, 0.5f, -0.5f, 1.0f},      // 3: Front-Right-Bottom
     {-0.25f, -0.25f, 0.25f, 1.0f},  // 4: Back-Left-Top
     {0.25f, -0.25f, 0.25f, 1.0f},   // 5: Front-Left-Top
     {-0.25f, 0.25f, 0.25f, 1.0f},   // 6: Back-Right-Top
@@ -25,17 +25,17 @@ glm::vec4 trapVerts[] =
 u32 cubeTrapIndices[] =
 {
     0, 1, 2,  // Bottom Face
-    1, 2, 3,
-    4, 5, 6,  // Top Face
+    1, 3, 2,
+    4, 6, 5,  // Top Face
     5, 6, 7,
-    1, 3, 5,  // Front Face
+    1, 5, 3,  // Front Face
     3, 5, 7,
     0, 2, 4,  // Back Face
-    2, 4, 6,
-    0, 1, 4,  // Left Face
+    2, 6, 4,
+    0, 4, 1,  // Left Face
     1, 4, 5,
     2, 3, 6,  // Right Face
-    3, 6, 7
+    3, 7, 6
 };
 
 glm::vec4 pyraVerts[] =
@@ -50,10 +50,10 @@ glm::vec4 pyraVerts[] =
 u32 pyraIndices[] =
 {
     0, 1, 2,  // Bottom Face
-    1, 2, 3,
-    1, 3, 4,  // Front Face
+    1, 3, 2,
+    1, 4, 3,  // Front Face
     0, 2, 4,  // Back Face
-    0, 1, 4,  // Left Face
+    0, 4, 1,  // Left Face
     2, 3, 4   // Right Face
 };
 
@@ -70,18 +70,18 @@ glm::vec4 prismVerts[] =
 u32 prismIndices[] =
 {
     0, 1, 2,  // Bottom Face
-    1, 2, 3,
-    1, 3, 5,  // Front Face
+    1, 3, 2,
+    1, 5, 3,  // Front Face
     0, 2, 4,  // Back Face
-    0, 1, 4,  // Left Face
+    0, 4, 1,  // Left Face
     1, 4, 5,
     2, 3, 4,  // Right Face
-    3, 4, 5   // Right Face
+    3, 5, 4
 };
 
 
 // Spawns a ball with the given radius in the given scene.
-inline EntityID SpawnBall(Scene &scene, float radius, bool hasGravity, bool triangle)
+inline EntityID SpawnBall(Scene &scene, float radius, bool hasGravity, int mesh)
 {
     EntityID ball = scene.NewEntity();
     Transform3D *pBallTransform = scene.Assign<Transform3D>(ball);
@@ -102,13 +102,28 @@ inline EntityID SpawnBall(Scene &scene, float radius, bool hasGravity, bool tria
     pBallRb->v_y = RandInBetween(0.1, 0.2);
     pBallCC->radius = radius;
 
-    if (triangle)
+    switch(mesh)
     {
-        pBallMesh->mesh = pyraMesh;
-    }
-    else
-    {
-        pBallMesh->mesh = prismMesh;
+    case 0:
+        {
+            pBallMesh->mesh = cuboidMesh;
+            break;
+        }
+    case 1:
+        {
+            pBallMesh->mesh = trapMesh;
+            break;
+        }
+    case 2:
+        {
+            pBallMesh->mesh = pyraMesh;
+            break;
+        }
+    case 3:
+        {
+            pBallMesh->mesh = prismMesh;
+            break;
+        }
     }
 
     return ball;
@@ -146,7 +161,7 @@ void GameInitialize(Scene &scene)
 
     for (u32 i = 0; i < NUM_BALLS; i++)
     {
-        SpawnBall(scene, BALL_RADIUS, i % 10 == 0, RandInBetween(0, 1) > 0.5);
+        SpawnBall(scene, BALL_RADIUS, i % 10 == 0, RandInt(0, 3));
     }
 
     scene.InitSystems();
