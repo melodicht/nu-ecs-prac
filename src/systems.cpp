@@ -270,17 +270,27 @@ class BuilderSystem : public System
             {
             case 0:
                 {
+                    f32 shortSide = std::min(plane->width, plane->length);
+                    f32 longSide = std::max(plane->width, plane->length);
+
+                    f32 maxAngle = atan2(shortSide, longSide) - 0.02f;
+                    std::cout << maxAngle << '\n';
+
                     // Rotate
-                    f32 angle = RandInBetween(11.25, 78.75);
-                    f32 cos2theta = cos(angle * M_1_PIf / 90.0f );
-                    f32 width = ((plane->width * cos(angle * M_1_PIf / 180.0f)) -
-                                 (plane->length * sin(angle * M_1_PIf / 180.0f))) / cos2theta;
-                    f32 length = ((plane->length * cos(angle * M_1_PIf / 180.0f)) -
-                                  (plane->width * sin(angle * M_1_PIf / 180.0f))) / cos2theta;
+                    f32 angle = RandInBetween(0, maxAngle);
+
+                    f32 costheta = cos(angle);
+                    f32 sintheta = sin(angle);
+                    f32 denom = ((costheta * costheta) - (sintheta * sintheta));
+                    f32 width = ((plane->width * costheta) -
+                                 (plane->length * sintheta)) / denom;
+                    f32 length = ((plane->length * costheta) -
+                                  (plane->width * sintheta)) / denom;
                     plane->width = width;
                     plane->length = length;
 
-                    t->rotation.z = angle;
+                    t->rotation.z = angle * 180.0f / M_1_PIf;
+                    break;
                 }
             case 1:
                 {
