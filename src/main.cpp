@@ -128,7 +128,7 @@ int main()
 
         f32 msPerFrame =  1000.0f * deltaTime;
         f32 fps = 1 / deltaTime;
-        //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+        printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
     }
 
     SDL_DestroyWindow(window);

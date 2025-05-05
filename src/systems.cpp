@@ -292,10 +292,8 @@ public:
                                  (plane->length * sintheta)) / denom;
                     f32 length = ((plane->length * costheta) -
                                   (plane->width * sintheta)) / denom;
-                    std::cout << "original width: " << plane->width << "\noriginal length: " << plane->length << '\n';
                     plane->width = width;
                     plane->length = length;
-                    std::cout << "new width: " << plane->width << "\nnew length: " << plane->length << '\n';
 
                     t->rotation.z += angle * 180.0f / std::numbers::pi;
                     break;
