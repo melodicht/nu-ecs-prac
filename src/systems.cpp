@@ -205,12 +205,19 @@ class MovementSystem : public System
 
 class BuilderSystem : public System
 {
-    f32 timer = 0.0f; // Seconds until next step
-    f32 rate = 0.5;   // Steps per second
+private:
+    bool slowStep = false;
+    f32 timer = 2.0f; // Seconds until next step
+    f32 rate = 0.5f;   // Steps per second
+public:
+    BuilderSystem(bool slowStep)
+    {
+        this->slowStep = slowStep;
+    }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
     {
-        if (timer > 0.0f)
+        if (slowStep && timer > 0.0f)
         {
             timer -= deltaTime;
         }
@@ -274,7 +281,6 @@ class BuilderSystem : public System
                     f32 longSide = std::max(plane->width, plane->length);
 
                     f32 maxAngle = atan2(shortSide, longSide) - 0.02f;
-                    std::cout << maxAngle << '\n';
 
                     // Rotate
                     f32 angle = RandInBetween(0, maxAngle);
@@ -286,10 +292,12 @@ class BuilderSystem : public System
                                  (plane->length * sintheta)) / denom;
                     f32 length = ((plane->length * costheta) -
                                   (plane->width * sintheta)) / denom;
+                    std::cout << "original width: " << plane->width << "\noriginal length: " << plane->length << '\n';
                     plane->width = width;
                     plane->length = length;
+                    std::cout << "new width: " << plane->width << "\nnew length: " << plane->length << '\n';
 
-                    t->rotation.z = angle * 180.0f / M_1_PIf;
+                    t->rotation.z += angle * 180.0f / std::numbers::pi;
                     break;
                 }
             case 1:
@@ -380,34 +388,33 @@ class BuilderSystem : public System
                 }
             default:
                 {
+                    EntityID newPlane = scene->NewEntity();
+                    Transform3D *newT = scene->Assign<Transform3D>(newPlane);
+                    Plane *p = scene->Assign<Plane>(newPlane);
+                    *newT = *t;
+                    *p = *plane;
+
+                    f32 ratio = RandInBetween(0.2f, 0.8f);
+
                     // Subdivide
-                    if (RandInBetween(0, 1) > 0.5)
+                    if (RandInBetween(0.0f, 1.0f) > 0.5f)
                     {
                         // Split X axis
-                        plane->length /= 2.0f;
+                        plane->length *= ratio;
+                        p->length *= 1 - ratio;
 
-                        EntityID newPlane = scene->NewEntity();
-                        Transform3D *newT = scene->Assign<Transform3D>(newPlane);
-                        Plane *p = scene->Assign<Plane>(newPlane);
-                        *newT = *t;
-                        newT->position += GetForwardVector(newT) * (plane->length / 2.0f);
-                        *p = *plane;
+                        t->position -= GetForwardVector(t) * (p->length * 0.5f);
+                        newT->position += GetForwardVector(newT) * (plane->length * 0.5f);
 
-                        t->position -= GetForwardVector(newT) * (plane->length / 2.0f);
                     }
                     else
                     {
                         // Split Y axis
-                        plane->width /= 2.0f;
+                        plane->width *= ratio;
+                        p->width *= 1 - ratio;
 
-                        EntityID newPlane = scene->NewEntity();
-                        Transform3D *newT = scene->Assign<Transform3D>(newPlane);
-                        Plane *p = scene->Assign<Plane>(newPlane);
-                        *newT = *t;
-                        newT->position += GetRightVector(newT) * (plane->width / 2.0f);
-                        *p = *plane;
-
-                        t->position -= GetRightVector(newT) * (plane->width / 2.0f);
+                        t->position -= GetRightVector(t) * (p->width * 0.5f);
+                        newT->position += GetRightVector(newT) * (plane->width * 0.5f);
                     }
                 }
             }

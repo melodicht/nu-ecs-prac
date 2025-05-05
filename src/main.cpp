@@ -8,8 +8,8 @@
 #include <vector>
 #include <random>
 
-#define WINDOW_WIDTH 800
-#define WINDOW_HEIGHT 600
+#define WINDOW_WIDTH 1600
+#define WINDOW_HEIGHT 1200
 
 #define u8  uint8_t
 #define u32 uint32_t

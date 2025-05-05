@@ -80,57 +80,10 @@ u32 prismIndices[] =
 };
 
 
-// Spawns a ball with the given radius in the given scene.
-inline EntityID SpawnBall(Scene &scene, float radius, bool hasGravity, int mesh)
-{
-    EntityID ball = scene.NewEntity();
-    Transform3D *pBallTransform = scene.Assign<Transform3D>(ball);
-    Rigidbody *pBallRb = scene.Assign<Rigidbody>(ball);
-    CircleCollider *pBallCC = scene.Assign<CircleCollider>(ball);
-    MeshComponent *pBallMesh = scene.Assign<MeshComponent>(ball);
-
-    if (hasGravity)
-    {
-        GravityComponent *pGravityComponent = scene.Assign<GravityComponent>(ball);
-        pGravityComponent->strength = 2.0f;
-    }
-
-    pBallTransform->position.y = RandInBetween((WINDOW_WIDTH / -2.0f) + radius, (WINDOW_WIDTH / 2.0f) - radius);
-    pBallTransform->position.z = RandInBetween((WINDOW_HEIGHT / -2.0f) + radius, (WINDOW_HEIGHT / 2.0f) - radius);
-    pBallTransform->scale = glm::vec3(10.0f);
-    pBallRb->v_x = RandInBetween(0.1, 0.2);
-    pBallRb->v_y = RandInBetween(0.1, 0.2);
-    pBallCC->radius = radius;
-
-    switch(mesh)
-    {
-    case 0:
-        {
-            pBallMesh->mesh = cuboidMesh;
-            break;
-        }
-    case 1:
-        {
-            pBallMesh->mesh = trapMesh;
-            break;
-        }
-    case 2:
-        {
-            pBallMesh->mesh = pyraMesh;
-            break;
-        }
-    case 3:
-        {
-            pBallMesh->mesh = prismMesh;
-            break;
-        }
-    }
-
-    return ball;
-}
-
 void GameInitialize(Scene &scene)
 {
+    bool slowStep = false;
+
     cuboidMesh = UploadMesh(8, &cubeVerts[0], 36, &cubeTrapIndices[0]);
     trapMesh = UploadMesh(8, &trapVerts[0], 36, &cubeTrapIndices[0]);
     pyraMesh = UploadMesh(5, &pyraVerts[0], 18, &pyraIndices[0]);
@@ -139,7 +92,7 @@ void GameInitialize(Scene &scene)
 
     RenderSystem *renderSys = new RenderSystem();
     MovementSystem *movementSys = new MovementSystem();
-    BuilderSystem *builderSys = new BuilderSystem();
+    BuilderSystem *builderSys = new BuilderSystem(slowStep);
     scene.AddSystem(renderSys);
     scene.AddSystem(movementSys);
     scene.AddSystem(builderSys);
@@ -151,10 +104,11 @@ void GameInitialize(Scene &scene)
     playerCamera->fov = 90.0f;
     playerCamera->far = 5000.0f;
     playerCamera->near = 0.15f;
-    playerMovement->moveSpeed = 100.0f;
+    playerMovement->moveSpeed = 200.0f;
     playerMovement->turnSpeed = 0.1f;
     playerTransform->position.x = -640.0f;
-    playerTransform->position.z = 256.0f;
+    playerTransform->position.z = 384.0f;
+    playerTransform->rotation.y = 30.0f;
 
     EntityID startPlane = scene.NewEntity();
     scene.Assign<Transform3D>(startPlane);
