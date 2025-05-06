@@ -56,8 +56,6 @@ struct FlyingMovement
     float turnSpeed;
 };
 
-struct Point {};
-
 struct Plane
 {
     f32 width;

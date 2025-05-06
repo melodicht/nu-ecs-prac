@@ -106,20 +106,20 @@ void GameInitialize(Scene &scene)
     playerCamera->near = 0.15f;
     playerMovement->moveSpeed = 200.0f;
     playerMovement->turnSpeed = 0.1f;
-    playerTransform->position.x = -640.0f;
-    playerTransform->position.z = 384.0f;
+    playerTransform->position.x = -2560.0f;
+    playerTransform->position.z = 1536.0f;
     playerTransform->rotation.y = 30.0f;
 
     EntityID startPlane = scene.NewEntity();
     scene.Assign<Transform3D>(startPlane);
     Plane *planeSize = scene.Assign<Plane>(startPlane);
-    planeSize->width = 1024.0f;
-    planeSize->length = 1024.0f;
+    planeSize->width = 4096.0f;
+    planeSize->length = 4096.0f;
 
     EntityID startCube = scene.NewEntity();
     Transform3D* cubeTransform = scene.Assign<Transform3D>(startCube);
-    cubeTransform->scale.x = 1024.0f;
-    cubeTransform->scale.y = 1024.0f;
+    cubeTransform->scale.x = 4096.0f;
+    cubeTransform->scale.y = 4096.0f;
     cubeTransform->scale.z = 16.0f;
     cubeTransform->position.z = -8.0f;
     MeshComponent* startCubeMesh = scene.Assign<MeshComponent>(startCube);

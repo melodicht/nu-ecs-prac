@@ -243,24 +243,6 @@ public:
 
     void Step(Scene* scene)
     {
-        // Point Rules
-        for (EntityID ent: SceneView<Point, Transform3D>(*scene))
-        {
-            Transform3D *t = scene->Get<Transform3D>(ent);
-
-            f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
-            t->position.z += (antennaHeight / 2) - (antennaWidth / 2);
-            t->scale.z = antennaHeight;
-            t->scale.x = antennaWidth;
-            t->scale.y = antennaWidth;
-
-
-            MeshComponent *m = scene->Assign<MeshComponent>(ent);
-            m->mesh = cuboidMesh;
-
-            scene->Remove<Point>(ent);
-        }
-
         // Plane Rules
         for (EntityID ent: SceneView<Plane, Transform3D>(*scene))
         {
@@ -269,11 +251,24 @@ public:
 
             if (plane->width < 16 || plane->length < 16)
             {
-                scene->DestroyEntity(ent);
+                if (RandInBetween(0.0f, 1.0f) > 0.8)
+                {
+                    f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
+                    t->position.z += (antennaHeight / 2) - (antennaWidth / 2);
+                    t->scale.z = antennaHeight;
+                    t->scale.x = antennaWidth;
+                    t->scale.y = antennaWidth;
+
+
+                    MeshComponent *m = scene->Assign<MeshComponent>(ent);
+                    m->mesh = cuboidMesh;
+                }
+
+                scene->Remove<Plane>(ent);
                 continue;
             }
 
-            switch (RandInt(0, 11))
+            switch (RandInt(0, 13))
             {
             case 0:
                 {
@@ -295,11 +290,15 @@ public:
                     plane->width = width;
                     plane->length = length;
 
-                    t->rotation.z += angle * 180.0f / std::numbers::pi;
+                    t->rotation.z += glm::degrees(angle);
                     break;
                 }
             case 1:
                 {
+                    if (plane->width > 256)
+                    {
+                        continue;
+                    }
                     // Build Trapezoid
                     f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
                     t->position.z += trapHeight / 2;
@@ -323,6 +322,10 @@ public:
                 }
             case 2:
                 {
+                    if (plane->width > 96 || plane->length > 96)
+                    {
+                        continue;
+                    }
                     // Build Pyramid Roof
                     f32 pyraHeight = RandInBetween(roofHeightMin, roofHeightMax);
                     t->position.z += pyraHeight / 2;
@@ -333,20 +336,15 @@ public:
                     MeshComponent *m = scene->Assign<MeshComponent>(ent);
                     m->mesh = pyraMesh;
 
-                    if (RandInBetween(0, 1) > 0.5)
-                    {
-                        EntityID newPoint = scene->NewEntity();
-                        Transform3D *newT = scene->Assign<Transform3D>(newPoint);
-                        scene->Assign<Point>(newPoint);
-                        *newT = *t;
-                        newT->position.z += pyraHeight / 2;
-                    }
-
                     scene->Remove<Plane>(ent);
                     break;
                 }
             case 3:
                 {
+                    if (plane->width > 96)
+                    {
+                        continue;
+                    }
                     // Build Prism Roof
                     f32 prismHeight = RandInBetween(roofHeightMin, roofHeightMax);
                     t->position.z += prismHeight / 2;
@@ -363,6 +361,7 @@ public:
             case 4:
             case 5:
             case 6:
+            case 7:
                 {
                     // Build Cuboid
                     f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
