@@ -52,7 +52,14 @@ float4 fragmentMain(float4 color : VertColor, float3 eyeRelPos: EyeRelPos) : SV_
     float3 normal = normalize(cross(dFdx, dFdy));
     constexpr float3 lightDir = normalize(float3(0.75, -1.0, -0.5));
 
-    float brightness = 0.5 + (0.5 * dot(normal, -lightDir));
+    float ambient = 0.1;
+    float diffuse = max(dot(normal, -lightDir), 0.0);
+    float specStrength = 0.5;
+    float3 viewDir = normalize(-eyeRelPos);
+    float3 reflectDir = reflect(lightDir, normal);
+    float specular = pow(max(dot(viewDir, reflectDir), 0.0), 32) * specStrength;
+
+    float brightness = ambient + diffuse + specular;
 
     return color * brightness;
 };
