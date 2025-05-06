@@ -5,10 +5,15 @@ struct CameraData
     float3 pos;
 };
 
+struct ObjectData
+{
+    float4x4 model;
+    float4 color;
+};
 struct PushConstants
 {
     CameraData *camera;
-    float4x4 *objects;
+    ObjectData *objects;
     float4 *vertices;
 };
 
@@ -18,6 +23,7 @@ PushConstants pcs;
 struct VertexOutput
 {
     float4 pos : SV_Position;
+    float4 color : VertColor;
     float3 eyeRelPos : EyeRelPos;
 };
 
@@ -25,19 +31,21 @@ struct VertexOutput
 VertexOutput vertexMain(uint vertexID: SV_VertexID, uint instanceID: SV_InstanceID, uint baseInstance: SV_StartInstanceLocation)
 {
     VertexOutput output;
+    ObjectData object = pcs.objects[baseInstance + instanceID];
 
-    float4x4 model = pcs.objects[baseInstance + instanceID];
+    float4x4 model = object.model;
 
     float4 pos = pcs.vertices[vertexID];
 
+    output.pos = mul(pcs.camera->proj, mul(pcs.camera->view, mul(model, pos)));
+    output.color = object.color;
     output.eyeRelPos = mul(model, pos).xyz - pcs.camera->pos;
 
-    output.pos = mul(pcs.camera->proj, mul(pcs.camera->view, mul(model, pos)));
     return output;
 };
 
 [shader("fragment")]
-float4 fragmentMain(float3 eyeRelPos: EyeRelPos) : SV_Target
+float4 fragmentMain(float4 color : VertColor, float3 eyeRelPos: EyeRelPos) : SV_Target
 {
     float3 dFdx = ddx(eyeRelPos);
     float3 dFdy = ddy(eyeRelPos);
@@ -46,7 +54,7 @@ float4 fragmentMain(float3 eyeRelPos: EyeRelPos) : SV_Target
 
     float brightness = 0.5 + (0.5 * dot(normal, -lightDir));
 
-    return float4(0.2, 1.0, 0.4, 1.0) * brightness;
+    return color * brightness;
 };
 
 

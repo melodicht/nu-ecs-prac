@@ -102,7 +102,7 @@ class RenderSystem : public System
 
         // 1. Gather counts of each unique mesh pointer.
         std::map<Mesh *, u32> meshCounts;
-        for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
+        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
         {
             MeshComponent *m = scene->Get<MeshComponent>(ent);
 						++meshCounts[m->mesh];  // TODO: Verify the legitness of this
@@ -119,21 +119,22 @@ class RenderSystem : public System
         }
 
 
-        std::vector<glm::mat4> matrices(totalCount);
+        std::vector<ObjectData> objects(totalCount);
 
 
         // 4. Iterate through scene view once more and fill in the fixed size array.
-        for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
+        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
         {
             Transform3D *t = scene->Get<Transform3D>(ent);
             glm::mat4 model = GetTransformMatrix(t);
             MeshComponent *m = scene->Get<MeshComponent>(ent);
             Mesh *mesh = m->mesh;
+            ColorComponent *c = scene->Get<ColorComponent>(ent);
 
-            matrices[offsets[mesh]++] = model;
+            objects[offsets[mesh]++] = {model, glm::vec4(c->r, c->g, c->b, 1.0f)};
         }
 
-        SendModelMatrices(matrices);
+        SendObjectData(objects);
 
         int startIndex = 0;
         for (std::pair<Mesh *, u32> pair: meshCounts)
@@ -295,7 +296,7 @@ public:
                 }
             case 1:
                 {
-                    if (plane->width > 256)
+                    if (plane->width > 256 || plane->length > 256)
                     {
                         continue;
                     }
@@ -308,6 +309,10 @@ public:
 
                     MeshComponent *m = scene->Assign<MeshComponent>(ent);
                     m->mesh = trapMesh;
+                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
+                    c->r = RandInBetween(0.0f, 1.0f);
+                    c->g = RandInBetween(0.0f, 1.0f);
+                    c->b = RandInBetween(0.0f, 1.0f);
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
@@ -335,6 +340,10 @@ public:
 
                     MeshComponent *m = scene->Assign<MeshComponent>(ent);
                     m->mesh = pyraMesh;
+                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
+                    c->r = RandInBetween(0.0f, 1.0f);
+                    c->g = RandInBetween(0.0f, 1.0f);
+                    c->b = RandInBetween(0.0f, 1.0f);
 
                     scene->Remove<Plane>(ent);
                     break;
@@ -354,6 +363,10 @@ public:
 
                     MeshComponent *m = scene->Assign<MeshComponent>(ent);
                     m->mesh = prismMesh;
+                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
+                    c->r = RandInBetween(0.0f, 1.0f);
+                    c->g = RandInBetween(0.0f, 1.0f);
+                    c->b = RandInBetween(0.0f, 1.0f);
 
                     scene->Remove<Plane>(ent);
                     break;
@@ -372,6 +385,10 @@ public:
 
                     MeshComponent *m = scene->Assign<MeshComponent>(ent);
                     m->mesh = cuboidMesh;
+                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
+                    c->r = RandInBetween(0.0f, 1.0f);
+                    c->g = RandInBetween(0.0f, 1.0f);
+                    c->b = RandInBetween(0.0f, 1.0f);
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);

@@ -335,7 +335,7 @@ void InitRenderer(SDL_Window *window)
 
 
         frames[i].objectBuffer = CreateBuffer(allocator,
-                                              sizeof(glm::mat4) * 4096,
+                                              sizeof(ObjectData) * 4096,
                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                               | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                               VMA_ALLOCATION_CREATE_MAPPED_BIT
@@ -603,10 +603,10 @@ void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
 }
 
 // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
-void SendModelMatrices(std::vector<glm::mat4>& matrices)
+void SendObjectData(std::vector<ObjectData>& objects)
 {
     void* objectData = frames[frameNum].objectBuffer.allocation->GetMappedData();
-    memcpy(objectData, matrices.data(), sizeof(glm::mat4) * matrices.size());
+    memcpy(objectData, objects.data(), sizeof(ObjectData) * objects.size());
 }
 
 u32 indexCount;

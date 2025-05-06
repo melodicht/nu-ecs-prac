@@ -33,9 +33,9 @@ struct GravityComponent
 
 struct ColorComponent
 {
-    u32 r;
-    u32 g;
-    u32 b;
+    f32 r;
+    f32 g;
+    f32 b;
 };
 
 struct MeshComponent

@@ -29,6 +29,12 @@ struct CameraData
     glm::vec3 pos;
 };
 
+struct ObjectData
+{
+    glm::mat4 model;
+    glm::vec4 color;
+};
+
 struct PushConstants
 {
     VkDeviceAddress cameraAddress;

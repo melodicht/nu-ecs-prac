@@ -124,6 +124,10 @@ void GameInitialize(Scene &scene)
     cubeTransform->position.z = -8.0f;
     MeshComponent* startCubeMesh = scene.Assign<MeshComponent>(startCube);
     startCubeMesh->mesh = cuboidMesh;
+    ColorComponent* startCubeColor = scene.Assign<ColorComponent>(startCube);
+    startCubeColor->r = RandInBetween(0.0f, 1.0f);
+    startCubeColor->g = RandInBetween(0.0f, 1.0f);
+    startCubeColor->b = RandInBetween(0.0f, 1.0f);
 
     scene.InitSystems();
 }
