@@ -249,9 +249,9 @@ public:
             Transform3D *t = scene->Get<Transform3D>(ent);
             Plane *plane = scene->Get<Plane>(ent);
 
-            if (plane->width < 16 || plane->length < 16)
+            if (plane->width <= 16.0f || plane->length <= 16.0f)
             {
-                if (RandInBetween(0.0f, 1.0f) > 0.8)
+                if (RandInBetween(0.0f, 1.0f) > 0.9375f)
                 {
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
                     t->position.z += (antennaHeight / 2) - (antennaWidth / 2);
@@ -278,7 +278,7 @@ public:
                     f32 maxAngle = atan2(shortSide, longSide) - 0.02f;
 
                     // Rotate
-                    f32 angle = RandInBetween(0, maxAngle);
+                    f32 angle = RandInBetween(glm::radians(7.5f), maxAngle);
 
                     f32 costheta = cos(angle);
                     f32 sintheta = sin(angle);
@@ -394,24 +394,29 @@ public:
                     f32 ratio = RandInBetween(0.2f, 0.8f);
 
                     // Subdivide
-                    if (RandInBetween(0.0f, 1.0f) > 0.5f)
+                    if (RandInBetween(0.0f, plane->width + plane->length) < plane->length)
                     {
                         // Split X axis
-                        plane->length *= ratio;
-                        p->length *= 1 - ratio;
+                        f32 old = plane->length;
+                        f32 divisible = plane->length - 16.0f;
 
-                        t->position -= GetForwardVector(t) * (p->length * 0.5f);
-                        newT->position += GetForwardVector(newT) * (plane->length * 0.5f);
+                        plane->length = divisible * ratio;
+                        p->length = divisible * (1.0f - ratio);
 
+                        t->position -= GetForwardVector(t) * ((old - plane->length) * 0.5f);
+                        newT->position += GetForwardVector(newT) * ((old - p->length) * 0.5f);
                     }
                     else
                     {
                         // Split Y axis
-                        plane->width *= ratio;
-                        p->width *= 1 - ratio;
+                        f32 old = plane->width;
+                        f32 divisible = plane->width - 16.0f;
 
-                        t->position -= GetRightVector(t) * (p->width * 0.5f);
-                        newT->position += GetRightVector(newT) * (plane->width * 0.5f);
+                        plane->width = divisible * ratio;
+                        p->width = divisible * (1.0f - ratio);
+
+                        t->position -= GetRightVector(t) * ((old - plane->width) * 0.5f);
+                        newT->position += GetRightVector(newT) * ((old - p->width) * 0.5f);
                     }
                 }
             }
