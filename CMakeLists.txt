@@ -16,10 +16,12 @@ target_link_libraries(untitled-engine PRIVATE Vulkan::Vulkan)
 target_link_libraries(untitled-engine PRIVATE SDL3::SDL3)
 target_link_libraries(untitled-engine PRIVATE glm::glm)
 
-add_custom_command(TARGET untitled-engine POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:untitled-engine> $<TARGET_FILE_DIR:untitled-engine>
-        COMMAND_EXPAND_LISTS
-)
+if (WIN32)
+    add_custom_command(TARGET untitled-engine POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:untitled-engine> $<TARGET_FILE_DIR:untitled-engine>
+            COMMAND_EXPAND_LISTS
+    )
+endif()
 
 set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(SHADERS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
