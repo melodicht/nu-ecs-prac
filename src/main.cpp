@@ -35,6 +35,9 @@ typedef double f64;
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#include <fastgltf/core.hpp>
+#include <fastgltf/types.hpp>
+
 #include "math_utils.cpp"
 
 int windowWidth = WINDOW_WIDTH;

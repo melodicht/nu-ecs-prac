@@ -7,6 +7,7 @@ project("untitled-engine")
 include(cmake/CPM.cmake)
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
+CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
 find_package(Vulkan REQUIRED)
 
 add_executable(untitled-engine ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/VkBootstrap.cpp)
@@ -15,6 +16,7 @@ target_include_directories(untitled-engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/in
 target_link_libraries(untitled-engine PRIVATE Vulkan::Vulkan)
 target_link_libraries(untitled-engine PRIVATE SDL3::SDL3)
 target_link_libraries(untitled-engine PRIVATE glm::glm)
+target_link_libraries(untitled-engine PRIVATE fastgltf::fastgltf)
 
 if (WIN32)
     add_custom_command(TARGET untitled-engine POST_BUILD
