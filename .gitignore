@@ -411,5 +411,8 @@ Makefile
 # Ignores Build Details for Macbook (Jianwen)
 out
 
+
+build
+
 /subprojects
 /.vscode
