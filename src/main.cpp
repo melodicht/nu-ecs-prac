@@ -39,6 +39,7 @@ typedef double f64;
 #include <fastgltf/types.hpp>
 
 #include "math_utils.cpp"
+#include "asset_utils.cpp"
 
 int windowWidth = WINDOW_WIDTH;
 int windowHeight = WINDOW_HEIGHT;
