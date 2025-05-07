@@ -1,5 +1,5 @@
 project('untitled_engine', 'cpp',
-        default_options: ['default_library=static'])
+        default_options: ['default_library=static','cpp_std=c++20'])
 
 slangc = find_program('slangc')
 

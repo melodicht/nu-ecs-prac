@@ -263,6 +263,10 @@ public:
 
                     MeshComponent *m = scene->Assign<MeshComponent>(ent);
                     m->mesh = cuboidMesh;
+                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
+                    c->r = RandInBetween(0.0f, 1.0f);
+                    c->g = RandInBetween(0.0f, 1.0f);
+                    c->b = RandInBetween(0.0f, 1.0f);
                 }
 
                 scene->Remove<Plane>(ent);
