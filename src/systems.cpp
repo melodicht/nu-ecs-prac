@@ -242,7 +242,7 @@ public:
     constexpr static f32 roofHeightMin = 32;
     constexpr static f32 roofHeightMax = 64;
 
-    void Step(Scene* scene)
+    void Step(Scene *scene)
     {
         // Plane Rules
         for (EntityID ent: SceneView<Plane, Transform3D>(*scene))
@@ -254,19 +254,10 @@ public:
             {
                 if (RandInBetween(0.0f, 1.0f) > 0.9375f)
                 {
+                    // Build antenna
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
-                    t->position.z += (antennaHeight / 2) - (antennaWidth / 2);
-                    t->scale.z = antennaHeight;
-                    t->scale.x = antennaWidth;
-                    t->scale.y = antennaWidth;
-
-
-                    MeshComponent *m = scene->Assign<MeshComponent>(ent);
-                    m->mesh = cuboidMesh;
-                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
-                    c->r = RandInBetween(0.0f, 1.0f);
-                    c->g = RandInBetween(0.0f, 1.0f);
-                    c->b = RandInBetween(0.0f, 1.0f);
+                    BuildPart(scene, ent, t, cuboidMesh, {antennaWidth, antennaWidth, antennaHeight});
+                    t->position.z -= antennaWidth / 2;
                 }
 
                 scene->Remove<Plane>(ent);
@@ -277,12 +268,12 @@ public:
             {
             case 0:
                 {
+                    // Rotate
                     f32 shortSide = std::min(plane->width, plane->length);
                     f32 longSide = std::max(plane->width, plane->length);
 
                     f32 maxAngle = atan2(shortSide, longSide) - 0.02f;
 
-                    // Rotate
                     f32 angle = RandInBetween(glm::radians(7.5f), maxAngle);
 
                     f32 costheta = cos(angle);
@@ -300,23 +291,14 @@ public:
                 }
             case 1:
                 {
+                    // Build Trapezoid
                     if (plane->width > 256 || plane->length > 256)
                     {
                         continue;
                     }
-                    // Build Trapezoid
-                    f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
-                    t->position.z += trapHeight / 2;
-                    t->scale.z = trapHeight;
-                    t->scale.x = plane->length;
-                    t->scale.y = plane->width;
 
-                    MeshComponent *m = scene->Assign<MeshComponent>(ent);
-                    m->mesh = trapMesh;
-                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
-                    c->r = RandInBetween(0.0f, 1.0f);
-                    c->g = RandInBetween(0.0f, 1.0f);
-                    c->b = RandInBetween(0.0f, 1.0f);
+                    f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
+                    BuildPart(scene, ent, t, trapMesh, {plane->length, plane->width, trapHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
@@ -331,46 +313,28 @@ public:
                 }
             case 2:
                 {
+                    // Build Pyramid Roof
                     if (plane->width > 96 || plane->length > 96)
                     {
                         continue;
                     }
-                    // Build Pyramid Roof
-                    f32 pyraHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    t->position.z += pyraHeight / 2;
-                    t->scale.z = pyraHeight;
-                    t->scale.x = plane->length;
-                    t->scale.y = plane->width;
 
-                    MeshComponent *m = scene->Assign<MeshComponent>(ent);
-                    m->mesh = pyraMesh;
-                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
-                    c->r = RandInBetween(0.0f, 1.0f);
-                    c->g = RandInBetween(0.0f, 1.0f);
-                    c->b = RandInBetween(0.0f, 1.0f);
+                    f32 pyraHeight = RandInBetween(roofHeightMin, roofHeightMax);
+                    BuildPart(scene, ent, t, pyraMesh, {plane->length, plane->width, pyraHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
                 }
             case 3:
                 {
+                    // Build Prism Roof
                     if (plane->width > 96)
                     {
                         continue;
                     }
-                    // Build Prism Roof
-                    f32 prismHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    t->position.z += prismHeight / 2;
-                    t->scale.z = prismHeight;
-                    t->scale.x = plane->length;
-                    t->scale.y = plane->width;
 
-                    MeshComponent *m = scene->Assign<MeshComponent>(ent);
-                    m->mesh = prismMesh;
-                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
-                    c->r = RandInBetween(0.0f, 1.0f);
-                    c->g = RandInBetween(0.0f, 1.0f);
-                    c->b = RandInBetween(0.0f, 1.0f);
+                    f32 prismHeight = RandInBetween(roofHeightMin, roofHeightMax);
+                    BuildPart(scene, ent, t, prismMesh, {plane->length, plane->width, prismHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
@@ -382,17 +346,7 @@ public:
                 {
                     // Build Cuboid
                     f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
-                    t->position.z += cuboidHeight / 2;
-                    t->scale.z = cuboidHeight;
-                    t->scale.x = plane->length;
-                    t->scale.y = plane->width;
-
-                    MeshComponent *m = scene->Assign<MeshComponent>(ent);
-                    m->mesh = cuboidMesh;
-                    ColorComponent *c = scene->Assign<ColorComponent>(ent);
-                    c->r = RandInBetween(0.0f, 1.0f);
-                    c->g = RandInBetween(0.0f, 1.0f);
-                    c->b = RandInBetween(0.0f, 1.0f);
+                    BuildPart(scene, ent, t, cuboidMesh, {plane->length, plane->width, cuboidHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
@@ -406,6 +360,7 @@ public:
                 }
             default:
                 {
+                    // Subdivide
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
                     Plane *p = scene->Assign<Plane>(newPlane);
@@ -414,7 +369,6 @@ public:
 
                     f32 ratio = RandInBetween(0.2f, 0.8f);
 
-                    // Subdivide
                     if (RandInBetween(0.0f, plane->width + plane->length) < plane->length)
                     {
                         // Split X axis
@@ -442,5 +396,18 @@ public:
                 }
             }
         }
+    }
+
+    void BuildPart(Scene *scene, EntityID ent, Transform3D *t, Mesh *mesh, glm::vec3 scale)
+    {
+        t->position.z += scale.z / 2;
+        t->scale = scale;
+
+        MeshComponent *m = scene->Assign<MeshComponent>(ent);
+        m->mesh = mesh;
+        ColorComponent *c = scene->Assign<ColorComponent>(ent);
+        c->r = RandInBetween(0.0f, 1.0f);
+        c->g = RandInBetween(0.0f, 1.0f);
+        c->b = RandInBetween(0.0f, 1.0f);
     }
 };

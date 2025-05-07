@@ -54,10 +54,9 @@ float4 fragmentMain(float4 color : VertColor, float3 eyeRelPos: EyeRelPos) : SV_
 
     float ambient = 0.1;
     float diffuse = max(dot(normal, -lightDir), 0.0);
-    float specStrength = 0.5;
     float3 viewDir = normalize(-eyeRelPos);
-    float3 reflectDir = reflect(lightDir, normal);
-    float specular = pow(max(dot(viewDir, reflectDir), 0.0), 32) * specStrength;
+    float3 halfDir = normalize(viewDir - lightDir);
+    float specular = pow(max(dot(normal, halfDir), 0.0), 32.0);
 
     float brightness = ambient + diffuse + specular;
 
