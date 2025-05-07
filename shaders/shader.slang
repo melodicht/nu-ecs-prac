@@ -28,7 +28,7 @@ struct VertexOutput
 };
 
 [shader("vertex")]
-VertexOutput vertexMain(uint vertexID: SV_VertexID, uint instanceID: SV_InstanceID, uint baseInstance: SV_StartInstanceLocation)
+VertexOutput vertexMain(uint vertexID : SV_VertexID, uint instanceID : SV_InstanceID, uint baseInstance : SV_StartInstanceLocation)
 {
     VertexOutput output;
     ObjectData object = pcs.objects[baseInstance + instanceID];
@@ -45,7 +45,7 @@ VertexOutput vertexMain(uint vertexID: SV_VertexID, uint instanceID: SV_Instance
 };
 
 [shader("fragment")]
-float4 fragmentMain(float4 color : VertColor, float3 eyeRelPos: EyeRelPos) : SV_Target
+float4 fragmentMain(float4 color : VertColor, float3 eyeRelPos : EyeRelPos) : SV_Target
 {
     float3 dFdx = ddx(eyeRelPos);
     float3 dFdy = ddy(eyeRelPos);

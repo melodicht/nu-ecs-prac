@@ -24,6 +24,14 @@ MeshAsset LoadMeshAsset(std::filesystem::path path)
         return {};
     }
 
+    fastgltf::Mesh mesh = gltf.meshes[0];
     MeshAsset asset;
+
+    for (fastgltf::Primitive &p : mesh.primitives)
+    {
+
+    }
+
+
     return asset;
 }
