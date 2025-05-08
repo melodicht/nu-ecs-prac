@@ -84,10 +84,15 @@ void GameInitialize(Scene &scene)
 {
     bool slowStep = false;
 
-    cuboidMesh = UploadMesh(8, &cubeVerts[0], 36, &cubeTrapIndices[0]);
-    trapMesh = UploadMesh(8, &trapVerts[0], 36, &cubeTrapIndices[0]);
-    pyraMesh = UploadMesh(5, &pyraVerts[0], 18, &pyraIndices[0]);
-    prismMesh = UploadMesh(6, &prismVerts[0], 24, &prismIndices[0]);
+    MeshAsset cuboidAsset = LoadMeshAsset("models/cube.glb");
+    MeshAsset trapAsset = LoadMeshAsset("models/trap.glb");
+    MeshAsset pyraAsset = LoadMeshAsset("models/pyra.glb");
+    MeshAsset prismAsset = LoadMeshAsset("models/prism.glb");
+
+    cuboidMesh = UploadMesh(cuboidAsset);
+    trapMesh = UploadMesh(trapAsset);
+    pyraMesh = UploadMesh(pyraAsset);
+    prismMesh = UploadMesh(prismAsset);
 
 
     RenderSystem *renderSys = new RenderSystem();

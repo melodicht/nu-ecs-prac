@@ -37,6 +37,7 @@ typedef double f64;
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
+#include <fastgltf/tools.hpp>
 
 #include "math_utils.cpp"
 #include "asset_utils.cpp"

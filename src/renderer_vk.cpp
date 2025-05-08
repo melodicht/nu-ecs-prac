@@ -4,7 +4,8 @@
 		VkResult err = x;                                           \
 		if (err)                                                    \
 		{                                                           \
-			printf("Detected Vulkan error: %d\n", err);             \
+			std::cout << "Detected Vulkan error: " << err <<        \
+            " at line " <<  __LINE__ << " in file " << __FILE__;    \
 			abort();                                                \
 		}                                                           \
 	} while (0)
@@ -107,6 +108,11 @@ Mesh* UploadMesh(u32 vertCount, glm::vec4* vertices, u32 indexCount, u32* indice
     mesh->indexCount = indexCount;
 
     return mesh;
+}
+
+Mesh* UploadMesh(MeshAsset &asset)
+{
+    return UploadMesh(asset.vertices.size(), asset.vertices.data(), asset.indices.size(), asset.indices.data());
 }
 
 void DestroyMesh(Mesh* mesh)

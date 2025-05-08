@@ -45,7 +45,10 @@ foreach(SHADER ${SHADERS})
             VERBATIM)
 endforeach()
 
+add_custom_command(TARGET untitled-engine POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${CMAKE_BINARY_DIR}
+)
+
 add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
 
 add_dependencies(untitled-engine build_shaders)
-

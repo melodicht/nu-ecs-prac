@@ -1,13 +1,24 @@
 struct MeshAsset
 {
-    std::vector<glm::vec3> vertices;
+    std::vector<glm::vec4> vertices;
     std::vector<u32> indices;
 };
 
+template <>
+struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, f32> {};
+
 MeshAsset LoadMeshAsset(std::filesystem::path path)
 {
+    fastgltf::Expected<fastgltf::GltfDataBuffer> dataFile = fastgltf::GltfDataBuffer::FromPath(path);
     fastgltf::GltfDataBuffer data;
-    data.FromPath(path);
+    if (dataFile)
+    {
+        data = std::move(dataFile.get());
+    }
+    else
+    {
+        return {};
+    }
 
     constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers;
 
@@ -29,9 +40,21 @@ MeshAsset LoadMeshAsset(std::filesystem::path path)
 
     for (fastgltf::Primitive &p : mesh.primitives)
     {
+        u32 startIndex = asset.vertices.size();
+        fastgltf::Accessor& indexAccessor = gltf.accessors[p.indicesAccessor.value()];
+        asset.indices.reserve(asset.indices.size() + indexAccessor.count);
+        fastgltf::iterateAccessor<u32>(gltf, indexAccessor, [&](u32 index)
+        {
+            asset.indices.push_back(index);
+        });
 
+        fastgltf::Accessor& vertAccessor = gltf.accessors[p.findAttribute("POSITION")->accessorIndex];
+        asset.vertices.reserve(asset.vertices.size() + vertAccessor.count);
+        fastgltf::iterateAccessor<glm::vec3>(gltf, vertAccessor, [&](glm::vec3 pos)
+        {
+            asset.vertices.push_back(glm::vec4(-pos.z, pos.x, pos.y, 1.0f));
+        });
     }
-
 
     return asset;
 }
