@@ -1,11 +1,14 @@
 struct MeshAsset
 {
-    std::vector<glm::vec4> vertices;
+    std::vector<Vertex> vertices;
     std::vector<u32> indices;
 };
 
 template <>
 struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, f32> {};
+
+template <>
+struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec2, f32> {};
 
 MeshAsset LoadMeshAsset(std::filesystem::path path)
 {
@@ -48,11 +51,22 @@ MeshAsset LoadMeshAsset(std::filesystem::path path)
             asset.indices.push_back(index);
         });
 
-        fastgltf::Accessor& vertAccessor = gltf.accessors[p.findAttribute("POSITION")->accessorIndex];
-        asset.vertices.reserve(asset.vertices.size() + vertAccessor.count);
-        fastgltf::iterateAccessor<glm::vec3>(gltf, vertAccessor, [&](glm::vec3 pos)
+        fastgltf::Accessor& posAccessor = gltf.accessors[p.findAttribute("POSITION")->accessorIndex];
+        fastgltf::Accessor& normAccessor = gltf.accessors[p.findAttribute("NORMAL")->accessorIndex];
+        fastgltf::Accessor& uvAccessor = gltf.accessors[p.findAttribute("TEXCOORD_0")->accessorIndex];
+        asset.vertices.reserve(asset.vertices.size() + posAccessor.count);
+        fastgltf::iterateAccessorWithIndex<glm::vec3>(gltf, posAccessor, [&](glm::vec3 pos, u32 index)
         {
-            asset.vertices.push_back(glm::vec4(-pos.z, pos.x, pos.y, 1.0f));
+            glm::vec3 norm = fastgltf::getAccessorElement<glm::vec3>(gltf, normAccessor, index);
+            glm::vec2 uv = fastgltf::getAccessorElement<glm::vec2>(gltf, uvAccessor, index);
+
+            Vertex vert;
+            vert.position = {-pos.z, pos.x, pos.y};
+            vert.normal = {-norm.z, norm.x, norm.y};
+            vert.uvX = uv.x;
+            vert.uvY = uv.y;
+
+            asset.vertices.push_back(vert);
         });
     }
 

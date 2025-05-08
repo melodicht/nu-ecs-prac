@@ -10,7 +10,6 @@
 		}                                                           \
 	} while (0)
 
-#include "vk_render_types.h"
 #include "vk_render_utils.cpp"
 
 
@@ -49,12 +48,12 @@ u32 frameNum;
 
 
 // Upload a mesh to the gpu
-Mesh* UploadMesh(u32 vertCount, glm::vec4* vertices, u32 indexCount, u32* indices)
+Mesh* UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
 {
     Mesh* mesh = new Mesh();
 
     size_t indexSize = sizeof(u32) * indexCount;
-    size_t vertSize = sizeof(glm::vec4) * vertCount;
+    size_t vertSize = sizeof(Vertex) * vertCount;
 
     mesh->indexBuffer = CreateBuffer(allocator,
                                      indexSize,

@@ -22,6 +22,14 @@ struct Mesh
     u32 indexCount;
 };
 
+struct Vertex
+{
+    glm::vec3 position;
+    f32 uvX;
+    glm::vec3 normal;
+    f32 uvY;
+};
+
 struct CameraData
 {
     glm::mat4 view;

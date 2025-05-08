@@ -10,11 +10,20 @@ struct ObjectData
     float4x4 model;
     float4 color;
 };
+
+struct Vertex
+{
+    float3 pos;
+    float uvX;
+    float3 normal;
+    float uvY;
+};
+
 struct PushConstants
 {
     CameraData *camera;
     ObjectData *objects;
-    float4 *vertices;
+    Vertex *vertices;
 };
 
 [vk::push_constant]
@@ -35,7 +44,7 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID, uint instanceID : SV_Instan
 
     float4x4 model = object.model;
 
-    float4 pos = pcs.vertices[vertexID];
+    float4 pos = float4(pcs.vertices[vertexID].pos, 1.0);
 
     output.pos = mul(pcs.camera->proj, mul(pcs.camera->view, mul(model, pos)));
     output.color = object.color;
