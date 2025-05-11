@@ -1,3 +1,4 @@
+// Represents transformation data for the camera
 struct CameraData
 {
     float4x4 view;
@@ -5,12 +6,14 @@ struct CameraData
     float3 pos;
 };
 
+// Represents transformation and material data for the objects in the scene
 struct ObjectData
 {
     float4x4 model;
     float4 color;
 };
 
+// Represents a single vertex of a mesh
 struct Vertex
 {
     float3 pos;
@@ -19,6 +22,7 @@ struct Vertex
     float uvY;
 };
 
+// Represents the memory locations of the camera, object, and vertex buffers
 struct PushConstants
 {
     CameraData *camera;
@@ -29,6 +33,7 @@ struct PushConstants
 [vk::push_constant]
 PushConstants pcs;
 
+// Represents a vertex that has been processed by the vertex shader
 struct CoarseVertex
 {
     float3 eyeRelPos;
@@ -38,7 +43,7 @@ struct CoarseVertex
     float4 color;
 };
 
-
+// Represents a processed vertex along with its screenspace position
 struct VertexOutput
 {
     float4 pos : SV_Position;
@@ -53,16 +58,13 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
     ObjectData object = pcs.objects[baseInstance + instanceID];
 
     float4x4 model = object.model;
+    float3x3 normMat = float3x3(
+            cross(model[1].xyz, model[2].xyz),
+            cross(model[2].xyz, model[0].xyz),
+            cross(model[0].xyz, model[1].xyz));
 
     Vertex vert = pcs.vertices[vertexID];
-
     float4 pos = float4(vert.pos, 1.0);
-
-    float3x3 normMat = float3x3(
-        cross(model[1].xyz, model[2].xyz),
-        cross(model[2].xyz, model[0].xyz),
-        cross(model[0].xyz, model[1].xyz));
-
     float4 worldPos = mul(model, pos);
 
     CoarseVertex vertData;

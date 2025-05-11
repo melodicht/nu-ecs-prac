@@ -1,3 +1,4 @@
+// Represents a data buffer stored on the GPU
 struct AllocatedBuffer
 {
     VkBuffer buffer;
@@ -5,6 +6,7 @@ struct AllocatedBuffer
     VmaAllocationInfo info;
 };
 
+// Represents an image stored on the GPU
 struct AllocatedImage
 {
     VkImage image;
@@ -12,7 +14,7 @@ struct AllocatedImage
 };
 
 
-// The handler for a mesh uploaded to the GPU
+// Represents a mesh stored on the GPU
 struct Mesh
 {
     AllocatedBuffer indexBuffer;
@@ -22,12 +24,15 @@ struct Mesh
     u32 indexCount;
 };
 
+// Represents a texture stored on the GPU
 struct Texture
 {
     AllocatedImage texture;
     VkImageView imageView;
+    VkSampler sampler;
 };
 
+// Represents a vertex of a mesh (CPU->GPU)
 struct Vertex
 {
     glm::vec3 position;
@@ -36,6 +41,7 @@ struct Vertex
     f32 uvY;
 };
 
+// Represents the transformation data of the camera (CPU->GPU)
 struct CameraData
 {
     glm::mat4 view;
@@ -43,12 +49,14 @@ struct CameraData
     glm::vec3 pos;
 };
 
+// Represents the transformation data of the objects in the scene (CPU->GPU)
 struct ObjectData
 {
     glm::mat4 model;
     glm::vec4 color;
 };
 
+// Represents the GPU memory locations of the camera, object, and vertex buffers (CPU->GPU)
 struct PushConstants
 {
     VkDeviceAddress cameraAddress;
@@ -56,7 +64,7 @@ struct PushConstants
     VkDeviceAddress vertexAddress;
 };
 
-// The data that is stored per frame in flight
+// Represents the data for a single frame in flight of rendering
 struct FrameData
 {
     VkCommandPool commandPool;
