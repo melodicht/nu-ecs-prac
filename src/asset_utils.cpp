@@ -4,6 +4,14 @@ struct MeshAsset
     std::vector<u32> indices;
 };
 
+struct TextureAsset
+{
+    u32 width;
+    u32 height;
+
+    std::vector<uint32_t> pixels;
+};
+
 template <>
 struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, f32> {};
 
@@ -69,6 +77,22 @@ MeshAsset LoadMeshAsset(std::filesystem::path path)
             asset.vertices.push_back(vert);
         });
     }
+
+    return asset;
+}
+
+TextureAsset LoadTextureAsset(const char *path)
+{
+    int width, height, channels;
+
+    stbi_uc* imageData = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
+    TextureAsset asset{};
+    asset.width = width;
+    asset.height = height;
+    asset.pixels = std::vector<u32>((width * height * channels) / sizeof(u32));
+
+    memcpy(asset.pixels.data(), imageData, asset.pixels.size() * sizeof(u32));
+    stbi_image_free(imageData);
 
     return asset;
 }

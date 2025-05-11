@@ -22,6 +22,12 @@ struct Mesh
     u32 indexCount;
 };
 
+struct Texture
+{
+    AllocatedImage texture;
+    VkImageView imageView;
+};
+
 struct Vertex
 {
     glm::vec3 position;
@@ -56,7 +62,7 @@ struct FrameData
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
 
-    VkSemaphore presentSemaphore, renderSemaphore;
+    VkSemaphore acquireSemaphore;
     VkFence renderFence;
 
     AllocatedBuffer cameraBuffer;

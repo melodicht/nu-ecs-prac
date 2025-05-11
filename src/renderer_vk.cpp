@@ -36,6 +36,8 @@ VkExtent2D swapExtent;
 std::vector<VkImage> swapImages;
 std::vector<VkImageView> swapImageViews;
 
+std::vector<VkSemaphore> renderSemaphores;
+
 #define NUM_FRAMES 2
 
 VkCommandPool mainCommandPool;
@@ -316,8 +318,15 @@ void InitRenderer(SDL_Window *window)
     for (int i = 0; i < NUM_FRAMES; i++)
     {
         VK_CHECK(vkCreateFence(device, &fenceInfo, nullptr, &frames[i].renderFence));
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frames[i].renderSemaphore));
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frames[i].presentSemaphore));
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &frames[i].acquireSemaphore));
+
+    }
+
+    renderSemaphores = std::vector<VkSemaphore>(swapImages.size());
+
+    for (int i = 0; i < swapImages.size(); i++)
+    {
+        VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderSemaphores[i]));
     }
 
 
@@ -518,7 +527,7 @@ bool InitFrame()
     //Synchronize and get images
     VK_CHECK(vkWaitForFences(device, 1, &frames[frameNum].renderFence, true, 1000000000));
 
-    VkResult acquireResult = vkAcquireNextImageKHR(device, swapchain, 1000000000, frames[frameNum].presentSemaphore, nullptr, &swapIndex);
+    VkResult acquireResult = vkAcquireNextImageKHR(device, swapchain, 1000000000, frames[frameNum].acquireSemaphore, nullptr, &swapIndex);
     if (acquireResult == VK_ERROR_OUT_OF_DATE_KHR)
     {
         RecreateSwapchain();
@@ -655,9 +664,9 @@ void EndFrame()
 
     submit.pWaitDstStageMask = &waitStage;
     submit.waitSemaphoreCount = 1;
-    submit.pWaitSemaphores = &frames[frameNum].presentSemaphore;
+    submit.pWaitSemaphores = &frames[frameNum].acquireSemaphore;
     submit.signalSemaphoreCount = 1;
-    submit.pSignalSemaphores = &frames[frameNum].renderSemaphore;
+    submit.pSignalSemaphores = &renderSemaphores[swapIndex];
     submit.commandBufferCount = 1;
     submit.pCommandBuffers = &cmd;
 
@@ -671,7 +680,7 @@ void EndFrame()
     presentInfo.pSwapchains = &swapchain;
     presentInfo.swapchainCount = 1;
 
-    presentInfo.pWaitSemaphores = &frames[frameNum].renderSemaphore;
+    presentInfo.pWaitSemaphores = &renderSemaphores[swapIndex];
     presentInfo.waitSemaphoreCount = 1;
 
     presentInfo.pImageIndices = &swapIndex;

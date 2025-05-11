@@ -39,6 +39,9 @@ typedef double f64;
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 #include "vk_render_types.h"
 #include "math_utils.cpp"
 #include "asset_utils.cpp"
