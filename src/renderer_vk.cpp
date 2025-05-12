@@ -524,7 +524,7 @@ void InitRenderer(SDL_Window *window)
     imGuiInfo.MinImageCount = 2;
     imGuiInfo.ImageCount = swapImages.size();
     imGuiInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    imGuiInfo.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE;
+    imGuiInfo.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE + 1;
     imGuiInfo.UseDynamicRendering = true;
     imGuiInfo.PipelineRenderingCreateInfo = dynRenderInfo;
     ImGui_ImplVulkan_Init(&imGuiInfo);
