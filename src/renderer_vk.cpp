@@ -44,7 +44,8 @@ VkCommandPool mainCommandPool;
 FrameData frames[NUM_FRAMES];
 
 VkPipelineLayout pipelineLayout;
-VkPipeline graphicsPipeline;
+VkPipeline depthPipeline;
+VkPipeline colorPipeline;
 
 u32 frameNum;
 
@@ -362,27 +363,39 @@ void InitRenderer(SDL_Window *window)
     }
 
     // Create shader stages
-    VkShaderModuleCreateInfo shaderInfo{};
-    shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *shaderFile = SDL_LoadFile("shaders/shader.spv", &shaderInfo.codeSize);
-    shaderInfo.pCode = reinterpret_cast<const uint32_t*>(shaderFile);
-    VkShaderModule shader;
-    VK_CHECK(vkCreateShaderModule(device, &shaderInfo, nullptr, &shader));
+    VkShaderModuleCreateInfo depthShaderInfo{};
+    depthShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    void *depthShaderFile = SDL_LoadFile("shaders/shader.spv", &depthShaderInfo.codeSize);
+    depthShaderInfo.pCode = reinterpret_cast<const uint32_t*>(depthShaderFile);
+    VkShaderModule depthShader;
+    VK_CHECK(vkCreateShaderModule(device, &depthShaderInfo, nullptr, &depthShader));
 
-    VkPipelineShaderStageCreateInfo vertStageInfo{};
-    vertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    vertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    vertStageInfo.module = shader;
-    vertStageInfo.pName = "vertexMain";
+    VkShaderModuleCreateInfo colorShaderInfo{};
+    colorShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    void *colorShaderFile = SDL_LoadFile("shaders/shader.spv", &colorShaderInfo.codeSize);
+    colorShaderInfo.pCode = reinterpret_cast<const uint32_t*>(colorShaderFile);
+    VkShaderModule colorShader;
+    VK_CHECK(vkCreateShaderModule(device, &colorShaderInfo, nullptr, &colorShader));
+
+    VkPipelineShaderStageCreateInfo colorVertStageInfo{};
+    colorVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    colorVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    colorVertStageInfo.module = colorShader;
+    colorVertStageInfo.pName = "vertexMain";
+
+    VkPipelineShaderStageCreateInfo depthVertStageInfo{};
+    colorVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    colorVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    colorVertStageInfo.module = depthShader;
+    colorVertStageInfo.pName = "vertexMain";
 
     VkPipelineShaderStageCreateInfo fragStageInfo{};
     fragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragStageInfo.module = shader;
+    fragStageInfo.module = colorShader;
     fragStageInfo.pName = "fragmentMain";
 
-    VkPipelineShaderStageCreateInfo shaderStages[] = {vertStageInfo, fragStageInfo};
-
+    VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, fragStageInfo};
 
     // Create render pipeline layout
     VkPushConstantRange pushConstants;
@@ -400,7 +413,7 @@ void InitRenderer(SDL_Window *window)
     VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout));
 
 
-    // Create render pipeline (AKA fill in 20000 info structs)
+    // Create render pipelines (AKA fill in 20000 info structs)
     std::vector<VkDynamicState> dynamicStates =
     {
             VK_DYNAMIC_STATE_VIEWPORT,
@@ -474,44 +487,84 @@ void InitRenderer(SDL_Window *window)
     colorBlending.blendConstants[2] = 0.0f;
     colorBlending.blendConstants[3] = 0.0f;
 
-    VkPipelineDepthStencilStateCreateInfo depthStencil{};
-    depthStencil.depthTestEnable = VK_TRUE;
-    depthStencil.depthWriteEnable = VK_TRUE;
-    depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
-    depthStencil.depthBoundsTestEnable = VK_FALSE;
-    depthStencil.minDepthBounds = 0.0f;
-    depthStencil.maxDepthBounds = 1.0f;
-    depthStencil.stencilTestEnable = VK_FALSE;
-    depthStencil.front = {};
-    depthStencil.back = {};
+    // For pre-depth pass
+    VkPipelineDepthStencilStateCreateInfo preDepthStencil{};
+    preDepthStencil.depthTestEnable = VK_TRUE;
+    preDepthStencil.depthWriteEnable = VK_TRUE;
+    preDepthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+    preDepthStencil.depthBoundsTestEnable = VK_FALSE;
+    preDepthStencil.minDepthBounds = 0.0f;
+    preDepthStencil.maxDepthBounds = 1.0f;
+    preDepthStencil.stencilTestEnable = VK_FALSE;
+    preDepthStencil.front = {};
+    preDepthStencil.back = {};
 
-    VkPipelineRenderingCreateInfo dynRenderInfo{};
-    dynRenderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-    dynRenderInfo.colorAttachmentCount = 1;
-    dynRenderInfo.pColorAttachmentFormats = &swapchainFormat;
-    dynRenderInfo.depthAttachmentFormat = depthFormat;
-    dynRenderInfo.depthAttachmentFormat = depthFormat;
+    // For color pass
+    VkPipelineDepthStencilStateCreateInfo colorDepthStencil{};
+    colorDepthStencil.depthTestEnable = VK_TRUE;
+    colorDepthStencil.depthWriteEnable = VK_FALSE;
+    colorDepthStencil.depthCompareOp = VK_COMPARE_OP_EQUAL;
+    colorDepthStencil.depthBoundsTestEnable = VK_FALSE;
+    colorDepthStencil.minDepthBounds = 0.0f;
+    colorDepthStencil.maxDepthBounds = 1.0f;
+    colorDepthStencil.stencilTestEnable = VK_FALSE;
+    colorDepthStencil.front = {};
+    colorDepthStencil.back = {};
 
-    VkGraphicsPipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    pipelineInfo.stageCount = 2;
-    pipelineInfo.pStages = shaderStages;
-    pipelineInfo.pVertexInputState = &vertexInfo;
-    pipelineInfo.pInputAssemblyState = &inputAssembly;
-    pipelineInfo.pViewportState = &viewportState;
-    pipelineInfo.pRasterizationState = &rasterizer;
-    pipelineInfo.pMultisampleState = &multisampling;
-    pipelineInfo.pDepthStencilState = &depthStencil;
-    pipelineInfo.pColorBlendState = &colorBlending;
-    pipelineInfo.pDynamicState = &dynamicState;
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.renderPass = nullptr; // No renderpass necessary because we are using dynamic rendering
-    pipelineInfo.subpass = 0;
-    pipelineInfo.pNext = &dynRenderInfo;
+    // For pre-depth pass
+    VkPipelineRenderingCreateInfo depthRenderInfo{};
+    depthRenderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    depthRenderInfo.colorAttachmentCount = 0;
+    depthRenderInfo.depthAttachmentFormat = depthFormat;
+    depthRenderInfo.depthAttachmentFormat = depthFormat;
 
-    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &pipelineInfo, nullptr, &graphicsPipeline));
+    // For color pass
+    VkPipelineRenderingCreateInfo colorRenderInfo{};
+    colorRenderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    colorRenderInfo.colorAttachmentCount = 1;
+    colorRenderInfo.pColorAttachmentFormats = &swapchainFormat;
+    colorRenderInfo.depthAttachmentFormat = depthFormat;
+    colorRenderInfo.depthAttachmentFormat = depthFormat;
 
-    vkDestroyShaderModule(device, shader, nullptr);
+    VkGraphicsPipelineCreateInfo depthPipelineInfo{};
+    depthPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    depthPipelineInfo.stageCount = 1;
+    depthPipelineInfo.pStages = &depthVertStageInfo;
+    depthPipelineInfo.pVertexInputState = &vertexInfo;
+    depthPipelineInfo.pInputAssemblyState = &inputAssembly;
+    depthPipelineInfo.pViewportState = &viewportState;
+    depthPipelineInfo.pRasterizationState = &rasterizer;
+    depthPipelineInfo.pMultisampleState = &multisampling;
+    depthPipelineInfo.pDepthStencilState = &colorDepthStencil;
+    depthPipelineInfo.pColorBlendState = &colorBlending;
+    depthPipelineInfo.pDynamicState = &dynamicState;
+    depthPipelineInfo.layout = pipelineLayout;
+    depthPipelineInfo.renderPass = nullptr; // No renderpass necessary because we are using dynamic rendering
+    depthPipelineInfo.subpass = 0;
+    depthPipelineInfo.pNext = &colorRenderInfo;
+
+    VkGraphicsPipelineCreateInfo colorPipelineInfo{};
+    colorPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    colorPipelineInfo.stageCount = 2;
+    colorPipelineInfo.pStages = colorShaderStages;
+    colorPipelineInfo.pVertexInputState = &vertexInfo;
+    colorPipelineInfo.pInputAssemblyState = &inputAssembly;
+    colorPipelineInfo.pViewportState = &viewportState;
+    colorPipelineInfo.pRasterizationState = &rasterizer;
+    colorPipelineInfo.pMultisampleState = &multisampling;
+    colorPipelineInfo.pDepthStencilState = &colorDepthStencil;
+    colorPipelineInfo.pColorBlendState = &colorBlending;
+    colorPipelineInfo.pDynamicState = &dynamicState;
+    colorPipelineInfo.layout = pipelineLayout;
+    colorPipelineInfo.renderPass = nullptr; // No renderpass necessary because we are using dynamic rendering
+    colorPipelineInfo.subpass = 0;
+    colorPipelineInfo.pNext = &colorRenderInfo;
+
+    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &depthPipelineInfo, nullptr, &depthPipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &colorPipelineInfo, nullptr, &colorPipeline));
+
+    vkDestroyShaderModule(device, depthShader, nullptr);
+    vkDestroyShaderModule(device, colorShader, nullptr);
 
     // Initialize ImGui
     ImGui_ImplVulkan_InitInfo imGuiInfo{};
@@ -526,7 +579,7 @@ void InitRenderer(SDL_Window *window)
     imGuiInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
     imGuiInfo.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE + 1;
     imGuiInfo.UseDynamicRendering = true;
-    imGuiInfo.PipelineRenderingCreateInfo = dynRenderInfo;
+    imGuiInfo.PipelineRenderingCreateInfo = colorRenderInfo;
     ImGui_ImplVulkan_Init(&imGuiInfo);
 
     ImGui_ImplVulkan_CreateFontsTexture();
@@ -602,7 +655,7 @@ bool InitFrame()
 
     vkCmdBeginRendering(cmd, &renderInfo);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipeline);
 
     //set dynamic viewport and scissor
     VkViewport viewport = {};
@@ -624,6 +677,11 @@ bool InitFrame()
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     return true;
+}
+
+void InitFrame2()
+{
+
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
