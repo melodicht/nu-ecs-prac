@@ -27,6 +27,10 @@ typedef double f64;
 #include <volk.h>
 #include <VkBootstrap.h>
 
+#include <imgui.h>
+#include <backends/imgui_impl_sdl3.h>
+#include <backends/imgui_impl_vulkan.h>
+
 #include "vma_no_warnings.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -87,6 +91,10 @@ int main()
         return 1;
     }
 
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui_ImplSDL3_InitForVulkan(window);
+
     SDL_SetWindowRelativeMouseMode(window, true);
 
     InitRenderer(window);
@@ -108,6 +116,8 @@ int main()
 
         while (SDL_PollEvent(&e))
         {
+            ImGui_ImplSDL3_ProcessEvent(&e);
+
             switch (e.type)
             {
                 case SDL_EVENT_QUIT:
@@ -129,6 +139,12 @@ int main()
         SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
 
         SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL3_NewFrame();
+        ImGui::NewFrame();
+
+        // DRAW IMGUI STUFF HERE
 
         GameUpdateAndRender(scene, window, deltaTime);
 

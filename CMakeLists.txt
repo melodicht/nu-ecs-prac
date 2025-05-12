@@ -8,10 +8,22 @@ include(cmake/CPM.cmake)
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
+CPMAddPackage("gh:ocornut/imgui#v1.91.9b")
 find_package(Vulkan REQUIRED)
 
-add_executable(untitled-engine ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/VkBootstrap.cpp)
+
+add_definitions(-DIMGUI_IMPL_VULKAN_USE_VOLK)
+
+file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
+list(APPEND imgui_sources ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
+
+add_executable(untitled-engine ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/VkBootstrap.cpp ${imgui_sources})
 target_include_directories(untitled-engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+
+target_include_directories(untitled-engine
+        PUBLIC
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>
+)
 
 target_link_libraries(untitled-engine PRIVATE Vulkan::Vulkan)
 target_link_libraries(untitled-engine PRIVATE SDL3::SDL3)

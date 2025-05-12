@@ -512,6 +512,24 @@ void InitRenderer(SDL_Window *window)
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &pipelineInfo, nullptr, &graphicsPipeline));
 
     vkDestroyShaderModule(device, shader, nullptr);
+
+    // Initialize ImGui
+    ImGui_ImplVulkan_InitInfo imGuiInfo{};
+    imGuiInfo.ApiVersion = VK_API_VERSION_1_3;
+    imGuiInfo.Instance = instance;
+    imGuiInfo.PhysicalDevice = physDevice;
+    imGuiInfo.Device = device;
+    imGuiInfo.QueueFamily = graphicsQueueFamily;
+    imGuiInfo.Queue = graphicsQueue;
+    imGuiInfo.MinImageCount = 2;
+    imGuiInfo.ImageCount = swapImages.size();
+    imGuiInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    imGuiInfo.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE;
+    imGuiInfo.UseDynamicRendering = true;
+    imGuiInfo.PipelineRenderingCreateInfo = dynRenderInfo;
+    ImGui_ImplVulkan_Init(&imGuiInfo);
+
+    ImGui_ImplVulkan_CreateFontsTexture();
 }
 
 uint32_t swapIndex;
@@ -649,6 +667,9 @@ void EndFrame()
 {
     // End dynamic rendering and commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
 
     vkCmdEndRendering(cmd);
     TransitionImage(cmd, swapImages[swapIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
