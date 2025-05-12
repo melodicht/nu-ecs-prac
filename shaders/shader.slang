@@ -37,9 +37,7 @@ PushConstants pcs;
 struct CoarseVertex
 {
     float3 eyeRelPos;
-    float uvX;
     float3 normal;
-    float uvY;
     float4 color;
 };
 
@@ -71,8 +69,6 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
     vertData.color = object.color;
     vertData.eyeRelPos = worldPos.xyz - pcs.camera->pos;
     vertData.normal = normalize(mul(normMat, vert.normal));
-    vertData.uvX = vert.uvX;
-    vertData.uvY = vert.uvY;
 
     output.pos = mul(pcs.camera->proj, mul(pcs.camera->view, worldPos));
     output.vertData = vertData;
