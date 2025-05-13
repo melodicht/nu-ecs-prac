@@ -679,11 +679,6 @@ bool InitFrame()
     return true;
 }
 
-void InitFrame2()
-{
-
-}
-
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
 void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
 {

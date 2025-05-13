@@ -144,14 +144,6 @@ class RenderSystem : public System
             startIndex += pair.second;
         }
 
-        InitFrame2();
-        for (std::pair<Mesh *, u32> pair: meshCounts)
-        {
-            SetMesh(pair.first);
-            DrawObjects(pair.second, startIndex);
-            startIndex += pair.second;
-        }
-
         startIndex = 0;
 
         EndFrame();
