@@ -23,12 +23,6 @@ typedef double f64;
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
 
-#define VOLK_IMPLEMENTATION
-#include <volk.h>
-#include <VkBootstrap.h>
-
-#include "vma_no_warnings.h"
-
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
 #include <glm/glm.hpp>
@@ -42,9 +36,11 @@ typedef double f64;
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include "vk_render_types.h"
+#include "render_factory.cpp"
+
+static std::unique_ptr<IRenderBackend> renderer = BuildRenderer();
+
 #include "math_utils.cpp"
-#include "asset_utils.cpp"
 
 int windowWidth = WINDOW_WIDTH;
 int windowHeight = WINDOW_HEIGHT;
@@ -53,8 +49,8 @@ std::unordered_map<std::string, bool> keysDown;
 f32 mouseDeltaX = 0;
 f32 mouseDeltaY = 0;
 
-#include "renderer_vk.cpp"
 #include "ecs.cpp"
+
 
 #include "game.h"
 #include "systems.cpp"
@@ -65,12 +61,6 @@ f32 mouseDeltaY = 0;
 int main()
 {
     srand(static_cast<unsigned>(time(0)));
-
-    if (volkInitialize() != VK_SUCCESS)
-    {
-        printf("Volk could not initialize!");
-        return 1;
-    }
 
     SDL_Window *window = NULL;
     SDL_Surface *screenSurface = NULL;
@@ -89,7 +79,7 @@ int main()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    InitRenderer(window);
+    renderer->InitRenderer(window);
 
     Scene scene;
     GameInitialize(scene);

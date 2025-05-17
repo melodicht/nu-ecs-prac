@@ -1,3 +1,10 @@
+#define VOLK_IMPLEMENTATION
+#include "renderer_vk.h"
+#include "vma_no_warnings.h"
+
+#include <volk.h>
+#include <VkBootstrap.h>
+
 #define VK_CHECK(x)                                                 \
 	do                                                              \
 	{                                                               \
@@ -10,69 +17,32 @@
 		}                                                           \
 	} while (0)
 
-#include "vk_render_utils.cpp"
-
-
-// Vulkan structures
-VkInstance instance;
-VkDebugUtilsMessengerEXT debugMessenger;
-VkSurfaceKHR surface;
-
-VkPhysicalDevice physDevice;
-VkDevice device;
-
-VkQueue graphicsQueue;
-u32 graphicsQueueFamily;
-
-VmaAllocator allocator;
-
-VkFormat depthFormat;
-AllocatedImage depthImage;
-VkImageView depthImageView;
-
-VkFormat swapchainFormat;
-VkSwapchainKHR swapchain;
-VkExtent2D swapExtent;
-std::vector<VkImage> swapImages;
-std::vector<VkImageView> swapImageViews;
-
-std::vector<VkSemaphore> renderSemaphores;
-
-#define NUM_FRAMES 2
-
-VkCommandPool mainCommandPool;
-FrameData frames[NUM_FRAMES];
-
-VkPipelineLayout pipelineLayout;
-VkPipeline graphicsPipeline;
-
-u32 frameNum;
-
-
 // Upload a mesh to the gpu
-Mesh* UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
+uint32_t VKRenderBackend::UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices)
 {
-    Mesh* mesh = new Mesh();
+    currentMeshID++;
+    auto iter = meshStore.emplace(currentMeshID,Mesh())
+    Mesh& mesh = iter.first->second;
 
-    size_t indexSize = sizeof(u32) * indexCount;
+    size_t indexSize = sizeof(uint32_t) * indexCount;
     size_t vertSize = sizeof(Vertex) * vertCount;
 
-    mesh->indexBuffer = CreateBuffer(allocator,
+    mesh.indexBuffer = CreateBuffer(allocator,
                                      indexSize,
                                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT
                                      | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                      0,
                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    mesh->vertBuffer = CreateBuffer(allocator, vertSize,
+    mesh.vertBuffer = CreateBuffer(allocator, vertSize,
                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                     | VK_BUFFER_USAGE_TRANSFER_DST_BIT
                                     | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                     0,
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    VkBufferDeviceAddressInfo deviceAddressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = mesh->vertBuffer.buffer};
-    mesh->vertAddress = vkGetBufferDeviceAddress(device, &deviceAddressInfo);
+    VkBufferDeviceAddressInfo deviceAddressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = mesh.vertBuffer.buffer};
+    mesh.vertAddress = vkGetBufferDeviceAddress(device, &deviceAddressInfo);
 
 
     AllocatedBuffer stagingBuffer = CreateBuffer(allocator,
@@ -93,38 +63,40 @@ Mesh* UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
     indexCopy.srcOffset = 0;
     indexCopy.size = indexSize;
 
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh->indexBuffer.buffer, 1, &indexCopy);
+    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1, &indexCopy);
 
     VkBufferCopy vertCopy{0};
     vertCopy.dstOffset = 0;
     vertCopy.srcOffset = indexSize;
     vertCopy.size = vertSize;
 
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh->vertBuffer.buffer, 1, &vertCopy);
+    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertBuffer.buffer, 1, &vertCopy);
 
     EndImmediateCommands(device, graphicsQueue, mainCommandPool, cmd);
     DestroyBuffer(allocator, stagingBuffer);
 
 
-    mesh->indexCount = indexCount;
-
-    return mesh;
+    mesh.indexCount = indexCount;
+    
+    return currentMeshID;
 }
 
-Mesh* UploadMesh(MeshAsset &asset)
+uint32_t VKRenderBackend::UploadMesh(MeshAsset &asset)
 {
     return UploadMesh(asset.vertices.size(), asset.vertices.data(), asset.indices.size(), asset.indices.data());
 }
 
-void DestroyMesh(Mesh* mesh)
+void VKRenderBackend::DestroyMesh(uint32_t meshID)
 {
-    DestroyBuffer(allocator, mesh->indexBuffer);
-    DestroyBuffer(allocator, mesh->vertBuffer);
+    Mesh& mesh = meshStore[meshID];
+    DestroyBuffer(allocator, mesh.indexBuffer);
+    DestroyBuffer(allocator, mesh.vertBuffer);
+    meshStore.erase(meshID);
 }
 
 
 // Create swapchain or recreate to change size
-void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
+void VKRenderBackend::CreateSwapchain(uint32_t width, uint32_t height, VkSwapchainKHR oldSwapchain)
 {
     // Create the swapchain
     vkb::SwapchainBuilder swapBuilder{physDevice, device, surface};
@@ -176,7 +148,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthImageView));
 }
 
-void DestroySwapResources()
+void VKRenderBackend::DestroySwapResources()
 {
     vkDestroyImageView(device, depthImageView, nullptr);
     DestroyImage(allocator, depthImage);
@@ -187,13 +159,13 @@ void DestroySwapResources()
     }
 }
 
-void RecreateSwapchain()
+void VKRenderBackend::RecreateSwapchain()
 {
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physDevice, surface, &surfaceCapabilities);
 
-    u32 width = surfaceCapabilities.currentExtent.width;
-    u32 height = surfaceCapabilities.currentExtent.height;
+    uint32_t width = surfaceCapabilities.currentExtent.width;
+    uint32_t height = surfaceCapabilities.currentExtent.height;
 
     if (width == 0 || height == 0)
     {
@@ -211,8 +183,14 @@ void RecreateSwapchain()
 
 
 // Initialize the rendering API
-void InitRenderer(SDL_Window *window)
+void VKRenderBackend::InitRenderer(SDL_Window *window)
 {
+    if (volkInitialize() != VK_SUCCESS)
+    {
+        printf("Volk could not initialize!");
+        return;
+    }
+
     // Create Vulkan instance
     vkb::InstanceBuilder builder;
     vkb::Instance vkbInstance = builder
@@ -514,12 +492,8 @@ void InitRenderer(SDL_Window *window)
     vkDestroyShaderModule(device, shader, nullptr);
 }
 
-uint32_t swapIndex;
-
-bool resize = false;
-
 // Set up frame and begin capturing draw calls
-bool InitFrame()
+bool VKRenderBackend::InitFrame()
 {
     //Set up commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
@@ -609,7 +583,7 @@ bool InitFrame()
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
-void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
+void VKRenderBackend::SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
 {
     CameraData camera{view, proj, pos};
     void* cameraData = frames[frameNum].cameraBuffer.allocation->GetMappedData();
@@ -617,16 +591,14 @@ void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
 }
 
 // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
-void SendObjectData(std::vector<ObjectData>& objects)
+void VKRenderBackend::SendObjectData(std::vector<ObjectData>& objects)
 {
     void* objectData = frames[frameNum].objectBuffer.allocation->GetMappedData();
     memcpy(objectData, objects.data(), sizeof(ObjectData) * objects.size());
 }
 
-u32 indexCount;
-
 // Set the mesh currently being rendered (Must be called between InitFrame and EndFrame)
-void SetMesh(Mesh* mesh)
+void VKRenderBackend::SetMesh(Mesh* mesh)
 {
     // Send addresses to camera, object, and vertex buffers as push constants
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
@@ -639,13 +611,13 @@ void SetMesh(Mesh* mesh)
 }
 
 // Draw multiple objects to the screen (Must be called between InitFrame and EndFrame and after SetMesh)
-void DrawObjects(int count, int startIndex)
+void VKRenderBackend::DrawObjects(int count, int startIndex)
 {
     vkCmdDrawIndexed(frames[frameNum].commandBuffer, indexCount, count, 0, 0, startIndex);
 }
 
 // End the frame and present it to the screen
-void EndFrame()
+void VKRenderBackend::EndFrame()
 {
     // End dynamic rendering and commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;

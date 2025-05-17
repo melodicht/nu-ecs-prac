@@ -4,20 +4,47 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 project("untitled-engine")
 
+# Resolves dependencies
 include(cmake/CPM.cmake)
+
+add_library(DEPENDENCIES INTERFACE)
+set(INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer)
+set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+
+# Determines rendering backend
+set(render_sys "VULKAN")
+if(APPLE)
+        set(render_sys "WEBGPU")
+endif()
+
+message("Initializing [${render_sys}] rendering backend")
+
+# Accordingly resolves dependencies required for each rendering backend
+if(${render_sys} STREQUAL "VULKAN")
+        find_package(Vulkan REQUIRED)
+        target_link_libraries(DEPENDENCIES INTERFACE Vulkan::Vulkan)
+        list(APPEND SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend/VkBootstrap.cpp)
+        list(APPEND INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan)
+elseif(${render_sys} STREQUAL "WEBGPU")
+        # TODO: Make Webgpu back end
+        list(APPEND INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend)
+endif()
+
+# Resolves dependencies that always are needed
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
-find_package(Vulkan REQUIRED)
+target_link_libraries(DEPENDENCIES INTERFACE SDL3::SDL3)
+target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
+target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
 
-add_executable(untitled-engine ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/VkBootstrap.cpp)
-target_include_directories(untitled-engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_link_libraries(untitled-engine PRIVATE Vulkan::Vulkan)
-target_link_libraries(untitled-engine PRIVATE SDL3::SDL3)
-target_link_libraries(untitled-engine PRIVATE glm::glm)
-target_link_libraries(untitled-engine PRIVATE fastgltf::fastgltf)
+# Puts together target
+add_executable(untitled-engine ${SRC})
+target_include_directories(untitled-engine PUBLIC ${INCLUDED})
+target_link_libraries(untitled-engine PRIVATE DEPENDENCIES)
 
+# TODO: IDK what this is xd
 if (WIN32)
     add_custom_command(TARGET untitled-engine POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:untitled-engine> $<TARGET_FILE_DIR:untitled-engine>
@@ -25,6 +52,7 @@ if (WIN32)
     )
 endif()
 
+# Includes shaders in build
 set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(SHADERS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
 
