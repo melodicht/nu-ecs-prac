@@ -11,11 +11,7 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-#define u8  uint8_t
-#define u32 uint32_t
-#define u64 uint64_t
-typedef float f32;
-typedef double f64;
+#include "math_consts.h"
 
 #define SDL_MAIN_HANDLED
 
@@ -40,6 +36,8 @@ typedef double f64;
 
 static std::unique_ptr<IRenderBackend> renderer = BuildRenderer();
 
+#include "asset_utils.cpp"
+
 #include "math_utils.cpp"
 
 int windowWidth = WINDOW_WIDTH;
@@ -50,7 +48,6 @@ f32 mouseDeltaX = 0;
 f32 mouseDeltaY = 0;
 
 #include "ecs.cpp"
-
 
 #include "game.h"
 #include "systems.cpp"
@@ -127,7 +124,7 @@ int main()
 
         f32 msPerFrame =  1000.0f * deltaTime;
         f32 fps = 1 / deltaTime;
-        printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+        //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
     }
 
     SDL_DestroyWindow(window);

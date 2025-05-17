@@ -416,3 +416,4 @@ build
 
 /subprojects
 /.vscode
+.DS_Store

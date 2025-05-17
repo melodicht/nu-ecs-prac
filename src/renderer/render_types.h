@@ -1,12 +1,18 @@
 #pragma once 
 
+#include <vector>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 // Represents a vertex of a mesh (CPU->GPU)
 struct Vertex
 {
     glm::vec3 position;
-    f32 uvX;
+    float uvX;
     glm::vec3 normal;
-    f32 uvY;
+    float uvY;
 };
 
 // Represents the transformation data of the camera (CPU->GPU)

@@ -8,13 +8,14 @@ project("untitled-engine")
 include(cmake/CPM.cmake)
 
 add_library(DEPENDENCIES INTERFACE)
-set(INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer)
+set(INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer ${CMAKE_CURRENT_SOURCE_DIR}/src/math)
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 # Determines rendering backend
 set(render_sys "VULKAN")
 if(APPLE)
         set(render_sys "WEBGPU")
+        enable_language(OBJC)
 endif()
 
 message("Initializing [${render_sys}] rendering backend")
@@ -26,8 +27,14 @@ if(${render_sys} STREQUAL "VULKAN")
         list(APPEND SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend/VkBootstrap.cpp)
         list(APPEND INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan)
 elseif(${render_sys} STREQUAL "WEBGPU")
-        # TODO: Make Webgpu back end
+        # Includes dawn backend
         list(APPEND INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend)
+        list(APPEND SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend/renderer_wpu.cpp)
+
+        # Fetches Dawn
+        set(DAWN_FETCH_DEPENDENCIES ON)
+        CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/main.tar.gz")
+        target_link_libraries(DEPENDENCIES INTERFACE dawn::webgpu_dawn)
 endif()
 
 # Resolves dependencies that always are needed

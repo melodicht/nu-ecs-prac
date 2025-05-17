@@ -1,3 +1,5 @@
+#include "asset_types.h"
+
 void GameInitialize(Scene &scene)
 {
     bool slowStep = false;

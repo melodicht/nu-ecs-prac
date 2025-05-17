@@ -1,7 +1,10 @@
 #pragma once
 
 #include "render_types.h"
-#include "asset_utils.cpp"
+#include "math_consts.h"
+#include "asset_types.h"
+
+#include <SDL3/SDL.h>
 
 #include <cstdint>
 
@@ -37,4 +40,7 @@ public:
 
     // Draw multiple objects to the screen (Must be called between InitFrame and EndFrame and after SetMesh)
     virtual void DrawObjects(int count, int startIndex) = 0;
+
+    // Virtual Deconstructor
+    virtual ~IRenderBackend() {}
 };
