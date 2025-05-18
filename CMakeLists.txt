@@ -32,7 +32,7 @@ set(render_sys "VULKAN")
 if(APPLE)
         set(render_sys "WEBGPU")
         enable_language(OBJC)
-else(EMSCRIPTEN)
+elseif(EMSCRIPTEN)
         set(render_sys "WEBGPU")
 endif()
 
