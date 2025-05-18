@@ -23,6 +23,8 @@ set(render_sys "VULKAN")
 if(APPLE)
         set(render_sys "WEBGPU")
         enable_language(OBJC)
+else(EMSCRIPTEN)
+        set(render_sys "WEBGPU")
 endif()
 
 message("Initializing [${render_sys}] rendering backend")
@@ -39,13 +41,27 @@ if(${render_sys} STREQUAL "VULKAN")
         target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
 elseif(${render_sys} STREQUAL "WEBGPU")
         # Includes dawn backend
-        list(APPEND INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend)
         list(APPEND SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend/renderer_wpu.cpp)
 
-        # Fetches Dawn
-        set(DAWN_FETCH_DEPENDENCIES ON)
-        CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/main.tar.gz")
-        target_link_libraries(DEPENDENCIES INTERFACE dawn::webgpu_dawn)
+        set(WEBGPU_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend)
+        add_library(wpu-backend ${WEBGPU_SRC_DIR}/renderer_wpu.cpp ${WEBGPU_SRC_DIR}/render_backend_wpuimpl.cpp)
+        target_include_directories(wpu-backend PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+        if(EMSCRIPTEN)
+                target_link_options(wpu-backend PUBLIC 
+                        -sUSE_WEBGPU 
+                        -sUSE_SDL=3
+                        -sASYNCIFY)
+        else()
+                # Fetches Dawn
+                set(DAWN_FETCH_DEPENDENCIES ON)
+                CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/main.tar.gz")
+                target_link_libraries(wpu-backend PUBLIC dawn::webgpu_dawn)
+        endif()
+
+        target_link_libraries(wpu-backend PUBLIC SDL3::SDL3)
+        target_link_libraries(wpu-backend PUBLIC glm::glm)
+        target_link_libraries(DEPENDENCIES INTERFACE wpu-backend)
 endif()
 
 
