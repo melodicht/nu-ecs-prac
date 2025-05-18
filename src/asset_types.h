@@ -1,7 +1,7 @@
 #pragma once
 
-#include "math_consts.h"
-#include "render_types.h"
+#include "math/math_consts.h"
+#include "renderer/render_types.h"
 
 #include <vector>
 

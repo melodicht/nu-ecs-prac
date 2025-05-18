@@ -1,9 +1,12 @@
-#define VOLK_IMPLEMENTATION
-#include "renderer_vk.h"
-#include "vma_no_warnings.h"
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_vulkan.h>
 
-#include <volk.h>
-#include <VkBootstrap.h>
+#define VOLK_IMPLEMENTATION
+#include <vulkan/volk.h>
+
+#include "vulkan/vma_no_warnings.h"
+#include <iostream>
 
 #define VK_CHECK(x)                                                 \
 	do                                                              \
@@ -17,11 +20,64 @@
 		}                                                           \
 	} while (0)
 
+#include "math/math_consts.h"
+
+#include "renderer/vk_backend/vk_render_types.h"
+#include "renderer/vk_backend/vk_render_utils.cpp"
+#include "renderer/render_backend.h"
+
+#include <vulkan/VkBootstrap.h>
+
+#include <unordered_map>
+
+// Vulkan structures
+VkInstance instance;
+VkDebugUtilsMessengerEXT debugMessenger;
+VkSurfaceKHR surface;
+
+VkPhysicalDevice physDevice;
+VkDevice device;
+
+VkQueue graphicsQueue;
+uint32_t graphicsQueueFamily;
+
+VmaAllocator allocator;
+
+VkFormat depthFormat;
+AllocatedImage depthImage;
+VkImageView depthImageView;
+
+VkFormat swapchainFormat;
+VkSwapchainKHR swapchain;
+VkExtent2D swapExtent;
+std::vector<VkImage> swapImages;
+std::vector<VkImageView> swapImageViews;
+
+std::vector<VkSemaphore> renderSemaphores;
+
+#define NUM_FRAMES 2
+
+VkCommandPool mainCommandPool;
+FrameData frames[NUM_FRAMES];
+
+VkPipelineLayout pipelineLayout;
+VkPipeline graphicsPipeline;
+
+u32 frameNum{ 0 };
+
+u32 swapIndex{ 0 };
+bool resize = false;
+u32 indexCount{ 0 };
+
+u32 currentMeshID{ 0 };
+std::unordered_map<u32,Mesh> meshStore;
+
+
 // Upload a mesh to the gpu
-uint32_t VKRenderBackend::UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices)
+u32 UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices)
 {
     currentMeshID++;
-    auto iter = meshStore.emplace(currentMeshID,Mesh())
+    auto iter = meshStore.emplace(currentMeshID,Mesh());
     Mesh& mesh = iter.first->second;
 
     size_t indexSize = sizeof(uint32_t) * indexCount;
@@ -81,12 +137,12 @@ uint32_t VKRenderBackend::UploadMesh(uint32_t vertCount, Vertex* vertices, uint3
     return currentMeshID;
 }
 
-uint32_t VKRenderBackend::UploadMesh(MeshAsset &asset)
+u32 UploadMesh(MeshAsset &asset)
 {
     return UploadMesh(asset.vertices.size(), asset.vertices.data(), asset.indices.size(), asset.indices.data());
 }
 
-void VKRenderBackend::DestroyMesh(uint32_t meshID)
+void DestroyMesh(u32 meshID)
 {
     Mesh& mesh = meshStore[meshID];
     DestroyBuffer(allocator, mesh.indexBuffer);
@@ -96,7 +152,7 @@ void VKRenderBackend::DestroyMesh(uint32_t meshID)
 
 
 // Create swapchain or recreate to change size
-void VKRenderBackend::CreateSwapchain(uint32_t width, uint32_t height, VkSwapchainKHR oldSwapchain)
+void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
 {
     // Create the swapchain
     vkb::SwapchainBuilder swapBuilder{physDevice, device, surface};
@@ -148,7 +204,7 @@ void VKRenderBackend::CreateSwapchain(uint32_t width, uint32_t height, VkSwapcha
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthImageView));
 }
 
-void VKRenderBackend::DestroySwapResources()
+void DestroySwapResources()
 {
     vkDestroyImageView(device, depthImageView, nullptr);
     DestroyImage(allocator, depthImage);
@@ -159,7 +215,7 @@ void VKRenderBackend::DestroySwapResources()
     }
 }
 
-void VKRenderBackend::RecreateSwapchain()
+void RecreateSwapchain()
 {
     VkSurfaceCapabilitiesKHR surfaceCapabilities;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physDevice, surface, &surfaceCapabilities);
@@ -181,9 +237,13 @@ void VKRenderBackend::RecreateSwapchain()
     vkDestroySwapchainKHR(device, old, nullptr);
 }
 
+SDL_WindowFlags GetRenderWindowFlags()
+{
+    return SDL_WINDOW_VULKAN;
+}
 
 // Initialize the rendering API
-void VKRenderBackend::InitRenderer(SDL_Window *window)
+void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
 {
     if (volkInitialize() != VK_SUCCESS)
     {
@@ -257,7 +317,7 @@ void VKRenderBackend::InitRenderer(SDL_Window *window)
     VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator));
 
     // Create the swapchain and associated resources at the default dimensions
-    CreateSwapchain(WINDOW_WIDTH, WINDOW_HEIGHT, nullptr);
+    CreateSwapchain(startWidth, startHeight, nullptr);
 
     // Create the command pools and command buffers
     VkCommandPoolCreateInfo commandPoolInfo = {};
@@ -493,7 +553,7 @@ void VKRenderBackend::InitRenderer(SDL_Window *window)
 }
 
 // Set up frame and begin capturing draw calls
-bool VKRenderBackend::InitFrame()
+bool InitFrame()
 {
     //Set up commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
@@ -583,7 +643,7 @@ bool VKRenderBackend::InitFrame()
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
-void VKRenderBackend::SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
+void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
 {
     CameraData camera{view, proj, pos};
     void* cameraData = frames[frameNum].cameraBuffer.allocation->GetMappedData();
@@ -591,15 +651,17 @@ void VKRenderBackend::SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
 }
 
 // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
-void VKRenderBackend::SendObjectData(std::vector<ObjectData>& objects)
+void SendObjectData(std::vector<ObjectData>& objects)
 {
     void* objectData = frames[frameNum].objectBuffer.allocation->GetMappedData();
     memcpy(objectData, objects.data(), sizeof(ObjectData) * objects.size());
 }
 
 // Set the mesh currently being rendered (Must be called between InitFrame and EndFrame)
-void VKRenderBackend::SetMesh(Mesh* mesh)
+void SetMesh(u32 meshIndex)
 {
+    Mesh* mesh = &meshStore[meshIndex];
+
     // Send addresses to camera, object, and vertex buffers as push constants
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
     PushConstants pushConstants = {frames[frameNum].cameraAddress, frames[frameNum].objectAddress, mesh->vertAddress};
@@ -611,13 +673,13 @@ void VKRenderBackend::SetMesh(Mesh* mesh)
 }
 
 // Draw multiple objects to the screen (Must be called between InitFrame and EndFrame and after SetMesh)
-void VKRenderBackend::DrawObjects(int count, int startIndex)
+void DrawObjects(int count, int startIndex)
 {
     vkCmdDrawIndexed(frames[frameNum].commandBuffer, indexCount, count, 0, 0, startIndex);
 }
 
 // End the frame and present it to the screen
-void VKRenderBackend::EndFrame()
+void EndFrame()
 {
     // End dynamic rendering and commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
