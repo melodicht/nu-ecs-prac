@@ -66,13 +66,13 @@ VkPipelineLayout pipelineLayout;
 VkPipeline depthPipeline;
 VkPipeline colorPipeline;
 
-u32 frameNum{ 0 };
+u32 frameNum;
 
-u32 swapIndex{ 0 };
+u32 swapIndex;
 bool resize = false;
-u32 indexCount{ 0 };
+u32 currentIndexCount;
 
-u32 currentMeshID{ 0 };
+u32 currentMeshID;
 std::unordered_map<u32,Mesh> meshStore;
 
 
@@ -405,14 +405,14 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     // Create shader stages
     VkShaderModuleCreateInfo depthShaderInfo{};
     depthShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *depthShaderFile = SDL_LoadFile("shaders/shader.spv", &depthShaderInfo.codeSize);
+    void *depthShaderFile = SDL_LoadFile("shaders/depth.spv", &depthShaderInfo.codeSize);
     depthShaderInfo.pCode = reinterpret_cast<const uint32_t*>(depthShaderFile);
     VkShaderModule depthShader;
     VK_CHECK(vkCreateShaderModule(device, &depthShaderInfo, nullptr, &depthShader));
 
     VkShaderModuleCreateInfo colorShaderInfo{};
     colorShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *colorShaderFile = SDL_LoadFile("shaders/shader.spv", &colorShaderInfo.codeSize);
+    void *colorShaderFile = SDL_LoadFile("shaders/color.spv", &colorShaderInfo.codeSize);
     colorShaderInfo.pCode = reinterpret_cast<const uint32_t*>(colorShaderFile);
     VkShaderModule colorShader;
     VK_CHECK(vkCreateShaderModule(device, &colorShaderInfo, nullptr, &colorShader));
@@ -424,10 +424,10 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     colorVertStageInfo.pName = "vertexMain";
 
     VkPipelineShaderStageCreateInfo depthVertStageInfo{};
-    colorVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    colorVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    colorVertStageInfo.module = depthShader;
-    colorVertStageInfo.pName = "vertexMain";
+    depthVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    depthVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    depthVertStageInfo.module = depthShader;
+    depthVertStageInfo.pName = "vertexMain";
 
     VkPipelineShaderStageCreateInfo fragStageInfo{};
     fragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -556,14 +556,12 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     depthRenderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     depthRenderInfo.colorAttachmentCount = 0;
     depthRenderInfo.depthAttachmentFormat = depthFormat;
-    depthRenderInfo.depthAttachmentFormat = depthFormat;
 
     // For color pass
     VkPipelineRenderingCreateInfo colorRenderInfo{};
     colorRenderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
     colorRenderInfo.colorAttachmentCount = 1;
     colorRenderInfo.pColorAttachmentFormats = &swapchainFormat;
-    colorRenderInfo.depthAttachmentFormat = depthFormat;
     colorRenderInfo.depthAttachmentFormat = depthFormat;
 
     VkGraphicsPipelineCreateInfo depthPipelineInfo{};
@@ -581,7 +579,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     depthPipelineInfo.layout = pipelineLayout;
     depthPipelineInfo.renderPass = nullptr; // No renderpass necessary because we are using dynamic rendering
     depthPipelineInfo.subpass = 0;
-    depthPipelineInfo.pNext = &colorRenderInfo;
+    depthPipelineInfo.pNext = &depthRenderInfo;
 
     VkGraphicsPipelineCreateInfo colorPipelineInfo{};
     colorPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -743,13 +741,13 @@ void SetMesh(u32 meshIndex)
     // Bind the index buffer
     vkCmdBindIndexBuffer(cmd, mesh->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    indexCount = mesh->indexCount;
+    currentIndexCount = mesh->indexCount;
 }
 
 // Draw multiple objects to the screen (Must be called between InitFrame and EndFrame and after SetMesh)
 void DrawObjects(int count, int startIndex)
 {
-    vkCmdDrawIndexed(frames[frameNum].commandBuffer, indexCount, count, 0, 0, startIndex);
+    vkCmdDrawIndexed(frames[frameNum].commandBuffer, currentIndexCount, count, 0, 0, startIndex);
 }
 
 // End the frame and present it to the screen
