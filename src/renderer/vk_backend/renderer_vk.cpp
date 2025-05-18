@@ -10,8 +10,27 @@
 		}                                                           \
 	} while (0)
 
-#include "vk_render_utils.cpp"
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3/SDL_vulkan.h>
 
+#define VOLK_IMPLEMENTATION
+#include <vulkan/volk.h>
+
+#include "vulkan/vma_no_warnings.h"
+#include <iostream>
+
+#include <backends/imgui_impl_vulkan.h>
+
+#include "math/math_consts.h"
+
+#include "renderer/vk_backend/vk_render_types.h"
+#include "renderer/vk_backend/vk_render_utils.cpp"
+#include "renderer/render_backend.h"
+
+#include <vulkan/VkBootstrap.h>
+
+#include <unordered_map>
 
 // Vulkan structures
 VkInstance instance;
@@ -47,33 +66,42 @@ VkPipelineLayout pipelineLayout;
 VkPipeline depthPipeline;
 VkPipeline colorPipeline;
 
-u32 frameNum;
+u32 frameNum{ 0 };
+
+u32 swapIndex{ 0 };
+bool resize = false;
+u32 indexCount{ 0 };
+
+u32 currentMeshID{ 0 };
+std::unordered_map<u32,Mesh> meshStore;
 
 
 // Upload a mesh to the gpu
-Mesh* UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
+u32 UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices)
 {
-    Mesh* mesh = new Mesh();
+    currentMeshID++;
+    auto iter = meshStore.emplace(currentMeshID,Mesh());
+    Mesh& mesh = iter.first->second;
 
-    size_t indexSize = sizeof(u32) * indexCount;
+    size_t indexSize = sizeof(uint32_t) * indexCount;
     size_t vertSize = sizeof(Vertex) * vertCount;
 
-    mesh->indexBuffer = CreateBuffer(allocator,
+    mesh.indexBuffer = CreateBuffer(allocator,
                                      indexSize,
                                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT
                                      | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                      0,
                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    mesh->vertBuffer = CreateBuffer(allocator, vertSize,
+    mesh.vertBuffer = CreateBuffer(allocator, vertSize,
                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                     | VK_BUFFER_USAGE_TRANSFER_DST_BIT
                                     | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                     0,
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    VkBufferDeviceAddressInfo deviceAddressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = mesh->vertBuffer.buffer};
-    mesh->vertAddress = vkGetBufferDeviceAddress(device, &deviceAddressInfo);
+    VkBufferDeviceAddressInfo deviceAddressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = mesh.vertBuffer.buffer};
+    mesh.vertAddress = vkGetBufferDeviceAddress(device, &deviceAddressInfo);
 
 
     AllocatedBuffer stagingBuffer = CreateBuffer(allocator,
@@ -94,33 +122,35 @@ Mesh* UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
     indexCopy.srcOffset = 0;
     indexCopy.size = indexSize;
 
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh->indexBuffer.buffer, 1, &indexCopy);
+    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.indexBuffer.buffer, 1, &indexCopy);
 
     VkBufferCopy vertCopy{0};
     vertCopy.dstOffset = 0;
     vertCopy.srcOffset = indexSize;
     vertCopy.size = vertSize;
 
-    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh->vertBuffer.buffer, 1, &vertCopy);
+    vkCmdCopyBuffer(cmd, stagingBuffer.buffer, mesh.vertBuffer.buffer, 1, &vertCopy);
 
     EndImmediateCommands(device, graphicsQueue, mainCommandPool, cmd);
     DestroyBuffer(allocator, stagingBuffer);
 
 
-    mesh->indexCount = indexCount;
+    mesh.indexCount = indexCount;
 
-    return mesh;
+    return currentMeshID;
 }
 
-Mesh* UploadMesh(MeshAsset &asset)
+u32 UploadMesh(MeshAsset &asset)
 {
     return UploadMesh(asset.vertices.size(), asset.vertices.data(), asset.indices.size(), asset.indices.data());
 }
 
-void DestroyMesh(Mesh* mesh)
+void DestroyMesh(u32 meshID)
 {
-    DestroyBuffer(allocator, mesh->indexBuffer);
-    DestroyBuffer(allocator, mesh->vertBuffer);
+    Mesh& mesh = meshStore[meshID];
+    DestroyBuffer(allocator, mesh.indexBuffer);
+    DestroyBuffer(allocator, mesh.vertBuffer);
+    meshStore.erase(meshID);
 }
 
 
@@ -210,10 +240,20 @@ void RecreateSwapchain()
     vkDestroySwapchainKHR(device, old, nullptr);
 }
 
+SDL_WindowFlags GetRenderWindowFlags()
+{
+    return SDL_WINDOW_VULKAN;
+}
 
 // Initialize the rendering API
-void InitRenderer(SDL_Window *window)
+void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
 {
+    if (volkInitialize() != VK_SUCCESS)
+    {
+        printf("Volk could not initialize!");
+        return;
+    }
+
     // Create Vulkan instance
     vkb::InstanceBuilder builder;
     vkb::Instance vkbInstance = builder
@@ -280,7 +320,7 @@ void InitRenderer(SDL_Window *window)
     VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator));
 
     // Create the swapchain and associated resources at the default dimensions
-    CreateSwapchain(WINDOW_WIDTH, WINDOW_HEIGHT, nullptr);
+    CreateSwapchain(startWidth, startHeight, nullptr);
 
     // Create the command pools and command buffers
     VkCommandPoolCreateInfo commandPoolInfo = {};
@@ -585,13 +625,10 @@ void InitRenderer(SDL_Window *window)
     ImGui_ImplVulkan_CreateFontsTexture();
 }
 
-uint32_t swapIndex;
-
-bool resize = false;
-
 // Set up frame and begin capturing draw calls
 bool InitFrame()
 {
+    ImGui_ImplVulkan_NewFrame();
     //Set up commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
@@ -694,11 +731,11 @@ void SendObjectData(std::vector<ObjectData>& objects)
     memcpy(objectData, objects.data(), sizeof(ObjectData) * objects.size());
 }
 
-u32 indexCount;
-
 // Set the mesh currently being rendered (Must be called between InitFrame and EndFrame)
-void SetMesh(Mesh* mesh)
+void SetMesh(u32 meshIndex)
 {
+    Mesh* mesh = &meshStore[meshIndex];
+
     // Send addresses to camera, object, and vertex buffers as push constants
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
     PushConstants pushConstants = {frames[frameNum].cameraAddress, frames[frameNum].objectAddress, mesh->vertAddress};

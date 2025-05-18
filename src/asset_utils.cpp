@@ -1,16 +1,4 @@
-struct MeshAsset
-{
-    std::vector<Vertex> vertices;
-    std::vector<u32> indices;
-};
-
-struct TextureAsset
-{
-    u32 width;
-    u32 height;
-
-    std::vector<uint32_t> pixels;
-};
+#include "asset_types.h"
 
 template <>
 struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec3, f32> {};

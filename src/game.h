@@ -10,10 +10,10 @@ void GameUpdateAndRender(Scene &scene, SDL_Window *window, SDL_Renderer *rendere
 #define GRAVITY_MIN 0.25
 #define GRAVITY_MAX 0.5
 
-Mesh* cuboidMesh;
-Mesh* trapMesh;
-Mesh* pyraMesh;
-Mesh* prismMesh;
+uint32_t cuboidMesh;
+uint32_t trapMesh;
+uint32_t pyraMesh;
+uint32_t prismMesh;
 
 struct Rigidbody
 {
@@ -40,7 +40,7 @@ struct ColorComponent
 
 struct MeshComponent
 {
-    Mesh* mesh;
+    uint32_t mesh;
 };
 
 struct CameraComponent

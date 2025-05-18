@@ -25,7 +25,7 @@ static u64 ReadOSTimer(void)
 }
 
 
-#elif __APPLE__
+#elif __APPLE__ || __EMSCRIPTEN__
 static u64 GetOSTimerFreq(void)
 {
     return 0;

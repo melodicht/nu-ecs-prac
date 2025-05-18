@@ -11,27 +11,12 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-#define u8  uint8_t
-#define u32 uint32_t
-#define u64 uint64_t
-typedef float f32;
-typedef double f64;
+#include "math/math_consts.h"
 
 #define SDL_MAIN_HANDLED
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_vulkan.h>
-
-#define VOLK_IMPLEMENTATION
-#include <volk.h>
-#include <VkBootstrap.h>
-
-#include <imgui.h>
-#include <backends/imgui_impl_sdl3.h>
-#include <backends/imgui_impl_vulkan.h>
-
-#include "vma_no_warnings.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
@@ -43,12 +28,17 @@ typedef double f64;
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
+#include <imgui.h>
+#include <backends/imgui_impl_sdl3.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include "vk_render_types.h"
-#include "math_utils.cpp"
+#include "renderer/render_backend.h"
+
 #include "asset_utils.cpp"
+
+#include "math/math_utils.cpp"
 
 int windowWidth = WINDOW_WIDTH;
 int windowHeight = WINDOW_HEIGHT;
@@ -57,7 +47,6 @@ std::unordered_map<std::string, bool> keysDown;
 f32 mouseDeltaX = 0;
 f32 mouseDeltaY = 0;
 
-#include "renderer_vk.cpp"
 #include "ecs.cpp"
 
 #include "game.h"
@@ -70,12 +59,6 @@ int main()
 {
     srand(static_cast<unsigned>(time(0)));
 
-    if (volkInitialize() != VK_SUCCESS)
-    {
-        printf("Volk could not initialize!");
-        return 1;
-    }
-
     SDL_Window *window = NULL;
     SDL_Surface *screenSurface = NULL;
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS))
@@ -84,7 +67,7 @@ int main()
         return 1;
     }
 
-    window = SDL_CreateWindow("Untitled Engine", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN);
+    window = SDL_CreateWindow("Untitled Engine", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | GetRenderWindowFlags());
     if (window == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
@@ -93,11 +76,11 @@ int main()
 
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImGui_ImplSDL3_InitForVulkan(window);
+    ImGui_ImplSDL3_InitForOther(window);
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    InitRenderer(window);
+    InitRenderer(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     Scene scene;
     GameInitialize(scene);
@@ -140,11 +123,8 @@ int main()
 
         SDL_GetWindowSize(window, &windowWidth, &windowHeight);
 
-        ImGui_ImplVulkan_NewFrame();
         ImGui_ImplSDL3_NewFrame();
         ImGui::NewFrame();
-
-        // DRAW IMGUI STUFF HERE
 
         GameUpdateAndRender(scene, window, deltaTime);
 
@@ -153,7 +133,7 @@ int main()
 
         f32 msPerFrame =  1000.0f * deltaTime;
         f32 fps = 1 / deltaTime;
-        printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+        //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
     }
 
     SDL_DestroyWindow(window);
