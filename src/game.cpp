@@ -9,10 +9,10 @@ void GameInitialize(Scene &scene)
     MeshAsset pyraAsset = LoadMeshAsset("models/pyra.glb");
     MeshAsset prismAsset = LoadMeshAsset("models/prism.glb");
 
-    cuboidMesh = renderer->UploadMesh(cuboidAsset);
-    trapMesh = renderer->UploadMesh(trapAsset);
-    pyraMesh = renderer->UploadMesh(pyraAsset);
-    prismMesh = renderer->UploadMesh(prismAsset);
+    cuboidMesh = UploadMesh(cuboidAsset);
+    trapMesh = UploadMesh(trapAsset);
+    pyraMesh = UploadMesh(pyraAsset);
+    prismMesh = UploadMesh(prismAsset);
 
 
     RenderSystem *renderSys = new RenderSystem();

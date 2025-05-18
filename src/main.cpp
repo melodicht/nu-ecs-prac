@@ -11,13 +11,12 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-#include "math_consts.h"
+#include "math/math_consts.h"
 
 #define SDL_MAIN_HANDLED
 
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
-#include <SDL3/SDL_vulkan.h>
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
@@ -32,13 +31,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-#include "render_factory.cpp"
-
-static std::unique_ptr<IRenderBackend> renderer = BuildRenderer();
+#include "renderer/render_backend.h"
 
 #include "asset_utils.cpp"
 
-#include "math_utils.cpp"
+#include "math/math_utils.cpp"
 
 int windowWidth = WINDOW_WIDTH;
 int windowHeight = WINDOW_HEIGHT;
@@ -67,7 +64,7 @@ int main()
         return 1;
     }
 
-    window = SDL_CreateWindow("Untitled Engine", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | SDL_WINDOW_VULKAN);
+    window = SDL_CreateWindow("Untitled Engine", WINDOW_WIDTH, WINDOW_HEIGHT, SDL_WINDOW_RESIZABLE | GetRenderWindowFlags());
     if (window == NULL)
     {
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
@@ -76,7 +73,7 @@ int main()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    renderer->InitRenderer(window);
+    InitRenderer(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     Scene scene;
     GameInitialize(scene);

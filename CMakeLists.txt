@@ -8,8 +8,15 @@ project("untitled-engine")
 include(cmake/CPM.cmake)
 
 add_library(DEPENDENCIES INTERFACE)
-set(INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer ${CMAKE_CURRENT_SOURCE_DIR}/src/math)
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+
+# Resolves dependencies that always are needed
+CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
+CPMAddPackage("gh:g-truc/glm#1.0.1")
+CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
+target_link_libraries(DEPENDENCIES INTERFACE SDL3::SDL3)
+target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
+target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
 
 # Determines rendering backend
 set(render_sys "VULKAN")
@@ -23,9 +30,13 @@ message("Initializing [${render_sys}] rendering backend")
 # Accordingly resolves dependencies required for each rendering backend
 if(${render_sys} STREQUAL "VULKAN")
         find_package(Vulkan REQUIRED)
-        target_link_libraries(DEPENDENCIES INTERFACE Vulkan::Vulkan)
-        list(APPEND SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend/VkBootstrap.cpp)
-        list(APPEND INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan)
+        set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
+        add_library(vulkan-backend ${VULKAN_SRC_DIR}/renderer_vk.cpp ${VULKAN_SRC_DIR}/VkBootstrap.cpp)
+        target_link_libraries(vulkan-backend PRIVATE Vulkan::Vulkan)
+        target_link_libraries(vulkan-backend PRIVATE SDL3::SDL3)
+        target_link_libraries(vulkan-backend PRIVATE glm::glm)
+        target_include_directories(vulkan-backend PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
 elseif(${render_sys} STREQUAL "WEBGPU")
         # Includes dawn backend
         list(APPEND INCLUDED ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend)
@@ -37,18 +48,10 @@ elseif(${render_sys} STREQUAL "WEBGPU")
         target_link_libraries(DEPENDENCIES INTERFACE dawn::webgpu_dawn)
 endif()
 
-# Resolves dependencies that always are needed
-CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
-CPMAddPackage("gh:g-truc/glm#1.0.1")
-CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
-target_link_libraries(DEPENDENCIES INTERFACE SDL3::SDL3)
-target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
-target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
-
 
 # Puts together target
 add_executable(untitled-engine ${SRC})
-target_include_directories(untitled-engine PUBLIC ${INCLUDED})
+target_include_directories(untitled-engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(untitled-engine PRIVATE DEPENDENCIES)
 
 # TODO: IDK what this is xd

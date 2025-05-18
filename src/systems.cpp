@@ -76,11 +76,11 @@ class CollisionSystem : public System
 
 class RenderSystem : public System
 {
-    uint32_t currentMesh = 0;
+    u32 currentMesh = 0;
 
     void OnUpdate(Scene *scene, f32 deltaTime)
     {
-        if (!renderer->InitFrame())
+        if (!InitFrame())
         {
             return;
         }
@@ -98,7 +98,7 @@ class RenderSystem : public System
         f32 aspect = (f32)windowWidth / (f32)windowHeight;
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
-        renderer->SetCamera(view, proj, cameraTransform->position);
+        SetCamera(view, proj, cameraTransform->position);
 
         // 1. Gather counts of each unique mesh pointer.
         std::map<u32, u32> meshCounts;
@@ -134,17 +134,17 @@ class RenderSystem : public System
             objects[offsets[mesh]++] = {model, glm::vec4(c->r, c->g, c->b, 1.0f)};
         }
 
-        renderer->SendObjectData(objects);
+        SendObjectData(objects);
 
         int startIndex = 0;
         for (std::pair<u32, u32> pair: meshCounts)
         {
-            renderer->SetMesh(pair.first);
-            renderer->DrawObjects(pair.second, startIndex);
+            SetMesh(pair.first);
+            DrawObjects(pair.second, startIndex);
             startIndex += pair.second;
         }
 
-        renderer->EndFrame();
+        EndFrame();
     }
 };
 
