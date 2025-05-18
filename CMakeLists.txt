@@ -41,8 +41,6 @@ if(${render_sys} STREQUAL "VULKAN")
         target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
 elseif(${render_sys} STREQUAL "WEBGPU")
         # Includes dawn backend
-        list(APPEND SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend/renderer_wpu.cpp)
-
         set(WEBGPU_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend)
         add_library(wpu-backend ${WEBGPU_SRC_DIR}/renderer_wpu.cpp ${WEBGPU_SRC_DIR}/render_backend_wpuimpl.cpp)
         target_include_directories(wpu-backend PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -50,6 +48,7 @@ elseif(${render_sys} STREQUAL "WEBGPU")
         if(EMSCRIPTEN)
                 target_link_options(wpu-backend PUBLIC 
                         -sUSE_WEBGPU 
+                        -sASSERTIONS
                         -sUSE_SDL=3
                         -sASYNCIFY)
         else()
@@ -69,8 +68,10 @@ endif()
 add_executable(untitled-engine ${SRC})
 target_include_directories(untitled-engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
 target_link_libraries(untitled-engine PRIVATE DEPENDENCIES)
+if (EMSCRIPTEN)
+        set_target_properties(untitled-engine PROPERTIES SUFFIX ".html")
+endif()
 
-# TODO: IDK what this is xd
 if (WIN32)
     add_custom_command(TARGET untitled-engine POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:untitled-engine> $<TARGET_FILE_DIR:untitled-engine>
