@@ -10,6 +10,7 @@ include(cmake/CPM.cmake)
 add_library(DEPENDENCIES INTERFACE)
 set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
+set(SDL_X11_XRANDR ON)
 # Resolves dependencies that always are needed
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
@@ -81,7 +82,6 @@ elseif(${render_sys} STREQUAL "WEBGPU")
         target_link_libraries(wpu-backend PUBLIC glm::glm)
         target_link_libraries(DEPENDENCIES INTERFACE wpu-backend)
 endif()
-
 
 # Puts together target
 add_executable(untitled-engine ${SRC})

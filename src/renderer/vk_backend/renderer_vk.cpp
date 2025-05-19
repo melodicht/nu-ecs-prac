@@ -543,7 +543,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     VkPipelineDepthStencilStateCreateInfo colorDepthStencil{};
     colorDepthStencil.depthTestEnable = VK_TRUE;
     colorDepthStencil.depthWriteEnable = VK_FALSE;
-    colorDepthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    colorDepthStencil.depthCompareOp = VK_COMPARE_OP_EQUAL;
     colorDepthStencil.depthBoundsTestEnable = VK_FALSE;
     colorDepthStencil.minDepthBounds = 0.0f;
     colorDepthStencil.maxDepthBounds = 1.0f;
@@ -573,7 +573,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     depthPipelineInfo.pViewportState = &viewportState;
     depthPipelineInfo.pRasterizationState = &rasterizer;
     depthPipelineInfo.pMultisampleState = &multisampling;
-    depthPipelineInfo.pDepthStencilState = &colorDepthStencil;
+    depthPipelineInfo.pDepthStencilState = &preDepthStencil;
     depthPipelineInfo.pColorBlendState = &colorBlending;
     depthPipelineInfo.pDynamicState = &dynamicState;
     depthPipelineInfo.layout = pipelineLayout;
@@ -737,7 +737,6 @@ void BeginColorPass()
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
-    depthAttachment.clearValue.depthStencil.depth = 1.0f;
 
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
