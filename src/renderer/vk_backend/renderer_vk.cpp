@@ -70,14 +70,15 @@ bool resize = false;
 u32 currentIndexCount;
 
 MeshID currentMeshID;
-std::unordered_map<MeshID,Mesh> meshStore;
+std::unordered_map<MeshID,Mesh> meshes;
+std::unordered_map<TextureID,Texture> textures;
 
 
 // Upload a mesh to the gpu
 MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
 {
     currentMeshID++;
-    auto iter = meshStore.emplace(currentMeshID,Mesh());
+    auto iter = meshes.emplace(currentMeshID, Mesh());
     Mesh& mesh = iter.first->second;
 
     size_t indexSize = sizeof(u32) * indexCount;
@@ -144,10 +145,10 @@ MeshID UploadMesh(MeshAsset &asset)
 
 void DestroyMesh(MeshID meshID)
 {
-    Mesh& mesh = meshStore[meshID];
+    Mesh& mesh = meshes[meshID];
     DestroyBuffer(allocator, mesh.indexBuffer);
     DestroyBuffer(allocator, mesh.vertBuffer);
-    meshStore.erase(meshID);
+    meshes.erase(meshID);
 }
 
 
@@ -783,7 +784,7 @@ void SendObjectData(std::vector<ObjectData>& objects)
 // Set the mesh currently being rendered (Must be called between InitFrame and EndFrame)
 void SetMesh(MeshID meshIndex)
 {
-    Mesh* mesh = &meshStore[meshIndex];
+    Mesh* mesh = &meshes[meshIndex];
 
     // Send addresses to camera, object, and vertex buffers as push constants
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;

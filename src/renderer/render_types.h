@@ -38,3 +38,4 @@ enum CullMode
 };
 
 typedef uint32_t MeshID;
+typedef uint32_t TextureID;
