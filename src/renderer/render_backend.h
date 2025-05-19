@@ -28,16 +28,20 @@ void DestroyMesh(u32 meshID);
 bool InitFrame();
 
 // Begin a depth only rendering pass
-void BeginDepthPass();
-
-// End a depth only rendering pass
-void EndDepthPass();
+// cullMode specifies the face culling mode to use for this pass
+// depthBias specifies whether to apply a bias to the depth test during this pass (to solve shadow acne)
+void BeginDepthPass(CullMode cullMode, bool depthBias);
 
 // Begin a color rendering pass
-void BeginColorPass();
+// cullMode specifies the face culling mode to use for this pass
+// depthBias specifies whether to apply depth bias in this pass
+void BeginColorPass(CullMode cullMode);
 
-// End a color rendering pass
-void EndColorPass();
+// End a rendering pass
+void EndPass();
+
+// Draw ImGui content
+void DrawImGui();
 
 // Sets the view of a camera
 void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);

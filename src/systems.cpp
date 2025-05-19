@@ -136,7 +136,7 @@ class RenderSystem : public System
 
         SendObjectData(objects);
 
-        BeginDepthPass();
+        BeginDepthPass(CullMode::BACK, false);
 
         int startIndex = 0;
         for (std::pair<u32, u32> pair: meshCounts)
@@ -145,9 +145,9 @@ class RenderSystem : public System
             DrawObjects(pair.second, startIndex);
             startIndex += pair.second;
         }
-        EndDepthPass();
+        EndPass();
 
-        BeginColorPass();
+        BeginColorPass(CullMode::BACK);
         startIndex = 0;
         for (std::pair<u32, u32> pair: meshCounts)
         {
@@ -155,7 +155,8 @@ class RenderSystem : public System
             DrawObjects(pair.second, startIndex);
             startIndex += pair.second;
         }
-        EndColorPass();
+        DrawImGui();
+        EndPass();
         EndFrame();
     }
 };

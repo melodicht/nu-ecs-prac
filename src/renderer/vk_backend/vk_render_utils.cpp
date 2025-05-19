@@ -134,3 +134,16 @@ void EndImmediateCommands(VkDevice device, VkQueue graphicsQueue, VkCommandPool 
 
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
 };
+
+VkCullModeFlags GetCullModeFlags(CullMode cullMode)
+{
+    switch (cullMode)
+    {
+        case NONE:
+            return VK_CULL_MODE_NONE;
+        case FRONT:
+            return VK_CULL_MODE_FRONT_BIT;
+        case BACK:
+            return VK_CULL_MODE_BACK_BIT;
+    }
+};

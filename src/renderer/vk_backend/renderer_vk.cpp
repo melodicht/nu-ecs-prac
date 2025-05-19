@@ -10,7 +10,6 @@
 		}                                                           \
 	} while (0)
 
-#include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
 
@@ -22,11 +21,9 @@
 
 #include <backends/imgui_impl_vulkan.h>
 
-#include "math/math_consts.h"
-
+#include "renderer/render_backend.h"
 #include "renderer/vk_backend/vk_render_types.h"
 #include "renderer/vk_backend/vk_render_utils.cpp"
-#include "renderer/render_backend.h"
 
 #include <vulkan/VkBootstrap.h>
 
@@ -454,16 +451,18 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
 
 
     // Create render pipelines (AKA fill in 20000 info structs)
-    std::vector<VkDynamicState> dynamicStates =
+    VkDynamicState dynamicStates[] =
     {
             VK_DYNAMIC_STATE_VIEWPORT,
-            VK_DYNAMIC_STATE_SCISSOR
+            VK_DYNAMIC_STATE_SCISSOR,
+            VK_DYNAMIC_STATE_CULL_MODE,
+            VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE
     };
 
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
-    dynamicState.pDynamicStates = dynamicStates.data();
+    dynamicState.dynamicStateCount = 4;
+    dynamicState.pDynamicStates = dynamicStates;
 
     VkPipelineVertexInputStateCreateInfo vertexInfo{};  // We are using vertex pulling so no need for vertex input description
     vertexInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -486,10 +485,8 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
-    rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.0f;
     rasterizer.depthBiasClamp = 0.0f;
     rasterizer.depthBiasSlopeFactor = 0.0f;
@@ -657,14 +654,36 @@ bool InitFrame()
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
 
+    //set dynamic viewport and scissor
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = swapExtent.height;;
+    viewport.width = (float)swapExtent.width;
+    viewport.height = -(float)swapExtent.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = swapExtent.width;
+    scissor.extent.height = swapExtent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
     TransitionImage(cmd, swapImages[swapIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     return true;
 }
 
-void BeginDepthPass()
+void BeginDepthPass(CullMode cullMode, bool depthBias)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
+    vkCmdSetDepthBiasEnable(cmd, depthBias);
 
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -687,38 +706,14 @@ void BeginDepthPass()
     vkCmdBeginRendering(cmd, &renderInfo);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
-
-    //set dynamic viewport and scissor
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = swapExtent.height;;
-    viewport.width = (float)swapExtent.width;
-    viewport.height = -(float)swapExtent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
-
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = swapExtent.width;
-    scissor.extent.height = swapExtent.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
 }
 
-void EndDepthPass()
-{
-    // End dynamic rendering and commands
-    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
-
-    vkCmdEndRendering(cmd);
-}
-
-void BeginColorPass()
+void BeginColorPass(CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
+    vkCmdSetDepthBiasEnable(cmd, false);
 
     VkClearValue clearValue;
     clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
@@ -751,36 +746,23 @@ void BeginColorPass()
     vkCmdBeginRendering(cmd, &renderInfo);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipeline);
-
-    //set dynamic viewport and scissor
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = swapExtent.height;;
-    viewport.width = (float)swapExtent.width;
-    viewport.height = -(float)swapExtent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
-
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = swapExtent.width;
-    scissor.extent.height = swapExtent.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
 }
 
-void EndColorPass()
+void EndPass()
+{
+    // End dynamic rendering and commands
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    vkCmdEndRendering(cmd);
+}
+
+void DrawImGui()
 {
     // End dynamic rendering and commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
-
-    vkCmdEndRendering(cmd);
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)

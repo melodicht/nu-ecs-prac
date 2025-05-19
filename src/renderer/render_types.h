@@ -29,3 +29,10 @@ struct ObjectData
     glm::mat4 model;
     glm::vec4 color;
 };
+
+enum CullMode
+{
+    NONE,
+    FRONT,
+    BACK
+};
