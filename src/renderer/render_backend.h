@@ -11,17 +11,18 @@
 // Common interface between renderers for systems to call
 // Assumes that a SDL3 surface is being drawn upon
 
+// Get the flags that should be added onto the SDL window creation to support this backend
 SDL_WindowFlags GetRenderWindowFlags();
 
 // Sets a SDL window to draw to and initializes the back end
 void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight);
 
-// Moves mesh to the GPU,
+// Moves a mesh to the GPU,
 // Returns a uint that represents the mesh's ID
 MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices);
 MeshID UploadMesh(MeshAsset &asset);
 
-// Takes in a mesh ID and represents
+// Destroys the mesh at the given MeshID
 void DestroyMesh(MeshID meshID);
 
 // Initialize the frame and begin recording rendering commands
@@ -37,23 +38,24 @@ void BeginDepthPass(CullMode cullMode, bool depthBias);
 // depthBias specifies whether to apply depth bias in this pass
 void BeginColorPass(CullMode cullMode);
 
-// End a rendering pass
+// End the current rendering pass
 void EndPass();
 
-// Draw ImGui content
+// Draw the current ImGui frame onto the rendered image
 void DrawImGui();
 
-// Sets the view of a camera
+// Sets the camera settings and transformation to use for rendering
 void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);
 
 // Sets the mesh currently being rendered to
 void SetMesh(MeshID meshID);
 
-// Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
+// Send the object data of the models to render
 void SendObjectData(std::vector<ObjectData>& objects);
 
 // End the frame and present it to the screen
 void EndFrame();
 
-// Draw multiple objects to the screen (Must be called between InitFrame and EndFrame and after SetMesh)
+// Draw multiple objects to the screen whose object data starts at startIndex
+// in the most recently provided object data
 void DrawObjects(int count, int startIndex);
