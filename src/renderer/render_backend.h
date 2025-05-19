@@ -24,8 +24,20 @@ u32 UploadMesh(MeshAsset &asset);
 // Takes in a mesh ID and represents
 void DestroyMesh(u32 meshID);
 
-// Establishes that the following commands apply to a new frame
+// Initialize the frame and begin recording rendering commands
 bool InitFrame();
+
+// Begin a depth only rendering pass
+void BeginDepthPass();
+
+// End a depth only rendering pass
+void EndDepthPass();
+
+// Begin a color rendering pass
+void BeginColorPass();
+
+// End a color rendering pass
+void EndColorPass();
 
 // Sets the view of a camera
 void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);

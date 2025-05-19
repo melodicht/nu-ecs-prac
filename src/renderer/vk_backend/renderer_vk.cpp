@@ -543,7 +543,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     VkPipelineDepthStencilStateCreateInfo colorDepthStencil{};
     colorDepthStencil.depthTestEnable = VK_TRUE;
     colorDepthStencil.depthWriteEnable = VK_FALSE;
-    colorDepthStencil.depthCompareOp = VK_COMPARE_OP_EQUAL;
+    colorDepthStencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
     colorDepthStencil.depthBoundsTestEnable = VK_FALSE;
     colorDepthStencil.minDepthBounds = 0.0f;
     colorDepthStencil.maxDepthBounds = 1.0f;
@@ -659,6 +659,67 @@ bool InitFrame()
 
     TransitionImage(cmd, swapImages[swapIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
+    return true;
+}
+
+void BeginDepthPass()
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    VkRenderingAttachmentInfo depthAttachment{};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.imageView = depthImageView;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.clearValue.depthStencil.depth = 1.0f;
+
+    VkRenderingInfo renderInfo{};
+    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderInfo.renderArea.offset = {0, 0};
+    renderInfo.renderArea.extent = swapExtent;
+    renderInfo.layerCount = 1;
+    renderInfo.colorAttachmentCount = 0;
+    renderInfo.pColorAttachments = nullptr;
+    renderInfo.pDepthAttachment = &depthAttachment;
+    renderInfo.pStencilAttachment = nullptr;
+
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
+
+    //set dynamic viewport and scissor
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = swapExtent.height;;
+    viewport.width = (float)swapExtent.width;
+    viewport.height = -(float)swapExtent.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = swapExtent.width;
+    scissor.extent.height = swapExtent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+}
+
+void EndDepthPass()
+{
+    // End dynamic rendering and commands
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    vkCmdEndRendering(cmd);
+}
+
+void BeginColorPass()
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
     VkClearValue clearValue;
     clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
 
@@ -674,8 +735,8 @@ bool InitFrame()
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
     depthAttachment.imageView = depthImageView;
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_NONE;
     depthAttachment.clearValue.depthStencil.depth = 1.0f;
 
     VkRenderingInfo renderInfo{};
@@ -710,8 +771,17 @@ bool InitFrame()
     scissor.extent.height = swapExtent.height;
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
+}
 
-    return true;
+void EndColorPass()
+{
+    // End dynamic rendering and commands
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+
+    vkCmdEndRendering(cmd);
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
@@ -756,10 +826,6 @@ void EndFrame()
     // End dynamic rendering and commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
-
-    vkCmdEndRendering(cmd);
     TransitionImage(cmd, swapImages[swapIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     VK_CHECK(vkEndCommandBuffer(cmd));

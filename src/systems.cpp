@@ -136,6 +136,8 @@ class RenderSystem : public System
 
         SendObjectData(objects);
 
+        BeginDepthPass();
+
         int startIndex = 0;
         for (std::pair<u32, u32> pair: meshCounts)
         {
@@ -143,9 +145,17 @@ class RenderSystem : public System
             DrawObjects(pair.second, startIndex);
             startIndex += pair.second;
         }
+        EndDepthPass();
 
+        BeginColorPass();
         startIndex = 0;
-
+        for (std::pair<u32, u32> pair: meshCounts)
+        {
+            SetMesh(pair.first);
+            DrawObjects(pair.second, startIndex);
+            startIndex += pair.second;
+        }
+        EndColorPass();
         EndFrame();
     }
 };

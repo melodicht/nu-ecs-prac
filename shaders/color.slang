@@ -52,18 +52,18 @@ struct VertexOutput
 VertexOutput vertexMain(uint vertexID : SV_VertexID,
     uint instanceID : SV_InstanceID, uint baseInstance : SV_StartInstanceLocation)
 {
-    VertexOutput output;
     ObjectData object = pcs.objects[baseInstance + instanceID];
 
     float4x4 model = object.model;
-    float3x3 normMat = float3x3(
-            cross(model[1].xyz, model[2].xyz),
-            cross(model[2].xyz, model[0].xyz),
-            cross(model[0].xyz, model[1].xyz));
-
     Vertex vert = pcs.vertices[vertexID];
     float4 pos = float4(vert.pos, 1.0);
     float4 worldPos = mul(model, pos);
+
+    VertexOutput output;
+    float3x3 normMat = float3x3(
+                cross(model[1].xyz, model[2].xyz),
+                cross(model[2].xyz, model[0].xyz),
+                cross(model[0].xyz, model[1].xyz));
 
     CoarseVertex vertData;
     vertData.color = object.color;
