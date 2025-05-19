@@ -36,3 +36,5 @@ enum CullMode
     FRONT,
     BACK
 };
+
+typedef uint32_t MeshID;

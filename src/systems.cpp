@@ -76,8 +76,6 @@ class CollisionSystem : public System
 
 class RenderSystem : public System
 {
-    u32 currentMesh = 0;
-
     void OnUpdate(Scene *scene, f32 deltaTime)
     {
         if (!InitFrame())
@@ -101,7 +99,7 @@ class RenderSystem : public System
         SetCamera(view, proj, cameraTransform->position);
 
         // 1. Gather counts of each unique mesh pointer.
-        std::map<u32, u32> meshCounts;
+        std::map<MeshID, u32> meshCounts;
         for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
         {
             MeshComponent *m = scene->Get<MeshComponent>(ent);
@@ -111,8 +109,8 @@ class RenderSystem : public System
         // 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
         // 3. Get pointers to the start of each segment of unique mesh pointer.
         u32 totalCount = 0;
-        std::unordered_map<u32, u32> offsets;
-        for (std::pair<u32, u32> pair: meshCounts)
+        std::unordered_map<MeshID, u32> offsets;
+        for (std::pair<MeshID, u32> pair: meshCounts)
         {
             offsets[pair.first] = totalCount;
             totalCount += pair.second;
@@ -137,7 +135,6 @@ class RenderSystem : public System
         SendObjectData(objects);
 
         BeginDepthPass(CullMode::BACK, false);
-
         int startIndex = 0;
         for (std::pair<u32, u32> pair: meshCounts)
         {

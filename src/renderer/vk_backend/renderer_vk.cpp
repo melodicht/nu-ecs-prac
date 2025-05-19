@@ -69,18 +69,18 @@ u32 swapIndex;
 bool resize = false;
 u32 currentIndexCount;
 
-u32 currentMeshID;
-std::unordered_map<u32,Mesh> meshStore;
+MeshID currentMeshID;
+std::unordered_map<MeshID,Mesh> meshStore;
 
 
 // Upload a mesh to the gpu
-u32 UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices)
+MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
 {
     currentMeshID++;
     auto iter = meshStore.emplace(currentMeshID,Mesh());
     Mesh& mesh = iter.first->second;
 
-    size_t indexSize = sizeof(uint32_t) * indexCount;
+    size_t indexSize = sizeof(u32) * indexCount;
     size_t vertSize = sizeof(Vertex) * vertCount;
 
     mesh.indexBuffer = CreateBuffer(allocator,
@@ -137,12 +137,12 @@ u32 UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32
     return currentMeshID;
 }
 
-u32 UploadMesh(MeshAsset &asset)
+MeshID UploadMesh(MeshAsset &asset)
 {
     return UploadMesh(asset.vertices.size(), asset.vertices.data(), asset.indices.size(), asset.indices.data());
 }
 
-void DestroyMesh(u32 meshID)
+void DestroyMesh(MeshID meshID)
 {
     Mesh& mesh = meshStore[meshID];
     DestroyBuffer(allocator, mesh.indexBuffer);
@@ -781,7 +781,7 @@ void SendObjectData(std::vector<ObjectData>& objects)
 }
 
 // Set the mesh currently being rendered (Must be called between InitFrame and EndFrame)
-void SetMesh(u32 meshIndex)
+void SetMesh(MeshID meshIndex)
 {
     Mesh* mesh = &meshStore[meshIndex];
 

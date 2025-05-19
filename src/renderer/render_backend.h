@@ -18,11 +18,11 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight);
 
 // Moves mesh to the GPU,
 // Returns a uint that represents the mesh's ID
-u32 UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices);
-u32 UploadMesh(MeshAsset &asset);
+MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices);
+MeshID UploadMesh(MeshAsset &asset);
 
 // Takes in a mesh ID and represents
-void DestroyMesh(u32 meshID);
+void DestroyMesh(MeshID meshID);
 
 // Initialize the frame and begin recording rendering commands
 bool InitFrame();
@@ -47,7 +47,7 @@ void DrawImGui();
 void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);
 
 // Sets the mesh currently being rendered to
-void SetMesh(u32 meshID);
+void SetMesh(MeshID meshID);
 
 // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
 void SendObjectData(std::vector<ObjectData>& objects);
