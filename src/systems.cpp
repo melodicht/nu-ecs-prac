@@ -126,7 +126,7 @@ class RenderSystem : public System
             Transform3D *t = scene->Get<Transform3D>(ent);
             glm::mat4 model = GetTransformMatrix(t);
             MeshComponent *m = scene->Get<MeshComponent>(ent);
-            u32 mesh = m->mesh;
+            MeshID mesh = m->mesh;
             ColorComponent *c = scene->Get<ColorComponent>(ent);
 
             objects[offsets[mesh]++] = {model, glm::vec4(c->r, c->g, c->b, 1.0f)};
@@ -136,7 +136,7 @@ class RenderSystem : public System
 
         BeginDepthPass(CullMode::BACK, false);
         int startIndex = 0;
-        for (std::pair<u32, u32> pair: meshCounts)
+        for (std::pair<MeshID, u32> pair: meshCounts)
         {
             SetMesh(pair.first);
             DrawObjects(pair.second, startIndex);
@@ -146,7 +146,7 @@ class RenderSystem : public System
 
         BeginColorPass(CullMode::BACK);
         startIndex = 0;
-        for (std::pair<u32, u32> pair: meshCounts)
+        for (std::pair<MeshID, u32> pair: meshCounts)
         {
             SetMesh(pair.first);
             DrawObjects(pair.second, startIndex);
