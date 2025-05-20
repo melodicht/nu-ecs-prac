@@ -50,7 +50,8 @@ elseif(${render_sys} STREQUAL "WEBGPU")
                         -sUSE_WEBGPU 
                         -sASSERTIONS
                         -sUSE_SDL=3
-                        -sASYNCIFY)
+                        -sASYNCIFY
+                        -sALLOW_MEMORY_GROWTH)
         else()
                 # Fetches Dawn
                 set(DAWN_FETCH_DEPENDENCIES ON)

@@ -52,6 +52,70 @@ f32 mouseDeltaY = 0;
 
 #include "platform_metrics.cpp"
 
+#if EMSCRIPTEN
+#include <emscripten/html5.h>
+#endif
+
+struct AppInformation
+{
+    SDL_Window *window;
+    Scene& scene;
+    SDL_Event& e;
+    bool playing;
+    u64 now;
+    u64 last;
+
+    AppInformation(SDL_Window *setWindow, Scene& setScene, SDL_Event& setE, bool setPlaying, u64 setNow, u64 setLast) :
+        window(setWindow),
+        scene(setScene),
+        e(setE),
+        playing(setPlaying),
+        now(setNow),
+        last(setLast)
+    { }
+};
+
+void updateLoop(void* appInfo) {
+    AppInformation* info = (AppInformation* )appInfo;
+    info->last = info->now;
+    info->now = SDL_GetPerformanceCounter();
+
+    f32 deltaTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
+
+    while (SDL_PollEvent(&info->e))
+    {
+        switch (info->e.type)
+        {
+            case SDL_EVENT_QUIT:
+                info->playing = false;
+                break;
+            case SDL_EVENT_KEY_DOWN:
+                if (info->e.key.key == SDLK_ESCAPE)
+                {
+                    info->playing = false;
+                }
+                keysDown[SDL_GetKeyName(info->e.key.key)] = true;
+                break;
+            case SDL_EVENT_KEY_UP:
+                keysDown[SDL_GetKeyName(info->e.key.key)] = false;
+                break;
+        }
+    }
+
+    SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
+
+    SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);
+
+    GameUpdateAndRender(info->scene, info->window, deltaTime);
+
+    mouseDeltaX = 0;
+    mouseDeltaY = 0;
+
+    f32 msPerFrame =  1000.0f * deltaTime;
+    f32 fps = 1 / deltaTime;
+    // printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+}
+
 int main()
 {
     srand(static_cast<unsigned>(time(0)));
@@ -83,47 +147,21 @@ int main()
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    while (playing)
+    AppInformation app = AppInformation(window, scene, e, playing, now, last);
+    #if EMSCRIPTEN
+    emscripten_set_main_loop_arg(
+        [](void* userData) {
+            updateLoop(userData);
+        }, 
+        (void*)&app, 
+        0, true
+    );
+    #else
+    while (app.playing)
     {
-        last = now;
-        now = SDL_GetPerformanceCounter();
-
-        f32 deltaTime = (f32)((now - last) / (f32)SDL_GetPerformanceFrequency());
-
-        while (SDL_PollEvent(&e))
-        {
-            switch (e.type)
-            {
-                case SDL_EVENT_QUIT:
-                    playing = false;
-                    break;
-                case SDL_EVENT_KEY_DOWN:
-                    if (e.key.key == SDLK_ESCAPE)
-                    {
-                        playing = false;
-                    }
-                    keysDown[SDL_GetKeyName(e.key.key)] = true;
-                    break;
-                case SDL_EVENT_KEY_UP:
-                    keysDown[SDL_GetKeyName(e.key.key)] = false;
-                    break;
-            }
-        }
-
-        SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
-
-        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
-
-        GameUpdateAndRender(scene, window, deltaTime);
-
-        mouseDeltaX = 0;
-        mouseDeltaY = 0;
-
-        f32 msPerFrame =  1000.0f * deltaTime;
-        f32 fps = 1 / deltaTime;
-        printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
+        updateLoop(&app);
     }
-
+    #endif
     SDL_DestroyWindow(window);
     SDL_Quit();
     return 0;

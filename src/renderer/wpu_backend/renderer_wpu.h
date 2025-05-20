@@ -1,5 +1,7 @@
 #pragma once
 
+#include <webgpu/webgpu.h>
+
 #include "renderer/render_types.h"
 #include "math/math_consts.h"
 #include "asset_types.h"
@@ -14,6 +16,7 @@
 
 // Allows for encapsulation of WebGPU render capabilities
 class WPURenderBackend {
+private:
 public:
     WPURenderBackend() { }
 
