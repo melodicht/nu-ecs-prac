@@ -23,7 +23,7 @@ struct Vertex
 };
 
 // Represents the memory locations of the camera, object, and vertex buffers
-struct PushConstants
+struct VertPushConstants
 {
     CameraData *camera;
     ObjectData *objects;
@@ -31,7 +31,7 @@ struct PushConstants
 };
 
 [vk::push_constant]
-PushConstants pcs;
+VertPushConstants pcs;
 
 // Represents a vertex that has been processed by the vertex shader
 struct CoarseVertex

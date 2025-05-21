@@ -22,6 +22,9 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight);
 MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices);
 MeshID UploadMesh(MeshAsset &asset);
 
+TextureID CreateDepthTexture(u32 width, u32 height);
+void DestroyTexture(TextureID textureID);
+
 // Destroys the mesh at the given MeshID
 void DestroyMesh(MeshID meshID);
 
@@ -32,6 +35,9 @@ bool InitFrame();
 // cullMode specifies the face culling mode to use for this pass
 // depthBias specifies whether to apply a bias to the depth test during this pass (to solve shadow acne)
 void BeginDepthPass(CullMode cullMode, bool depthBias);
+
+// Begin a depth only rendering pass onto the given depth texture
+void BeginDepthPass(TextureID target, CullMode cullMode, bool depthBias);
 
 // Begin a color rendering pass
 // cullMode specifies the face culling mode to use for this pass
@@ -44,10 +50,13 @@ void EndPass();
 // Draw the current ImGui frame onto the rendered image
 void DrawImGui();
 
-// Sets the camera settings and transformation to use for rendering
-void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);
+// Set the camera settings and transformation to use for rendering
+void SetCamera(CameraData camera);
 
-// Sets the mesh currently being rendered to
+// Set scene directional light information to use for rendering
+void SetDirLight(DirLightData dirLight);
+
+// Set the mesh currently being rendered to
 void SetMesh(MeshID meshID);
 
 // Send the object data of the models to render

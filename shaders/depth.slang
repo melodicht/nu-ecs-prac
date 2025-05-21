@@ -23,7 +23,7 @@ struct Vertex
 };
 
 // Represents the memory locations of the camera, object, and vertex buffers
-struct PushConstants
+struct VertPushConstants
 {
     CameraData *camera;
     ObjectData *objects;
@@ -31,7 +31,7 @@ struct PushConstants
 };
 
 [vk::push_constant]
-PushConstants pcs;
+VertPushConstants pcs;
 
 [shader("vertex")]
 float4 vertexMain(uint vertexID : SV_VertexID,

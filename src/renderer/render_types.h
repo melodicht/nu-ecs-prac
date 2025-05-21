@@ -6,6 +6,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+typedef uint32_t MeshID;
+typedef uint32_t TextureID;
+
 // Represents a vertex of a mesh (CPU->GPU)
 struct Vertex
 {
@@ -30,12 +33,17 @@ struct ObjectData
     glm::vec4 color;
 };
 
+// Represents the transformation data and lighting information of the scene
+struct DirLightData
+{
+    glm::mat4 lightSpace;
+    glm::vec3 lightDir;
+    TextureID texture;
+};
+
 enum CullMode
 {
     NONE,
     FRONT,
     BACK
 };
-
-typedef uint32_t MeshID;
-typedef uint32_t TextureID;

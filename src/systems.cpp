@@ -76,12 +76,23 @@ class CollisionSystem : public System
 
 class RenderSystem : public System
 {
+    TextureID dirShadowMap;
+
+    void OnStart(Scene *scene)
+    {
+        dirShadowMap = CreateDepthTexture(1024, 1024);
+    }
+
     void OnUpdate(Scene *scene, f32 deltaTime)
     {
         if (!InitFrame())
         {
             return;
         }
+
+        Transform3D lightTransform;
+        lightTransform.position = {-4096, 4096, 1024};
+        lightTransform.rotation = {0, 22.5, -45};
 
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
@@ -96,7 +107,7 @@ class RenderSystem : public System
         f32 aspect = (f32)windowWidth / (f32)windowHeight;
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
-        SetCamera(view, proj, cameraTransform->position);
+        SetCamera({view, proj, cameraTransform->position});
 
         // 1. Gather counts of each unique mesh pointer.
         std::map<MeshID, u32> meshCounts;

@@ -275,6 +275,8 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
 
     VkPhysicalDeviceVulkan12Features feat12{};
     feat12.bufferDeviceAddress = true;
+    feat12.descriptorIndexing = true;
+    feat12.scalarBlockLayout = true;
 
     VkPhysicalDeviceVulkan13Features feat13{};
     feat13.dynamicRendering = true;
@@ -438,7 +440,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     // Create render pipeline layout
     VkPushConstantRange pushConstants;
     pushConstants.offset = 0;
-    pushConstants.size = sizeof(PushConstants);
+    pushConstants.size = sizeof(VertPushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -751,25 +753,18 @@ void BeginColorPass(CullMode cullMode)
 
 void EndPass()
 {
-    // End dynamic rendering and commands
-    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
-
-    vkCmdEndRendering(cmd);
+    vkCmdEndRendering(frames[frameNum].commandBuffer);
 }
 
 void DrawImGui()
 {
-    // End dynamic rendering and commands
-    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
-
     ImGui::Render();
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), frames[frameNum].commandBuffer);
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
-void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
+void SetCamera(CameraData camera)
 {
-    CameraData camera{view, proj, pos};
     void* cameraData = frames[frameNum].cameraBuffer.allocation->GetMappedData();
     memcpy(cameraData, &camera, sizeof(CameraData));
 }
@@ -788,8 +783,8 @@ void SetMesh(MeshID meshIndex)
 
     // Send addresses to camera, object, and vertex buffers as push constants
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
-    PushConstants pushConstants = {frames[frameNum].cameraAddress, frames[frameNum].objectAddress, mesh->vertAddress};
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(PushConstants), &pushConstants);
+    VertPushConstants pushConstants = {frames[frameNum].cameraAddress, frames[frameNum].objectAddress, mesh->vertAddress};
+    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VertPushConstants), &pushConstants);
     // Bind the index buffer
     vkCmdBindIndexBuffer(cmd, mesh->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
