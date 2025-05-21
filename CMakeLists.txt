@@ -45,16 +45,24 @@ elseif(${render_sys} STREQUAL "WEBGPU")
         add_library(wpu-backend ${WEBGPU_SRC_DIR}/renderer_wpu.cpp ${WEBGPU_SRC_DIR}/render_backend_wpuimpl.cpp)
         target_include_directories(wpu-backend PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+        set(DAWN_FETCH_DEPENDENCIES ON)
         if(EMSCRIPTEN)
+                # Fetches emscripten Dawn port
+                # Got a lot of help from "https://github.com/eliemichel/WebGPU-distribution/blob/main/emdawnwebgpu/CMakeLists.txt"
+                CPMAddPackage(NAME emdawn URL "https://github.com/google/dawn/releases/download/v20250519.170457/emdawnwebgpu_pkg-v20250519.170457.zip")
+                set(emdawn_ROOT "${emdawn_SOURCE_DIR}")
+                message(${emdawn_ROOT})
                 target_link_options(wpu-backend PUBLIC 
-                        -sUSE_WEBGPU 
                         -sASSERTIONS
                         -sUSE_SDL=3
                         -sASYNCIFY
-                        -sALLOW_MEMORY_GROWTH)
+                        -sALLOW_MEMORY_GROWTH
+                        --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
+                        --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
+                target_compile_options(wpu-backend PUBLIC 
+                        --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py)
         else()
                 # Fetches Dawn
-                set(DAWN_FETCH_DEPENDENCIES ON)
                 CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/main.tar.gz")
                 target_link_libraries(wpu-backend PUBLIC dawn::webgpu_dawn)
         endif()
