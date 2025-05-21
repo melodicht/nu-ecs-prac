@@ -28,6 +28,9 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
+#include <imgui.h>
+#include <backends/imgui_impl_sdl3.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -84,6 +87,7 @@ void updateLoop(void* appInfo) {
 
     while (SDL_PollEvent(&info->e))
     {
+        ImGui_ImplSDL3_ProcessEvent(&e);
         switch (info->e.type)
         {
             case SDL_EVENT_QUIT:
@@ -106,6 +110,9 @@ void updateLoop(void* appInfo) {
 
     SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);
 
+    ImGui_ImplSDL3_NewFrame();
+    ImGui::NewFrame();
+    
     GameUpdateAndRender(info->scene, info->window, deltaTime);
 
     mouseDeltaX = 0;
@@ -134,6 +141,10 @@ int main()
         printf("Window could not be created! SDL_Error: %s\n", SDL_GetError());
         return 1;
     }
+
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui_ImplSDL3_InitForOther(window);
 
     SDL_SetWindowRelativeMouseMode(window, true);
 

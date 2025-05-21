@@ -14,16 +14,25 @@ set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
+CPMAddPackage("gh:ocornut/imgui#v1.91.9b")
 target_link_libraries(DEPENDENCIES INTERFACE SDL3::SDL3)
 target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
 target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
+
+
+file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
+add_library(imgui SHARED ${imgui_sources})
+target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+list(APPEND SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
+
+target_link_libraries(DEPENDENCIES INTERFACE imgui)
 
 # Determines rendering backend
 set(render_sys "VULKAN")
 if(APPLE)
         set(render_sys "WEBGPU")
         enable_language(OBJC)
-else(EMSCRIPTEN)
+elseif(EMSCRIPTEN)
         set(render_sys "WEBGPU")
 endif()
 
@@ -31,13 +40,22 @@ message("Initializing [${render_sys}] rendering backend")
 
 # Accordingly resolves dependencies required for each rendering backend
 if(${render_sys} STREQUAL "VULKAN")
+        add_definitions(-DIMGUI_IMPL_VULKAN_USE_VOLK)
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
-        add_library(vulkan-backend ${VULKAN_SRC_DIR}/renderer_vk.cpp ${VULKAN_SRC_DIR}/VkBootstrap.cpp)
+        add_library(vulkan-backend SHARED
+                ${VULKAN_SRC_DIR}/renderer_vk.cpp
+                ${VULKAN_SRC_DIR}/VkBootstrap.cpp
+                ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
         target_link_libraries(vulkan-backend PRIVATE Vulkan::Vulkan)
         target_link_libraries(vulkan-backend PRIVATE SDL3::SDL3)
         target_link_libraries(vulkan-backend PRIVATE glm::glm)
-        target_include_directories(vulkan-backend PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
+        target_link_libraries(vulkan-backend PRIVATE imgui)
+        target_include_directories(vulkan-backend PRIVATE
+                ${CMAKE_CURRENT_SOURCE_DIR}/include
+                ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
+                ${CMAKE_CURRENT_SOURCE_DIR}/src
+                $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
         target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
 elseif(${render_sys} STREQUAL "WEBGPU")
         # Includes dawn backend
@@ -75,7 +93,10 @@ endif()
 
 # Puts together target
 add_executable(untitled-engine ${SRC})
-target_include_directories(untitled-engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(untitled-engine PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 target_link_libraries(untitled-engine PRIVATE DEPENDENCIES)
 if (EMSCRIPTEN)
         set_target_properties(untitled-engine PROPERTIES SUFFIX ".html")
