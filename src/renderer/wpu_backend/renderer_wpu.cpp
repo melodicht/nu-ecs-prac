@@ -150,13 +150,15 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
   deviceDesc.nextInChain = nullptr;
   deviceDesc.label = WGPUStringView{
     .data = "My Device",
-    .length = 9}; // anything works here, that's your call
+    .length = 9
+  }; // anything works here, that's your call
   deviceDesc.requiredFeatureCount = 0; // we do not require any specific feature
   deviceDesc.requiredLimits = nullptr; // we do not require any specific limit
   deviceDesc.defaultQueue.nextInChain = nullptr;
   deviceDesc.defaultQueue.label = WGPUStringView{
     .data = "Default Queue",
-    .length = 13};
+    .length = 13
+  };
 
   // Lost device callback
   WGPUDeviceLostCallbackInfo lostCallbackInfo;
@@ -185,5 +187,61 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
 
   inspectDevice(device);
 
-  wgpuDeviceRelease(device);
+  WGPUQueue queue = wgpuDeviceGetQueue(device);
+
+  WGPUQueueWorkDoneCallbackInfo queueDoneCallback =  WGPUQueueWorkDoneCallbackInfo {
+    .callback = [](WGPUQueueWorkDoneStatus status, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
+      std::cout << "Queued work finished with status: " << status << std::endl;
+    },
+    .mode = WGPUCallbackMode_AllowSpontaneous
+  };
+
+  wgpuQueueOnSubmittedWorkDone(queue, queueDoneCallback);
+
+  WGPUCommandEncoderDescriptor encoderDesc = {};
+  encoderDesc.nextInChain = nullptr;
+  encoderDesc.label = WGPUStringView{
+    .data = "My Encoder",
+    .length = 10
+  };
+  WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(device, &encoderDesc);
+
+  wgpuCommandEncoderInsertDebugMarker(
+    encoder,
+    WGPUStringView{
+      .data = "Do One Thing",
+      .length = 12
+    }
+  );
+  wgpuCommandEncoderInsertDebugMarker(
+    encoder, 
+    WGPUStringView{
+      .data = "Do Another Thing",
+      .length = 16
+    }
+  );
+
+  WGPUCommandBufferDescriptor cmdBufferDescriptor = {};
+  cmdBufferDescriptor.nextInChain = nullptr;
+  cmdBufferDescriptor.label = WGPUStringView{
+    .data = "Command Buffer",
+    .length = 14
+  };
+  WGPUCommandBuffer command = wgpuCommandEncoderFinish(encoder, &cmdBufferDescriptor);
+  wgpuCommandEncoderRelease(encoder); // release encoder after it's finished
+
+  // Finally submit the command queue
+  std::cout << "Submitting command..." << std::endl;
+
+  wgpuQueueSubmit(queue, 1, &command);
+  wgpuCommandBufferRelease(command);
+  std::cout << "Command submitted." << std::endl;
+
+  for (int i = 0 ; i < 5 ; ++i) {
+    std::cout << "Tick/Poll device..." << std::endl;
+    wgpuInstanceProcessEvents(instance);  
+    #if EMSCRIPTEN
+    emscripten_sleep(100);
+    #endif
+  }
 }

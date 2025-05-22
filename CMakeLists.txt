@@ -56,13 +56,20 @@ if(${render_sys} STREQUAL "VULKAN")
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
                 ${CMAKE_CURRENT_SOURCE_DIR}/src
                 $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+        
+        target_compile_definitions(vulkan-backend PUBLIC 
+                SKL_RENDERER=0
+        )
+
         target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
+
 elseif(${render_sys} STREQUAL "WEBGPU")
         # Includes dawn backend
         set(WEBGPU_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend)
         add_library(wpu-backend ${WEBGPU_SRC_DIR}/renderer_wpu.cpp ${WEBGPU_SRC_DIR}/render_backend_wpuimpl.cpp)
         target_include_directories(wpu-backend PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+        add_library(webgpu INTERFACE)
         set(DAWN_FETCH_DEPENDENCIES ON)
         if(EMSCRIPTEN)
                 # Fetches emscripten Dawn port
@@ -70,24 +77,32 @@ elseif(${render_sys} STREQUAL "WEBGPU")
                 CPMAddPackage(NAME emdawn URL "https://github.com/google/dawn/releases/download/v20250519.170457/emdawnwebgpu_pkg-v20250519.170457.zip")
                 set(emdawn_ROOT "${emdawn_SOURCE_DIR}")
                 message(${emdawn_ROOT})
-                target_link_options(wpu-backend PUBLIC 
+                target_link_options(webgpu INTERFACE 
                         -sASSERTIONS
                         -sUSE_SDL=3
                         -sASYNCIFY
                         -sALLOW_MEMORY_GROWTH
                         --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
                         --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
-                target_compile_options(wpu-backend PUBLIC 
+                target_compile_options(webgpu INTERFACE 
                         --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py)
         else()
                 # Fetches Dawn
                 CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/main.tar.gz")
-                target_link_libraries(wpu-backend PUBLIC dawn::webgpu_dawn)
+                target_link_libraries(webgpu INTERFACE dawn::webgpu_dawn)
         endif()
+        
+        # Includes ported SDL3-webgpu conduit
+        add_subdirectory(./include/webgpu/sdl3webgpu-main sdl3webgpu)
 
-        target_link_libraries(wpu-backend PUBLIC SDL3::SDL3)
-        target_link_libraries(wpu-backend PUBLIC glm::glm)
+        target_link_libraries(wpu-backend PUBLIC glm::glm sdl3webgpu)
+
+        target_compile_definitions(wpu-backend PUBLIC 
+                SKL_RENDERER=1
+        )
+
         target_link_libraries(DEPENDENCIES INTERFACE wpu-backend)
+
 endif()
 
 

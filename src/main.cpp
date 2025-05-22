@@ -28,8 +28,11 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
+// Cut off Imgui until we actually implement a base renderer for WGPU
+#if SKL_RENDERER != 1
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
+#endif
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -87,7 +90,10 @@ void updateLoop(void* appInfo) {
 
     while (SDL_PollEvent(&info->e))
     {
-        ImGui_ImplSDL3_ProcessEvent(&e);
+        // Cut off Imgui until we actually implement a base renderer for WGPU
+        #if SKL_RENDERER != 1
+        ImGui_ImplSDL3_ProcessEvent(&info->e);
+        #endif
         switch (info->e.type)
         {
             case SDL_EVENT_QUIT:
@@ -110,9 +116,12 @@ void updateLoop(void* appInfo) {
 
     SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);
 
+    // Cut off Imgui until we actually implement a base renderer for WGPU
+    #if SKL_RENDERER != 1
+    std::cout << "COOL" << std::endl;
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-    
+    #endif    
     GameUpdateAndRender(info->scene, info->window, deltaTime);
 
     mouseDeltaX = 0;
@@ -142,9 +151,12 @@ int main()
         return 1;
     }
 
+    // Cuts off ImGui
+    #if SKL_RENDERER != 1
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplSDL3_InitForOther(window);
+    #endif
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
