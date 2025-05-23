@@ -4,6 +4,7 @@ struct CameraData
     float4x4 view;
     float4x4 proj;
     float3 pos;
+    float4x4 lightSpace;
 };
 
 // Represents transformation and material data for the objects in the scene
@@ -31,12 +32,14 @@ struct VertPushConstants
 };
 
 [vk::push_constant]
-VertPushConstants pcs;
+VertPushConstants vpcs;
+
 
 // Represents a vertex that has been processed by the vertex shader
 struct CoarseVertex
 {
     float3 eyeRelPos;
+    float4 lightRelPos;
     float3 normal;
     float4 color;
 };
@@ -48,14 +51,15 @@ struct VertexOutput
     CoarseVertex vertData : CoarseVertex;
 };
 
+
 [shader("vertex")]
 VertexOutput vertexMain(uint vertexID : SV_VertexID,
     uint instanceID : SV_InstanceID, uint baseInstance : SV_StartInstanceLocation)
 {
-    ObjectData object = pcs.objects[baseInstance + instanceID];
+    ObjectData object = vpcs.objects[baseInstance + instanceID];
 
     float4x4 model = object.model;
-    Vertex vert = pcs.vertices[vertexID];
+    Vertex vert = vpcs.vertices[vertexID];
     float4 pos = float4(vert.pos, 1.0);
     float4 worldPos = mul(model, pos);
 
@@ -66,29 +70,50 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
                 cross(model[0].xyz, model[1].xyz));
 
     CoarseVertex vertData;
-    vertData.color = object.color;
-    vertData.eyeRelPos = worldPos.xyz - pcs.camera->pos;
+    vertData.eyeRelPos = worldPos.xyz - vpcs.camera->pos;
+    vertData.lightRelPos = mul(vpcs.camera->lightSpace, worldPos);
     vertData.normal = normalize(mul(normMat, vert.normal));
+    vertData.color = object.color;
 
-    output.pos = mul(pcs.camera->proj, mul(pcs.camera->view, worldPos));
+    output.pos = mul(vpcs.camera->proj, mul(vpcs.camera->view, worldPos));
     output.vertData = vertData;
 
     return output;
 };
 
+struct FragPushConstants
+{
+    [vk::offset(24)]
+    float3 lightDir;
+    uint shadowID;
+};
+
+[vk::push_constant]
+FragPushConstants fpcs;
+
+[[vk::binding(0,0)]]
+Sampler2D[] textures;
+
 [shader("fragment")]
 float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 {
     float3 normal = vertData.normal;
-    constexpr float3 lightDir = normalize(float3(1.0, 0.75, -0.5));
+
+    float3 lightPosScaled = (vertData.lightRelPos.xyz / vertData.lightRelPos.w) * 0.5 + 0.5;
+
+    float4 lightDepth = textures[fpcs.shadowID].Sample(lightPosScaled.xy);
+
+    int unshadowed = lightDepth.r > lightPosScaled.z;
+
+    //return lightDepth.r * unshadowed;
 
     float ambient = 0.1;
-    float diffuse = max(dot(normal, -lightDir), 0.0);
+    float diffuse = max(dot(normal, -fpcs.lightDir), 0.0);
     float3 viewDir = normalize(-vertData.eyeRelPos);
-    float3 halfDir = normalize(viewDir - lightDir);
+    float3 halfDir = normalize(viewDir - fpcs.lightDir);
     float specular = pow(max(dot(normal, halfDir), 0.0), 32.0);
 
-    float brightness = ambient + diffuse + specular;
+    float brightness = ambient + (unshadowed * (diffuse + specular));
 
     return vertData.color * brightness;
 };

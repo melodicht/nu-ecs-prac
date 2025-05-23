@@ -80,7 +80,7 @@ class RenderSystem : public System
 
     void OnStart(Scene *scene)
     {
-        dirShadowMap = CreateDepthTexture(1024, 1024);
+        dirShadowMap = CreateDepthTexture(2048, 2048);
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
@@ -90,31 +90,12 @@ class RenderSystem : public System
             return;
         }
 
-        Transform3D lightTransform;
-        lightTransform.position = {-4096, 4096, 1024};
-        lightTransform.rotation = {0, 22.5, -45};
-
-        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
-        if (cameraView.begin() == cameraView.end())
-        {
-            return;
-        }
-
-        EntityID cameraEnt = *cameraView.begin();
-        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
-        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
-        glm::mat4 view = GetViewMatrix(cameraTransform);
-        f32 aspect = (f32)windowWidth / (f32)windowHeight;
-        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
-
-        SetCamera({view, proj, cameraTransform->position});
-
         // 1. Gather counts of each unique mesh pointer.
         std::map<MeshID, u32> meshCounts;
         for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
         {
             MeshComponent *m = scene->Get<MeshComponent>(ent);
-						++meshCounts[m->mesh];  // TODO: Verify the legitness of this
+            ++meshCounts[m->mesh];  // TODO: Verify the legitness of this
         }
 
         // 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
@@ -127,9 +108,7 @@ class RenderSystem : public System
             totalCount += pair.second;
         }
 
-
         std::vector<ObjectData> objects(totalCount);
-
 
         // 4. Iterate through scene view once more and fill in the fixed size array.
         for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
@@ -145,7 +124,19 @@ class RenderSystem : public System
 
         SendObjectData(objects);
 
-        BeginDepthPass(CullMode::BACK, false);
+        Transform3D lightTransform;
+        lightTransform.position = {-1536, -1536, 1024};
+        lightTransform.rotation = {0, 30, 45};
+
+        glm::mat4 lightView = GetViewMatrix(&lightTransform);
+        glm::mat4 lightProj = glm::ortho(-2048.0f, 2048.0f, -2048.0f, 2048.0f, 1.0f, 4096.0f);
+        glm::mat4 lightSpace = lightProj * lightView;
+
+        glm::vec3 lightDir = GetForwardVector(&lightTransform);
+
+        SetCamera(1, lightView, lightProj, lightTransform.position);
+
+        BeginDepthPass(dirShadowMap, CullMode::BACK, true);
         int startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {
@@ -154,6 +145,34 @@ class RenderSystem : public System
             startIndex += pair.second;
         }
         EndPass();
+
+
+        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
+        if (cameraView.begin() == cameraView.end())
+        {
+            return;
+        }
+
+        EntityID cameraEnt = *cameraView.begin();
+        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
+        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
+        glm::mat4 view = GetViewMatrix(cameraTransform);
+        f32 aspect = (f32)windowWidth / (f32)windowHeight;
+        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
+
+        SetCamera(0, view, proj, cameraTransform->position);
+
+        BeginDepthPass(CullMode::BACK, false);
+        startIndex = 0;
+        for (std::pair<MeshID, u32> pair: meshCounts)
+        {
+            SetMesh(pair.first);
+            DrawObjects(pair.second, startIndex);
+            startIndex += pair.second;
+        }
+        EndPass();
+
+        SetDirLight(lightSpace, lightDir, dirShadowMap);
 
         BeginColorPass(CullMode::BACK);
         startIndex = 0;

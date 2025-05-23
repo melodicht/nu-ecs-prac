@@ -42,7 +42,7 @@ u32 graphicsQueueFamily;
 
 VmaAllocator allocator;
 
-VkFormat depthFormat;
+VkFormat depthFormat = VK_FORMAT_D32_SFLOAT;
 AllocatedImage depthImage;
 VkImageView depthImageView;
 
@@ -59,9 +59,14 @@ std::vector<VkSemaphore> renderSemaphores;
 VkCommandPool mainCommandPool;
 FrameData frames[NUM_FRAMES];
 
-VkPipelineLayout pipelineLayout;
+VkPipelineLayout depthPipelineLayout;
+VkPipelineLayout colorPipelineLayout;
 VkPipeline depthPipeline;
 VkPipeline colorPipeline;
+
+VkDescriptorPool descriptorPool;
+VkDescriptorSetLayout texDescriptorLayout;
+VkDescriptorSet texDescriptorSet;
 
 u32 frameNum;
 
@@ -69,8 +74,13 @@ u32 swapIndex;
 bool resize = false;
 u32 currentIndexCount;
 
+u32 currentCamID;
+
+VkPipelineLayout *currentLayout;
+
 MeshID currentMeshID;
 std::unordered_map<MeshID,Mesh> meshes;
+TextureID currentTexID;
 std::unordered_map<TextureID,Texture> textures;
 
 
@@ -84,25 +94,21 @@ MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
     size_t indexSize = sizeof(u32) * indexCount;
     size_t vertSize = sizeof(Vertex) * vertCount;
 
-    mesh.indexBuffer = CreateBuffer(allocator,
-                                     indexSize,
+    mesh.indexBuffer = CreateBuffer(device, allocator, indexSize,
                                      VK_BUFFER_USAGE_INDEX_BUFFER_BIT
                                      | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
                                      0,
                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    mesh.vertBuffer = CreateBuffer(allocator, vertSize,
+    mesh.vertBuffer = CreateBuffer(device, allocator, vertSize,
                                     VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                     | VK_BUFFER_USAGE_TRANSFER_DST_BIT
                                     | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                     0,
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-    VkBufferDeviceAddressInfo deviceAddressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, .buffer = mesh.vertBuffer.buffer};
-    mesh.vertAddress = vkGetBufferDeviceAddress(device, &deviceAddressInfo);
 
-
-    AllocatedBuffer stagingBuffer = CreateBuffer(allocator,
+    AllocatedBuffer stagingBuffer = CreateBuffer(device, allocator,
                                                  indexSize + vertSize,
                                                  VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
@@ -151,6 +157,75 @@ void DestroyMesh(MeshID meshID)
     meshes.erase(meshID);
 }
 
+TextureID CreateDepthTexture(u32 width, u32 height)
+{
+    currentTexID++;
+    auto iter = textures.emplace(currentTexID, Texture());
+    Texture& texture = iter.first->second;
+
+    AllocatedImage depthTexture = CreateImage(allocator,
+                             depthFormat,
+                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                             VK_IMAGE_USAGE_SAMPLED_BIT,
+                             {width, height, 1},
+                             VMA_MEMORY_USAGE_GPU_ONLY,
+                             VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+
+    VkImageView depthTexView;
+
+    VkImageViewCreateInfo depthViewInfo{};
+    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    depthViewInfo.format = depthFormat;
+    depthViewInfo.image = depthTexture.image;
+    depthViewInfo.subresourceRange.baseMipLevel = 0;
+    depthViewInfo.subresourceRange.levelCount = 1;
+    depthViewInfo.subresourceRange.baseArrayLayer = 0;
+    depthViewInfo.subresourceRange.layerCount = 1;
+    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
+
+    VkSampler sampler;
+
+    VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    samplerInfo.magFilter = VK_FILTER_NEAREST;
+    samplerInfo.minFilter = VK_FILTER_NEAREST;
+    vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageView = depthTexView;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.sampler = sampler;
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.dstArrayElement = currentTexID - 1;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.dstSet = texDescriptorSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+
+    texture.texture = depthTexture;
+    texture.imageView = depthTexView;
+    texture.sampler = sampler;
+    texture.extent = {width, height};
+    texture.descriptorIndex = currentTexID - 1;
+
+    return currentTexID;
+}
+
+void DestroyTexture(TextureID texID)
+{
+    Texture& texture = textures[texID];
+    vkDestroySampler(device, texture.sampler, nullptr);
+    vkDestroyImageView(device, texture.imageView, nullptr);
+    DestroyImage(allocator, texture.texture);
+    textures.erase(texID);
+}
 
 // Create swapchain or recreate to change size
 void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
@@ -175,7 +250,6 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
 
 
     // Create the depth buffer
-    depthFormat = VK_FORMAT_D32_SFLOAT;
 
     VkExtent3D depthImageExtent =
             {
@@ -276,6 +350,9 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     VkPhysicalDeviceVulkan12Features feat12{};
     feat12.bufferDeviceAddress = true;
     feat12.descriptorIndexing = true;
+    feat12.descriptorBindingPartiallyBound = true;
+    feat12.descriptorBindingSampledImageUpdateAfterBind = true;
+    feat12.runtimeDescriptorArray = true;
     feat12.scalarBlockLayout = true;
 
     VkPhysicalDeviceVulkan13Features feat13{};
@@ -375,31 +452,25 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     // Create camera and object buffers
     for (int i = 0; i < NUM_FRAMES; i++)
     {
-        frames[i].cameraBuffer = CreateBuffer(allocator,
-                                              sizeof(CameraData),
-                                              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                              | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                              VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                              | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-        VkBufferDeviceAddressInfo cameraAddressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                                                    .buffer = frames[i].cameraBuffer.buffer};
-        frames[i].cameraAddress = vkGetBufferDeviceAddress(device, &cameraAddressInfo);
-
+        for (int cam = 0; cam < 2; cam++)
+        {
+            frames[i].cameraBuffers[cam] = CreateBuffer(device, allocator,
+                                                        sizeof(CameraData) + sizeof(glm::mat4),
+                                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                        | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                        VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                        | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        }
 
 
-        frames[i].objectBuffer = CreateBuffer(allocator,
+        frames[i].objectBuffer = CreateBuffer(device, allocator,
                                               sizeof(ObjectData) * 4096,
                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                               | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                               VMA_ALLOCATION_CREATE_MAPPED_BIT
                                               | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-
-        VkBufferDeviceAddressInfo objectAddressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-                                                    .buffer = frames[i].objectBuffer.buffer};
-        frames[i].objectAddress = vkGetBufferDeviceAddress(device, &objectAddressInfo);
     }
 
     // Create shader stages
@@ -437,20 +508,81 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
 
     VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, fragStageInfo};
 
-    // Create render pipeline layout
-    VkPushConstantRange pushConstants;
-    pushConstants.offset = 0;
-    pushConstants.size = sizeof(VertPushConstants);
-    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    // Set up descriptor pool and set for textures
+    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 128}};
 
-    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipelineLayoutInfo.setLayoutCount = 0;
-    pipelineLayoutInfo.pSetLayouts = nullptr;
-    pipelineLayoutInfo.pushConstantRangeCount = 1;
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstants;
+    VkDescriptorPoolCreateInfo descriptorPoolInfo{};
+    descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    descriptorPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
+                               | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
+    descriptorPoolInfo.maxSets = 1;
+    descriptorPoolInfo.poolSizeCount = 1;
+    descriptorPoolInfo.pPoolSizes = poolSizes;
 
-    VK_CHECK(vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &pipelineLayout));
+    VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
+
+
+    VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+    VkDescriptorSetLayoutBinding texBinding{};
+    texBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    texBinding.descriptorCount = 128;
+    texBinding.binding = 0;
+    texBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    texBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
+    bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
+    bindingFlagsInfo.bindingCount = 1;
+    bindingFlagsInfo.pBindingFlags = &bindingFlags;
+
+    VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo{};
+    descriptorLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptorLayoutInfo.bindingCount = 1;
+    descriptorLayoutInfo.pBindings = &texBinding;
+    descriptorLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+    descriptorLayoutInfo.pNext = &bindingFlagsInfo;
+
+    VK_CHECK(vkCreateDescriptorSetLayout(device, &descriptorLayoutInfo, nullptr, &texDescriptorLayout));
+
+    VkDescriptorSetAllocateInfo descriptorAllocInfo{};
+    descriptorAllocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    descriptorAllocInfo.descriptorPool = descriptorPool;
+    descriptorAllocInfo.descriptorSetCount = 1;
+    descriptorAllocInfo.pSetLayouts = &texDescriptorLayout;
+
+    VK_CHECK(vkAllocateDescriptorSets(device, &descriptorAllocInfo, &texDescriptorSet));
+
+
+    // Create render pipeline layouts
+    VkPushConstantRange vertPushConstants;
+    vertPushConstants.offset = 0;
+    vertPushConstants.size = sizeof(VertPushConstants);
+    vertPushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    VkPushConstantRange fragPushConstants;
+    fragPushConstants.offset = sizeof(VertPushConstants);
+    fragPushConstants.size = sizeof(FragPushConstants);
+    fragPushConstants.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    VkPushConstantRange pushConstants[] = {vertPushConstants, fragPushConstants};
+
+    VkPipelineLayoutCreateInfo depthLayoutInfo{};
+    depthLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    depthLayoutInfo.setLayoutCount = 0;
+    depthLayoutInfo.pSetLayouts = nullptr;
+    depthLayoutInfo.pushConstantRangeCount = 1;
+    depthLayoutInfo.pPushConstantRanges = &vertPushConstants;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &depthLayoutInfo, nullptr, &depthPipelineLayout));
+
+    VkPipelineLayoutCreateInfo colorLayoutInfo{};
+    colorLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    colorLayoutInfo.setLayoutCount = 1;
+    colorLayoutInfo.pSetLayouts = &texDescriptorLayout;
+    colorLayoutInfo.pushConstantRangeCount = 2;
+    colorLayoutInfo.pPushConstantRanges = pushConstants;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &colorLayoutInfo, nullptr, &colorPipelineLayout));
 
 
     // Create render pipelines (AKA fill in 20000 info structs)
@@ -576,7 +708,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     depthPipelineInfo.pDepthStencilState = &preDepthStencil;
     depthPipelineInfo.pColorBlendState = &colorBlending;
     depthPipelineInfo.pDynamicState = &dynamicState;
-    depthPipelineInfo.layout = pipelineLayout;
+    depthPipelineInfo.layout = depthPipelineLayout;
     depthPipelineInfo.renderPass = nullptr; // No renderpass necessary because we are using dynamic rendering
     depthPipelineInfo.subpass = 0;
     depthPipelineInfo.pNext = &depthRenderInfo;
@@ -593,7 +725,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     colorPipelineInfo.pDepthStencilState = &colorDepthStencil;
     colorPipelineInfo.pColorBlendState = &colorBlending;
     colorPipelineInfo.pDynamicState = &dynamicState;
-    colorPipelineInfo.layout = pipelineLayout;
+    colorPipelineInfo.layout = colorPipelineLayout;
     colorPipelineInfo.renderPass = nullptr; // No renderpass necessary because we are using dynamic rendering
     colorPipelineInfo.subpass = 0;
     colorPipelineInfo.pNext = &colorRenderInfo;
@@ -657,6 +789,102 @@ bool InitFrame()
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
 
+    TransitionImage(cmd, swapImages[swapIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    return true;
+}
+
+void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode, bool depthBias)
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
+    vkCmdSetDepthBiasEnable(cmd, depthBias);
+
+    VkRenderingAttachmentInfo depthAttachment{};
+    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    depthAttachment.imageView = depthView;
+    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depthAttachment.clearValue.depthStencil.depth = 1.0f;
+
+    VkRenderingInfo renderInfo{};
+    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderInfo.renderArea.offset = {0, 0};
+    renderInfo.renderArea.extent = extent;
+    renderInfo.layerCount = 1;
+    renderInfo.colorAttachmentCount = 0;
+    renderInfo.pColorAttachments = nullptr;
+    renderInfo.pDepthAttachment = &depthAttachment;
+    renderInfo.pStencilAttachment = nullptr;
+
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
+
+    currentLayout = &depthPipelineLayout;
+}
+
+void BeginDepthPass(CullMode cullMode, bool depthBias)
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    //set dynamic viewport and scissor
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = swapExtent.height;
+    viewport.width = (float)swapExtent.width;
+    viewport.height = -(float)swapExtent.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = swapExtent.width;
+    scissor.extent.height = swapExtent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    BeginDepthPass(depthImageView, swapExtent, cullMode, depthBias);
+}
+
+void BeginDepthPass(TextureID target, CullMode cullMode, bool depthBias)
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    VkExtent2D extent = textures[target].extent;
+
+    //set dynamic viewport and scissor
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = extent.height;
+    viewport.width = (float)extent.width;
+    viewport.height = -(float)extent.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = extent.width;
+    scissor.extent.height = extent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    TransitionImage(cmd, textures[target].texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    BeginDepthPass(textures[target].imageView, extent, cullMode, depthBias);
+}
+
+void BeginColorPass(CullMode cullMode)
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
     //set dynamic viewport and scissor
     VkViewport viewport = {};
     viewport.x = 0;
@@ -675,45 +903,6 @@ bool InitFrame()
     scissor.extent.height = swapExtent.height;
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    TransitionImage(cmd, swapImages[swapIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
-    return true;
-}
-
-void BeginDepthPass(CullMode cullMode, bool depthBias)
-{
-    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
-
-    vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
-    vkCmdSetDepthBiasEnable(cmd, depthBias);
-
-    VkRenderingAttachmentInfo depthAttachment{};
-    depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = depthImageView;
-    depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-    depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depthAttachment.clearValue.depthStencil.depth = 1.0f;
-
-    VkRenderingInfo renderInfo{};
-    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderInfo.renderArea.offset = {0, 0};
-    renderInfo.renderArea.extent = swapExtent;
-    renderInfo.layerCount = 1;
-    renderInfo.colorAttachmentCount = 0;
-    renderInfo.pColorAttachments = nullptr;
-    renderInfo.pDepthAttachment = &depthAttachment;
-    renderInfo.pStencilAttachment = nullptr;
-
-    vkCmdBeginRendering(cmd, &renderInfo);
-
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
-}
-
-void BeginColorPass(CullMode cullMode)
-{
-    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
     vkCmdSetDepthBiasEnable(cmd, false);
@@ -749,6 +938,10 @@ void BeginColorPass(CullMode cullMode)
     vkCmdBeginRendering(cmd, &renderInfo);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipeline);
+
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipelineLayout, 0, 1, &texDescriptorSet, 0, nullptr);
+
+    currentLayout = &colorPipelineLayout;
 }
 
 void EndPass()
@@ -763,10 +956,24 @@ void DrawImGui()
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
-void SetCamera(CameraData camera)
+void SetCamera(u32 id, glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
 {
-    void* cameraData = frames[frameNum].cameraBuffer.allocation->GetMappedData();
+    CameraData camera = {view, proj, pos};
+    void* cameraData = frames[frameNum].cameraBuffers[id].allocation->GetMappedData();
     memcpy(cameraData, &camera, sizeof(CameraData));
+
+    currentCamID = id;
+}
+
+void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture)
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    TransitionImage(cmd, textures[texture].texture.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    void* cameraData = frames[frameNum].cameraBuffers[currentCamID].allocation->GetMappedData();
+    memcpy((char*)cameraData + sizeof(CameraData), &lightSpace, sizeof(glm::mat4));
+    FragPushConstants pushConstants = {lightDir, textures[texture].descriptorIndex};
+    vkCmdPushConstants(cmd, colorPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, sizeof(VertPushConstants), sizeof(FragPushConstants), &pushConstants);
 }
 
 // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
@@ -783,8 +990,8 @@ void SetMesh(MeshID meshIndex)
 
     // Send addresses to camera, object, and vertex buffers as push constants
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
-    VertPushConstants pushConstants = {frames[frameNum].cameraAddress, frames[frameNum].objectAddress, mesh->vertAddress};
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VertPushConstants), &pushConstants);
+    VertPushConstants pushConstants = {frames[frameNum].cameraBuffers[currentCamID].address, frames[frameNum].objectBuffer.address, mesh->vertBuffer.address};
+    vkCmdPushConstants(cmd, *currentLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(VertPushConstants), &pushConstants);
     // Bind the index buffer
     vkCmdBindIndexBuffer(cmd, mesh->indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
