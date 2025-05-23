@@ -125,7 +125,7 @@ class RenderSystem : public System
         SendObjectData(objects);
 
         Transform3D lightTransform;
-        lightTransform.position = {-1536, -1536, 1024};
+        lightTransform.position = {-2048, -2048, 1024};
         lightTransform.rotation = {0, 30, 45};
 
         glm::mat4 lightView = GetViewMatrix(&lightTransform);

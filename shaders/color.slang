@@ -103,9 +103,9 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 
     float4 lightDepth = textures[fpcs.shadowID].Sample(lightPosScaled.xy);
 
-    int unshadowed = lightDepth.r > lightPosScaled.z;
+    int unshadowed = lightDepth.r < lightPosScaled.z;
 
-    //return lightDepth.r * unshadowed;
+    return lightDepth.r;
 
     float ambient = 0.1;
     float diffuse = max(dot(normal, -fpcs.lightDir), 0.0);
