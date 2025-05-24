@@ -8,6 +8,8 @@
 #include <vector>
 #include <random>
 
+#include "skl_logger.h"
+
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
@@ -61,7 +63,6 @@ f32 mouseDeltaY = 0;
 #if EMSCRIPTEN
 #include <emscripten/html5.h>
 #endif
-
 struct AppInformation
 {
     SDL_Window *window;
@@ -118,7 +119,6 @@ void updateLoop(void* appInfo) {
 
     // Cut off Imgui until we actually implement a base renderer for WGPU
     #if SKL_RENDERER != 1
-    std::cout << "COOL" << std::endl;
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
     #endif    

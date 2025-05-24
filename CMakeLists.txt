@@ -30,6 +30,14 @@ target_link_libraries(DEPENDENCIES INTERFACE imgui)
 set(render_sys "Default" CACHE STRING "Which graphics API should the rendering backend be based on")
 set_property(CACHE render_sys PROPERTY STRINGS "Default" "WebGPU" "Vulkan")
 
+# Takes in other options
+option(enable_logging "Whether logging should be enabled or not" ON)
+if(${enable_logging})
+        target_compile_definitions(DEPENDENCIES INTERFACE SKL_LOGGING_ENABLED=1)
+else()
+        target_compile_definitions(DEPENDENCIES INTERFACE SKL_LOGGING_ENABLED=0)
+endif()
+
 # Determines rendering backend if none is explicitly picked
 if(${render_sys} STREQUAL "Default")
         message("Assigning rendering backend based on machine...")
@@ -80,7 +88,7 @@ if(${render_sys} STREQUAL "Vulkan")
                 ${CMAKE_CURRENT_SOURCE_DIR}/src
                 $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
         
-        target_compile_definitions(vulkan-backend PUBLIC 
+        target_compile_definitions(DEPENDENCIES INTERFACE
                 SKL_RENDERER=0
         )
 
@@ -88,13 +96,16 @@ if(${render_sys} STREQUAL "Vulkan")
 
 elseif(${render_sys} STREQUAL "WebGPU")
         add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend wpu-backend)
+
+        target_compile_definitions(wpu-backend PRIVATE SKL_LOGGING_ENABLED=1)
         target_link_libraries(DEPENDENCIES INTERFACE
-                wpu-backend)
+                wpu-backend
+        )
+
         target_compile_definitions(DEPENDENCIES INTERFACE 
                 SKL_RENDERER=1
         )
 endif()
-
 
 # Puts together target
 add_executable(${PROJECT_NAME} ${SRC})
