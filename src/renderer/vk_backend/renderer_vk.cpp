@@ -191,6 +191,7 @@ TextureID CreateDepthTexture(u32 width, u32 height)
     VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
     samplerInfo.magFilter = VK_FILTER_NEAREST;
     samplerInfo.minFilter = VK_FILTER_NEAREST;
+    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
     vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
 
     VkDescriptorImageInfo imageInfo{};

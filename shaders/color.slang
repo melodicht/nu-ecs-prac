@@ -105,7 +105,7 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 
     int unshadowed = lightDepth.r < lightPosScaled.z;
 
-    return lightDepth.r;
+    return float4(float3(lightDepth.r), 1.0);
 
     float ambient = 0.1;
     float diffuse = max(dot(normal, -fpcs.lightDir), 0.0);
