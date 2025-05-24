@@ -17,6 +17,18 @@
 // Allows for encapsulation of WebGPU render capabilities
 class WPURenderBackend {
 private:
+    // WGPU objects
+    // WGPUInstance m_wgpuInstance{ };
+    // WGPUDevice m_wgpuDevice{ };
+    // WGPUQueue m_wgpuQueue{ };
+
+    // #pragma region Helper Init Methods
+    // // The following happens usually happen asynchronously in wgpu but is awaited for by these functions
+    // WGPUAdapter GetAdapter(WGPUInstance instance, WGPURequestAdapterOptions const * options);
+
+    // WGPUDevice GetDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const * descriptor);
+    // #pragma endregion
+
 public:
     WPURenderBackend() { }
 

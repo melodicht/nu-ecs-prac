@@ -19,7 +19,6 @@ target_link_libraries(DEPENDENCIES INTERFACE SDL3::SDL3)
 target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
 target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
 
-
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
 add_library(imgui SHARED ${imgui_sources})
 target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
@@ -27,19 +26,43 @@ list(APPEND SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 
 target_link_libraries(DEPENDENCIES INTERFACE imgui)
 
-# Determines rendering backend
-set(render_sys "VULKAN")
-if(APPLE)
-        set(render_sys "WEBGPU")
-        enable_language(OBJC)
-elseif(EMSCRIPTEN)
-        set(render_sys "WEBGPU")
+# Takes in an option for rendering backend
+set(render_sys "Default" CACHE STRING "Which graphics API should the rendering backend be based on")
+set_property(CACHE render_sys PROPERTY STRINGS "Default" "WebGPU" "Vulkan")
+
+# Determines rendering backend if none is explicitly picked
+if(${render_sys} STREQUAL "Default")
+        message("Assigning rendering backend based on machine...")
+        if(APPLE)
+                # Currently MoltenVK has not caught up in terms of SDK to the currently used vulkan version
+                # Maybe we should change once that becomes avaliable
+                set(render_sys "WebGPU")
+        elseif(EMSCRIPTEN)
+                # No other options for web
+                set(render_sys "WebGPU")
+        else()
+                # Likely Vulkan will run better on the things it is natively supported by
+                set(render_sys "Vulkan")
+        endif()
+
+# Checks if selected option is available for current device, throws error if not
+else()
+        message("Checking for api support on current machine...")
+        # Web and Apple simply do not work with anything outside of WebGPU
+        if(EMSCRIPTEN)
+                if(NOT ${render_sys} STREQUAL "WebGPU")
+                        message(FATAL_ERROR "Web builds need to use WebGPU backend")
+                endif()
+        elseif(APPLE)
+                if(NOT ${render_sys} STREQUAL "WebGPU")
+                        message(FATAL_ERROR "Apple devices currently only support WebGPU backends")
+                endif()
+        endif()
 endif()
 
-message("Initializing [${render_sys}] rendering backend")
-
 # Accordingly resolves dependencies required for each rendering backend
-if(${render_sys} STREQUAL "VULKAN")
+message("Initializing [${render_sys}] rendering backend...")
+if(${render_sys} STREQUAL "Vulkan")
         add_definitions(-DIMGUI_IMPL_VULKAN_USE_VOLK)
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
@@ -63,63 +86,30 @@ if(${render_sys} STREQUAL "VULKAN")
 
         target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
 
-elseif(${render_sys} STREQUAL "WEBGPU")
-        # Includes dawn backend
-        set(WEBGPU_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend)
-        add_library(wpu-backend ${WEBGPU_SRC_DIR}/renderer_wpu.cpp ${WEBGPU_SRC_DIR}/render_backend_wpuimpl.cpp)
-        target_include_directories(wpu-backend PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
-
-        add_library(webgpu INTERFACE)
-        set(DAWN_FETCH_DEPENDENCIES ON)
-        if(EMSCRIPTEN)
-                # Fetches emscripten Dawn port
-                # Got a lot of help from "https://github.com/eliemichel/WebGPU-distribution/blob/main/emdawnwebgpu/CMakeLists.txt"
-                CPMAddPackage(NAME emdawn URL "https://github.com/google/dawn/releases/download/v20250519.170457/emdawnwebgpu_pkg-v20250519.170457.zip")
-                set(emdawn_ROOT "${emdawn_SOURCE_DIR}")
-                message(${emdawn_ROOT})
-                target_link_options(webgpu INTERFACE 
-                        -sASSERTIONS
-                        -sUSE_SDL=3
-                        -sASYNCIFY
-                        -sALLOW_MEMORY_GROWTH
-                        --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
-                        --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
-                target_compile_options(webgpu INTERFACE 
-                        --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py)
-        else()
-                # Fetches Dawn
-                CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/main.tar.gz")
-                target_link_libraries(webgpu INTERFACE dawn::webgpu_dawn)
-        endif()
-        
-        # Includes ported SDL3-webgpu conduit
-        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/include/webgpu/sdl3webgpu-main sdl3webgpu)
-
-        target_link_libraries(wpu-backend PUBLIC glm::glm sdl3webgpu)
-
-        target_compile_definitions(wpu-backend PUBLIC 
+elseif(${render_sys} STREQUAL "WebGPU")
+        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend wpu-backend)
+        target_link_libraries(DEPENDENCIES INTERFACE
+                wpu-backend)
+        target_compile_definitions(DEPENDENCIES INTERFACE 
                 SKL_RENDERER=1
         )
-
-        target_link_libraries(DEPENDENCIES INTERFACE wpu-backend)
-
 endif()
 
 
 # Puts together target
-add_executable(untitled-engine ${SRC})
-target_include_directories(untitled-engine PUBLIC
+add_executable(${PROJECT_NAME} ${SRC})
+target_include_directories(${PROJECT_NAME} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-target_link_libraries(untitled-engine PRIVATE DEPENDENCIES)
+target_link_libraries(${PROJECT_NAME} PRIVATE DEPENDENCIES)
 if (EMSCRIPTEN)
-        set_target_properties(untitled-engine PROPERTIES SUFFIX ".html")
+        set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".html")
 endif()
 
 if (WIN32)
-    add_custom_command(TARGET untitled-engine POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:untitled-engine> $<TARGET_FILE_DIR:untitled-engine>
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_RUNTIME_DLLS:${PROJECT_NAME}> $<TARGET_FILE_DIR:${PROJECT_NAME}>
             COMMAND_EXPAND_LISTS
     )
 endif()
@@ -145,10 +135,10 @@ foreach(SHADER ${SHADERS})
             VERBATIM)
 endforeach()
 
-add_custom_command(TARGET untitled-engine POST_BUILD
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${CMAKE_BINARY_DIR}
 )
 
 add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
 
-add_dependencies(untitled-engine build_shaders)
+add_dependencies(${PROJECT_NAME} build_shaders)

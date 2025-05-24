@@ -6,13 +6,47 @@
 #endif
 
 #include <cstdlib>
-#include <iostream>
+#include <cstring>
+#include "skl_logger.h"
+
+WGPUStringView wgpuString(const char* string)
+{
+  WGPUStringView retString {
+    .data = string,
+    .length = std::strlen(string)
+  };
+  return retString;
+}
 
 void handle_request_adapter(WGPURequestAdapterStatus status,
   WGPUAdapter adapter, WGPUStringView message,
   void *userdata1, void *userdata2) {
   *(WGPUAdapter *)userdata1 = adapter;
 }
+
+
+std::pair<WGPUSurfaceTexture, WGPUTextureView> GetNextSurfaceViewData(WGPUSurface surface) {
+  WGPUSurfaceTexture surfaceTexture;
+  wgpuSurfaceGetCurrentTexture(surface, &surfaceTexture);
+
+  if (surfaceTexture.status == WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal) {
+      return { surfaceTexture, nullptr };
+  }
+  WGPUTextureViewDescriptor viewDescriptor;
+  viewDescriptor.nextInChain = nullptr;
+  viewDescriptor.label = wgpuString("Surface texture view");
+  viewDescriptor.format = wgpuTextureGetFormat(surfaceTexture.texture);
+  viewDescriptor.dimension = WGPUTextureViewDimension_2D;
+  viewDescriptor.baseMipLevel = 0;
+  viewDescriptor.mipLevelCount = 1;
+  viewDescriptor.baseArrayLayer = 0;
+  viewDescriptor.arrayLayerCount = 1;
+  viewDescriptor.aspect = WGPUTextureAspect_All;
+  WGPUTextureView targetView = wgpuTextureCreateView(surfaceTexture.texture, &viewDescriptor);
+
+  return { surfaceTexture, targetView };
+}
+
 
 /**
  * Utility function to get a WebGPU adapter, so that
@@ -30,6 +64,7 @@ WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions 
       if (status == WGPURequestAdapterStatus_Success) {
         *((WGPUAdapter *)userdata1) = adapter;
       } else {
+          // LOG("Could not get WebGPU adapter: " << (message.data));
           std::cout << "Could not get WebGPU adapter: " << (message.data) << std::endl;
       }
       *(bool *)userdata2 = true;
@@ -121,7 +156,7 @@ void inspectDevice(WGPUDevice device) {
 // Much of this was taken from https://eliemichel.github.io/LearnWebGPU
 void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
   // Creates instance
-  WGPUInstanceDescriptor instanceDescriptor{};
+  WGPUInstanceDescriptor instanceDescriptor { };
   instanceDescriptor.nextInChain = nullptr;
 
   #if EMSCRIPTEN
@@ -139,7 +174,8 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
 
   WGPURequestAdapterOptions adapterOpts = {};
   adapterOpts.nextInChain = nullptr;
-  adapterOpts.compatibleSurface = SDL_GetWGPUSurface(instance, window);
+  WGPUSurface surface = SDL_GetWGPUSurface(instance, window);
+  adapterOpts.compatibleSurface = surface;
   WGPUAdapter adapter = requestAdapterSync(instance, &adapterOpts);
 
   std::cout << "Got adapter: " << adapter << std::endl;
@@ -150,20 +186,14 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
 
   // General device description
   deviceDesc.nextInChain = nullptr;
-  deviceDesc.label = WGPUStringView{
-    .data = "My Device",
-    .length = 9
-  }; // anything works here, that's your call
+  deviceDesc.label = wgpuString("My Device");
   deviceDesc.requiredFeatureCount = 0; // we do not require any specific feature
   deviceDesc.requiredLimits = nullptr; // we do not require any specific limit
   deviceDesc.defaultQueue.nextInChain = nullptr;
-  deviceDesc.defaultQueue.label = WGPUStringView{
-    .data = "Default Queue",
-    .length = 13
-  };
+  deviceDesc.defaultQueue.label = wgpuString("Default Queue");
 
   // Lost device callback
-  WGPUDeviceLostCallbackInfo lostCallbackInfo;
+  WGPUDeviceLostCallbackInfo lostCallbackInfo { };
   lostCallbackInfo.callback = [](WGPUDevice const * device, WGPUDeviceLostReason reason, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
     std::cout << "Device lost: reason " << reason;
     if (message.data) std::cout << " (" << message.data << ")";
@@ -173,7 +203,7 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
   deviceDesc.deviceLostCallbackInfo = lostCallbackInfo;
 
   // Error callback
-  WGPUUncapturedErrorCallbackInfo lostErrorInfo;
+  WGPUUncapturedErrorCallbackInfo lostErrorInfo { };
   lostErrorInfo.callback = [](WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
     std::cout << "Error happened: error " << type;
     if (message.data) std::cout << " (" << message.data << ")";
@@ -184,8 +214,6 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
   WGPUDevice device = requestDeviceSync(adapter, &deviceDesc);
 
   std::cout << "Got device: " << device << std::endl;
-
-  wgpuAdapterRelease(adapter);
 
   inspectDevice(device);
 
@@ -200,7 +228,7 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
 
   wgpuQueueOnSubmittedWorkDone(queue, queueDoneCallback);
 
-  WGPUCommandEncoderDescriptor encoderDesc = {};
+  WGPUCommandEncoderDescriptor encoderDesc { };
   encoderDesc.nextInChain = nullptr;
   encoderDesc.label = WGPUStringView{
     .data = "My Encoder",
@@ -223,12 +251,9 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
     }
   );
 
-  WGPUCommandBufferDescriptor cmdBufferDescriptor = {};
+  WGPUCommandBufferDescriptor cmdBufferDescriptor { };
   cmdBufferDescriptor.nextInChain = nullptr;
-  cmdBufferDescriptor.label = WGPUStringView{
-    .data = "Command Buffer",
-    .length = 14
-  };
+  cmdBufferDescriptor.label = wgpuString("Command Buffer");
   WGPUCommandBuffer command = wgpuCommandEncoderFinish(encoder, &cmdBufferDescriptor);
   wgpuCommandEncoderRelease(encoder); // release encoder after it's finished
 
@@ -247,4 +272,27 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
     wgpuInstanceProcessEvents(instance);  
     #endif
   }
+  
+  WGPUSurfaceConfiguration config { };
+  config.nextInChain = nullptr;
+  config.height = startHeight;
+  config.width = startWidth;
+  config.device = device;
+  config.usage = WGPUTextureUsage_RenderAttachment;
+
+  WGPUSurfaceCapabilities capabilities { };
+  wgpuSurfaceGetCapabilities( surface, adapter, &capabilities );
+  config.format = capabilities.formats[0];
+  wgpuSurfaceCapabilitiesFreeMembers( capabilities );
+  config.presentMode = WGPUPresentMode_Fifo;
+  config.alphaMode = WGPUCompositeAlphaMode_Auto;
+
+
+  config.viewFormatCount = 0;
+  config.viewFormats = nullptr;
+
+  wgpuSurfaceConfigure(surface, &config);
+  wgpuAdapterRelease(adapter);
+
+  GetNextSurfaceViewData(surface);
 }
