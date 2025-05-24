@@ -93,7 +93,7 @@ elseif(${render_sys} STREQUAL "WEBGPU")
         endif()
         
         # Includes ported SDL3-webgpu conduit
-        add_subdirectory(./include/webgpu/sdl3webgpu-main sdl3webgpu)
+        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/include/webgpu/sdl3webgpu-main sdl3webgpu)
 
         target_link_libraries(wpu-backend PUBLIC glm::glm sdl3webgpu)
 

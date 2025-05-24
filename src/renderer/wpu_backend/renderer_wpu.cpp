@@ -1,4 +1,5 @@
 #include "renderer/wpu_backend/renderer_wpu.h"
+#include "webgpu/sdl3webgpu-main/sdl3webgpu.h"
 
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
@@ -44,7 +45,6 @@ WGPUAdapter requestAdapterSync(WGPUInstance instance, WGPURequestAdapterOptions 
       options,
       callbackInfo
   );
-
   // We wait until userData.requestEnded gets true
   #if EMSCRIPTEN
   while (!requestEnded) {
@@ -117,6 +117,7 @@ void inspectDevice(WGPUDevice device) {
       // [...] Extra device limits
   }
 }
+
 // Much of this was taken from https://eliemichel.github.io/LearnWebGPU
 void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
   // Creates instance
@@ -138,6 +139,7 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
 
   WGPURequestAdapterOptions adapterOpts = {};
   adapterOpts.nextInChain = nullptr;
+  adapterOpts.compatibleSurface = SDL_GetWGPUSurface(instance, window);
   WGPUAdapter adapter = requestAdapterSync(instance, &adapterOpts);
 
   std::cout << "Got adapter: " << adapter << std::endl;
@@ -239,9 +241,10 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
 
   for (int i = 0 ; i < 5 ; ++i) {
     std::cout << "Tick/Poll device..." << std::endl;
-    wgpuInstanceProcessEvents(instance);  
     #if EMSCRIPTEN
     emscripten_sleep(100);
+    #else
+    wgpuInstanceProcessEvents(instance);  
     #endif
   }
 }
