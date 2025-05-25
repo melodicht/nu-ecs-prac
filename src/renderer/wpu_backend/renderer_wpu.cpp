@@ -10,8 +10,34 @@
 #include "skl_logger.h"
 #include <iostream>
 
-WGPUStringView wgpuString(const char* string)
-{
+// Much of this was taken from https://eliemichel.github.io/LearnWebGPU
+
+#pragma region Helper Functions
+void WGPURenderBackend::printDeviceSpecs() {
+  WGPUSupportedFeatures features;
+  wgpuDeviceGetFeatures(m_wgpuDevice, &features);
+
+  LOG("Device features:");
+  for (int iter = 0; iter < features.featureCount ; iter++) {
+      LOG(" - 0x" << features.features[iter]);
+  }
+
+  WGPULimits limits = {};
+  limits.nextInChain = nullptr;
+
+  WGPUStatus success = wgpuDeviceGetLimits(m_wgpuDevice, &limits);
+
+  if (success == WGPUStatus_Success) {
+      LOG("Device limits:");
+      LOG(" - maxTextureDimension1D: " << limits.maxTextureDimension1D);
+      LOG(" - maxTextureDimension2D: " << limits.maxTextureDimension2D);
+      LOG(" - maxTextureDimension3D: " << limits.maxTextureDimension3D);
+      LOG(" - maxTextureArrayLayers: " << limits.maxTextureArrayLayers);
+      // [...] Extra device limits
+  }
+}
+
+WGPUStringView WGPURenderBackend::wgpuStr(const char* string) {
   WGPUStringView retString {
     .data = string,
     .length = std::strlen(string)
@@ -19,37 +45,7 @@ WGPUStringView wgpuString(const char* string)
   return retString;
 }
 
-void handle_request_adapter(WGPURequestAdapterStatus status,
-  WGPUAdapter adapter, WGPUStringView message,
-  void *userdata1, void *userdata2) {
-  *(WGPUAdapter *)userdata1 = adapter;
-}
-
-
-std::pair<WGPUSurfaceTexture, WGPUTextureView> GetNextSurfaceViewData(WGPUSurface surface) {
-  WGPUSurfaceTexture surfaceTexture;
-  wgpuSurfaceGetCurrentTexture(surface, &surfaceTexture);
-
-  if (surfaceTexture.status == WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal) {
-      return { surfaceTexture, nullptr };
-  }
-  WGPUTextureViewDescriptor viewDescriptor;
-  viewDescriptor.nextInChain = nullptr;
-  viewDescriptor.label = wgpuString("Surface texture view");
-  viewDescriptor.format = wgpuTextureGetFormat(surfaceTexture.texture);
-  viewDescriptor.dimension = WGPUTextureViewDimension_2D;
-  viewDescriptor.baseMipLevel = 0;
-  viewDescriptor.mipLevelCount = 1;
-  viewDescriptor.baseArrayLayer = 0;
-  viewDescriptor.arrayLayerCount = 1;
-  viewDescriptor.aspect = WGPUTextureAspect_All;
-  WGPUTextureView targetView = wgpuTextureCreateView(surfaceTexture.texture, &viewDescriptor);
-
-  return { surfaceTexture, targetView };
-}
-
-#pragma region Helper Functions
-WGPUAdapter WPURenderBackend::GetAdapter(WGPUInstance instance, WGPURequestAdapterOptions const * options) {
+WGPUAdapter WGPURenderBackend::GetAdapter(WGPUInstance instance, WGPURequestAdapterOptions const * options) {
   WGPUAdapter set = nullptr;
   bool requestEnded = false;
 
@@ -87,7 +83,7 @@ WGPUAdapter WPURenderBackend::GetAdapter(WGPUInstance instance, WGPURequestAdapt
   return set;
 }
 
-WGPUDevice WPURenderBackend::GetDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const * descriptor) {
+WGPUDevice WGPURenderBackend::GetDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const * descriptor) {
   WGPUDevice set = nullptr;
   bool requestEnded = false;
 
@@ -121,47 +117,23 @@ WGPUDevice WPURenderBackend::GetDevice(WGPUAdapter adapter, WGPUDeviceDescriptor
   return set;
 }
 
-void WPURenderBackend::QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
+void WGPURenderBackend::QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
   LOG("Queued work finished with status: " << status);
 }
 
-void WPURenderBackend::LostDeviceCallback(WGPUDevice const * device, WGPUDeviceLostReason reason, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
+void WGPURenderBackend::LostDeviceCallback(WGPUDevice const * device, WGPUDeviceLostReason reason, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
   LOG("Device lost: reason " << reason);
   if (message.data) LOG(" (" << message.data << ")");
 }
 
-void WPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
+void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
   LOG("Error happened: error " << type);
   if (message.data) LOG("(" << message.data << ")");
 }
 #pragma endregion
-// We also add an inspect device function:
-void inspectDevice(WGPUDevice device) {
-  WGPUSupportedFeatures features;
-  wgpuDeviceGetFeatures(device, &features);
-
-  LOG("Device features:");
-  for (int iter = 0; iter < features.featureCount ; iter++) {
-      LOG(" - 0x" << features.features[iter]);
-  }
-
-  WGPULimits limits = {};
-  limits.nextInChain = nullptr;
-
-  WGPUStatus success = wgpuDeviceGetLimits(device, &limits);
-
-  if (success == WGPUStatus_Success) {
-      LOG("Device limits:");
-      LOG(" - maxTextureDimension1D: " << limits.maxTextureDimension1D);
-      LOG(" - maxTextureDimension2D: " << limits.maxTextureDimension2D);
-      LOG(" - maxTextureDimension3D: " << limits.maxTextureDimension3D);
-      LOG(" - maxTextureArrayLayers: " << limits.maxTextureArrayLayers);
-      // [...] Extra device limits
-  }
-}
 
 #pragma region Interface Impl
-WPURenderBackend::~WPURenderBackend() {
+WGPURenderBackend::~WGPURenderBackend() {
   wgpuSurfaceUnconfigure(m_wgpuSurface);
   wgpuSurfaceRelease(m_wgpuSurface);
   wgpuQueueRelease(m_wgpuQueue);
@@ -169,8 +141,7 @@ WPURenderBackend::~WPURenderBackend() {
   wgpuInstanceRelease(m_wgpuInstance);
 }
 
-// Much of this was taken from https://eliemichel.github.io/LearnWebGPU
-void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
+void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
   // Creates instance
   WGPUInstanceDescriptor instanceDescriptor { 
     .nextInChain = nullptr
@@ -204,12 +175,12 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
   // General device description
   WGPUDeviceDescriptor deviceDesc = {
     .nextInChain = nullptr,
-    .label = wgpuString("My Device"),
+    .label = wgpuStr("My Device"),
     .requiredFeatureCount = 0,
     .requiredLimits = nullptr,
     .defaultQueue {
       .nextInChain = nullptr,
-      .label = wgpuString("Default Queue")
+      .label = wgpuStr("Default Queue")
     },
     .deviceLostCallbackInfo {
       .callback = LostDeviceCallback,
@@ -225,7 +196,7 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
 
   LOG("Got device: " << m_wgpuDevice);
 
-  inspectDevice(m_wgpuDevice);
+  printDeviceSpecs();
 
   m_wgpuQueue = wgpuDeviceGetQueue(m_wgpuDevice);
 
@@ -238,7 +209,7 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
 
   WGPUCommandEncoderDescriptor encoderDesc { 
     .nextInChain = nullptr,
-    .label = wgpuString("My Encoder")
+    .label = wgpuStr("My Encoder")
   };
 
   WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
@@ -260,7 +231,7 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
 
   WGPUCommandBufferDescriptor cmdBufferDescriptor { 
     .nextInChain = nullptr,
-    .label = wgpuString("Command Buffer")
+    .label = wgpuStr("Command Buffer")
   };
 
   WGPUCommandBuffer command = wgpuCommandEncoderFinish(encoder, &cmdBufferDescriptor);
@@ -302,23 +273,47 @@ void WPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 star
   wgpuAdapterRelease(adapter);
 }
 
-bool WPURenderBackend::InitFrame() {
+bool WGPURenderBackend::InitFrame() {
+  WGPUSurfaceTexture surfaceTexture;
+  WGPUTextureView textureView = nullptr;
+  wgpuSurfaceGetCurrentTexture(m_wgpuSurface, &surfaceTexture);
+
+  if (surfaceTexture.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal) {
+      return false;
+  }
+
+  WGPUTextureViewDescriptor viewDescriptor {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Surface texture view"),
+    .format = wgpuTextureGetFormat(surfaceTexture.texture),
+    .dimension = WGPUTextureViewDimension_2D,
+    .baseMipLevel = 0,
+    .mipLevelCount = 1,
+    .baseArrayLayer = 0,
+    .arrayLayerCount = 1,
+    .aspect = WGPUTextureAspect_All,
+    .usage = WGPUTextureUsage_RenderAttachment
+  };
+
+  textureView = wgpuTextureCreateView(surfaceTexture.texture, &viewDescriptor);
+
+  if(!textureView)
+  {
+    return false;
+  }
 	// Create a command encoder for the draw call
 	WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
-    .label = wgpuString("My command encoder")
+    .label = wgpuStr("My command encoder")
   };
 	WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
-
-  auto viewData = GetNextSurfaceViewData(m_wgpuSurface);
-  WGPUSurfaceTexture surfaceTexture = viewData.first;
-  WGPUTextureView textureView = viewData.second;
 
   WGPURenderPassColorAttachment colorAttachment {
     .view = textureView,
     .resolveTarget = nullptr,
     .loadOp = WGPULoadOp_Clear,
     .storeOp = WGPUStoreOp_Store,
+    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
     .clearValue = WGPUColor{ 0.9, 0.1, 0.2, 1.0 }
   };
 
@@ -336,7 +331,7 @@ bool WPURenderBackend::InitFrame() {
 
   WGPUCommandBufferDescriptor cmdBufferDescriptor = {};
 	cmdBufferDescriptor.nextInChain = nullptr;
-	cmdBufferDescriptor.label = wgpuString("Command buffer");
+	cmdBufferDescriptor.label = wgpuStr("Command buffer");
 	WGPUCommandBuffer command = wgpuCommandEncoderFinish(encoder, &cmdBufferDescriptor);
 	wgpuCommandEncoderRelease(encoder);
 
@@ -351,6 +346,7 @@ bool WPURenderBackend::InitFrame() {
   wgpuSurfacePresent(m_wgpuSurface);
   wgpuInstanceProcessEvents(m_wgpuInstance);  
 #else
+  
   emscripten_sleep(100);
 #endif
   return true;

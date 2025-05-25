@@ -15,13 +15,20 @@
 #include <cstdint>
 
 // Allows for encapsulation of WebGPU render capabilities
-class WPURenderBackend {
+class WGPURenderBackend {
 private:
     // WGPU objects
     WGPUInstance m_wgpuInstance{ };
     WGPUDevice m_wgpuDevice{ };
     WGPUQueue m_wgpuQueue{ };
     WGPUSurface m_wgpuSurface{ };
+
+
+    void printDeviceSpecs();
+
+
+    // Translates a c_string to a wgpu string view
+    static WGPUStringView wgpuStr(const char* str);
 
     // The following getters occur asynchronously in wgpu but is awaited for by these functions
     static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);
@@ -39,9 +46,9 @@ private:
 
 public:
     // No logic needed
-    WPURenderBackend() { }
+    WGPURenderBackend() { }
 
-    ~WPURenderBackend();
+    ~WGPURenderBackend();
 
     // Gets the SDL Flags eneded
     SDL_WindowFlags GetRenderWindowFlags() { return 0; }

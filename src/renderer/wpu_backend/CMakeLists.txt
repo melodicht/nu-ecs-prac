@@ -20,6 +20,8 @@ if(EMSCRIPTEN)
                 -sASSERTIONS
                 -sUSE_SDL=3
                 -sASYNCIFY
+                -O0
+                -EMCC_DEBUG=1
                 -sALLOW_MEMORY_GROWTH
                 --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
                 --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
