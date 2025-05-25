@@ -66,6 +66,6 @@ struct FrameData
     VkSemaphore acquireSemaphore;
     VkFence renderFence;
 
-    AllocatedBuffer cameraBuffers[2];
+    std::vector<AllocatedBuffer> cameraBuffers;
     AllocatedBuffer objectBuffer;
 };

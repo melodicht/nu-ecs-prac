@@ -8,6 +8,7 @@
 
 typedef uint32_t MeshID;
 typedef uint32_t TextureID;
+typedef uint32_t CameraID;
 
 // Represents a vertex of a mesh (CPU->GPU)
 struct Vertex

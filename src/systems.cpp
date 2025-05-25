@@ -77,10 +77,18 @@ class CollisionSystem : public System
 class RenderSystem : public System
 {
     TextureID dirShadowMap;
+    Transform3D lightTransform;
+
+    CameraID mainCam;
+    CameraID dirLightCam;
 
     void OnStart(Scene *scene)
     {
-        dirShadowMap = CreateDepthTexture(2048, 2048);
+        dirShadowMap = CreateDepthTexture(2028, 2048);
+        lightTransform.rotation = {0, 30, 0};
+
+        mainCam = AddCamera();
+        dirLightCam = AddCamera();
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
@@ -124,19 +132,19 @@ class RenderSystem : public System
 
         SendObjectData(objects);
 
-        Transform3D lightTransform;
-        lightTransform.position = {-2048, -2048, 1024};
-        lightTransform.rotation = {0, 30, 45};
+        lightTransform.rotation.z += deltaTime * 45.0f;
+        lightTransform.position = {-cos(glm::radians(lightTransform.rotation.z)) * 2896.30937574f, -sin(glm::radians(lightTransform.rotation.z)) * 2896.30937574f, 1280};
 
         glm::mat4 lightView = GetViewMatrix(&lightTransform);
-        glm::mat4 lightProj = glm::ortho(-2048.0f, 2048.0f, -2048.0f, 2048.0f, 1.0f, 4096.0f);
+        glm::mat4 lightProj = glm::ortho(-2944.0f, 2944.0f, -2944.0f, 2944.0f, 1.0f, 8192.0f);
         glm::mat4 lightSpace = lightProj * lightView;
 
         glm::vec3 lightDir = GetForwardVector(&lightTransform);
 
-        SetCamera(1, lightView, lightProj, lightTransform.position);
+        SetCamera(dirLightCam);
+        UpdateCamera(lightView, lightProj, lightTransform.position);
 
-        BeginDepthPass(dirShadowMap, CullMode::BACK, true);
+        BeginDepthPass(dirShadowMap, CullMode::FRONT);
         int startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {
@@ -160,9 +168,10 @@ class RenderSystem : public System
         f32 aspect = (f32)windowWidth / (f32)windowHeight;
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
-        SetCamera(0, view, proj, cameraTransform->position);
+        SetCamera(mainCam);
+        UpdateCamera(view, proj, cameraTransform->position);
 
-        BeginDepthPass(CullMode::BACK, false);
+        BeginDepthPass(CullMode::BACK);
         startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {

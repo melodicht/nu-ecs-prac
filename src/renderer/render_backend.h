@@ -32,16 +32,20 @@ void DestroyTexture(TextureID textureID);
 // Destroy the mesh at the given MeshID
 void DestroyMesh(MeshID meshID);
 
+// Add a new camera to the scene. You need multiple cameras
+// if you want to render multiple views in the same frame.
+CameraID AddCamera();
+
 // Initialize the frame and begin recording rendering commands
 bool InitFrame();
 
 // Begin a depth only rendering pass onto the screen depth image
 // cullMode specifies the face culling mode to use for this pass
 // depthBias specifies whether to apply a bias to the depth test during this pass (to solve shadow acne)
-void BeginDepthPass(CullMode cullMode, bool depthBias);
+void BeginDepthPass(CullMode cullMode);
 
 // Begin a depth only rendering pass onto the given depth texture
-void BeginDepthPass(TextureID target, CullMode cullMode, bool depthBias);
+void BeginDepthPass(TextureID target, CullMode cullMode);
 
 // Begin a color rendering pass
 // cullMode specifies the face culling mode to use for this pass
@@ -54,8 +58,11 @@ void EndPass();
 // Draw the current ImGui frame onto the rendered image
 void DrawImGui();
 
-// Set the camera settings and transformation to use for rendering
-void SetCamera(u32 id, glm::mat4 view, glm::mat4 proj, glm::vec3 pos);
+// Set the camera to use for rendering with the given ID
+void SetCamera(CameraID id);
+
+// Update the camera settings and transformation to use for rendering
+void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);
 
 // Set scene directional light information to use for rendering
 void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture);

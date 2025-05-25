@@ -157,6 +157,22 @@ void DestroyMesh(MeshID meshID)
     meshes.erase(meshID);
 }
 
+CameraID AddCamera()
+{
+    for (int i = 0; i < NUM_FRAMES; i++)
+    {
+        frames[i].cameraBuffers.push_back(CreateBuffer(device, allocator,
+                                                           sizeof(CameraData) + sizeof(glm::mat4),
+                                                           VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                           | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                           VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                           | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
+    }
+
+    return frames[0].cameraBuffers.size() - 1;
+}
+
 TextureID CreateDepthTexture(u32 width, u32 height)
 {
     currentTexID++;
@@ -191,7 +207,6 @@ TextureID CreateDepthTexture(u32 width, u32 height)
     VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
     samplerInfo.magFilter = VK_FILTER_NEAREST;
     samplerInfo.minFilter = VK_FILTER_NEAREST;
-    samplerInfo.borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK;
     vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
 
     VkDescriptorImageInfo imageInfo{};
@@ -448,23 +463,9 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
         VK_CHECK(vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderSemaphores[i]));
     }
 
-
-
     // Create camera and object buffers
     for (int i = 0; i < NUM_FRAMES; i++)
     {
-        for (int cam = 0; cam < 2; cam++)
-        {
-            frames[i].cameraBuffers[cam] = CreateBuffer(device, allocator,
-                                                        sizeof(CameraData) + sizeof(glm::mat4),
-                                                        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                                        | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                                        VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                                        | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-        }
-
-
         frames[i].objectBuffer = CreateBuffer(device, allocator,
                                               sizeof(ObjectData) * 4096,
                                               VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
@@ -592,7 +593,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
             VK_DYNAMIC_STATE_VIEWPORT,
             VK_DYNAMIC_STATE_SCISSOR,
             VK_DYNAMIC_STATE_CULL_MODE,
-            VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE
+            VK_DYNAMIC_STATE_FRONT_FACE
     };
 
     VkPipelineDynamicStateCreateInfo dynamicState{};
@@ -621,9 +622,8 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
-    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
-
-    rasterizer.depthBiasConstantFactor = 0.0f;
+    rasterizer.depthBiasEnable = VK_FALSE;
+    rasterizer.depthBiasConstantFactor = 0.00f;
     rasterizer.depthBiasClamp = 0.0f;
     rasterizer.depthBiasSlopeFactor = 0.0f;
 
@@ -795,12 +795,11 @@ bool InitFrame()
     return true;
 }
 
-void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode, bool depthBias)
+void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
-    vkCmdSetDepthBiasEnable(cmd, depthBias);
 
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -827,7 +826,7 @@ void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode,
     currentLayout = &depthPipelineLayout;
 }
 
-void BeginDepthPass(CullMode cullMode, bool depthBias)
+void BeginDepthPass(CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
@@ -849,11 +848,12 @@ void BeginDepthPass(CullMode cullMode, bool depthBias)
     scissor.extent.height = swapExtent.height;
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
+    vkCmdSetFrontFace(cmd, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 
-    BeginDepthPass(depthImageView, swapExtent, cullMode, depthBias);
+    BeginDepthPass(depthImageView, swapExtent, cullMode);
 }
 
-void BeginDepthPass(TextureID target, CullMode cullMode, bool depthBias)
+void BeginDepthPass(TextureID target, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
@@ -862,9 +862,9 @@ void BeginDepthPass(TextureID target, CullMode cullMode, bool depthBias)
     //set dynamic viewport and scissor
     VkViewport viewport = {};
     viewport.x = 0;
-    viewport.y = extent.height;
+    viewport.y = 0;
     viewport.width = (float)extent.width;
-    viewport.height = -(float)extent.height;
+    viewport.height = (float)extent.height;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
 
@@ -877,9 +877,10 @@ void BeginDepthPass(TextureID target, CullMode cullMode, bool depthBias)
     scissor.extent.height = extent.height;
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
+    vkCmdSetFrontFace(cmd, VK_FRONT_FACE_CLOCKWISE);
 
     TransitionImage(cmd, textures[target].texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-    BeginDepthPass(textures[target].imageView, extent, cullMode, depthBias);
+    BeginDepthPass(textures[target].imageView, extent, cullMode);
 }
 
 void BeginColorPass(CullMode cullMode)
@@ -906,6 +907,7 @@ void BeginColorPass(CullMode cullMode)
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
+    vkCmdSetFrontFace(cmd, VK_FRONT_FACE_COUNTER_CLOCKWISE);
     vkCmdSetDepthBiasEnable(cmd, false);
 
     VkClearValue clearValue;
@@ -957,13 +959,16 @@ void DrawImGui()
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
-void SetCamera(u32 id, glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
+void SetCamera(u32 id)
+{
+    currentCamID = id;
+}
+
+void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
 {
     CameraData camera = {view, proj, pos};
-    void* cameraData = frames[frameNum].cameraBuffers[id].allocation->GetMappedData();
+    void* cameraData = frames[frameNum].cameraBuffers[currentCamID].allocation->GetMappedData();
     memcpy(cameraData, &camera, sizeof(CameraData));
-
-    currentCamID = id;
 }
 
 void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture)
