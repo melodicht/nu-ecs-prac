@@ -76,7 +76,20 @@ class CollisionSystem : public System
 
 class RenderSystem : public System
 {
-    u32 currentMesh = 0;
+    TextureID dirShadowMap;
+    Transform3D lightTransform;
+
+    CameraID mainCam;
+    CameraID dirLightCam;
+
+    void OnStart(Scene *scene)
+    {
+        dirShadowMap = CreateDepthTexture(2028, 2048);
+        lightTransform.rotation = {0, 30, 0};
+
+        mainCam = AddCamera();
+        dirLightCam = AddCamera();
+    }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
     {
@@ -84,6 +97,63 @@ class RenderSystem : public System
         {
             return;
         }
+
+        // 1. Gather counts of each unique mesh pointer.
+        std::map<MeshID, u32> meshCounts;
+        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
+        {
+            MeshComponent *m = scene->Get<MeshComponent>(ent);
+            ++meshCounts[m->mesh];  // TODO: Verify the legitness of this
+        }
+
+        // 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
+        // 3. Get pointers to the start of each segment of unique mesh pointer.
+        u32 totalCount = 0;
+        std::unordered_map<MeshID, u32> offsets;
+        for (std::pair<MeshID, u32> pair: meshCounts)
+        {
+            offsets[pair.first] = totalCount;
+            totalCount += pair.second;
+        }
+
+        std::vector<ObjectData> objects(totalCount);
+
+        // 4. Iterate through scene view once more and fill in the fixed size array.
+        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
+        {
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            glm::mat4 model = GetTransformMatrix(t);
+            MeshComponent *m = scene->Get<MeshComponent>(ent);
+            MeshID mesh = m->mesh;
+            ColorComponent *c = scene->Get<ColorComponent>(ent);
+
+            objects[offsets[mesh]++] = {model, glm::vec4(c->r, c->g, c->b, 1.0f)};
+        }
+
+        SendObjectData(objects);
+
+        lightTransform.rotation.z += deltaTime * 45.0f;
+        lightTransform.position = {-cos(glm::radians(lightTransform.rotation.z)) * 2896.30937574f, -sin(glm::radians(lightTransform.rotation.z)) * 2896.30937574f, 1280};
+
+        glm::mat4 lightView = GetViewMatrix(&lightTransform);
+        glm::mat4 lightProj = glm::ortho(-2944.0f, 2944.0f, -2944.0f, 2944.0f, 1.0f, 8192.0f);
+        glm::mat4 lightSpace = lightProj * lightView;
+
+        glm::vec3 lightDir = GetForwardVector(&lightTransform);
+
+        SetCamera(dirLightCam);
+        UpdateCamera(lightView, lightProj, lightTransform.position);
+
+        BeginDepthPass(dirShadowMap, CullMode::FRONT);
+        int startIndex = 0;
+        for (std::pair<MeshID, u32> pair: meshCounts)
+        {
+            SetMesh(pair.first);
+            DrawObjects(pair.second, startIndex);
+            startIndex += pair.second;
+        }
+        EndPass();
+
 
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
@@ -98,52 +168,31 @@ class RenderSystem : public System
         f32 aspect = (f32)windowWidth / (f32)windowHeight;
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
-        SetCamera(view, proj, cameraTransform->position);
+        SetCamera(mainCam);
+        UpdateCamera(view, proj, cameraTransform->position);
 
-        // 1. Gather counts of each unique mesh pointer.
-        std::map<u32, u32> meshCounts;
-        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
-        {
-            MeshComponent *m = scene->Get<MeshComponent>(ent);
-						++meshCounts[m->mesh];  // TODO: Verify the legitness of this
-        }
-
-        // 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
-        // 3. Get pointers to the start of each segment of unique mesh pointer.
-        u32 totalCount = 0;
-        std::unordered_map<u32, u32> offsets;
-        for (std::pair<u32, u32> pair: meshCounts)
-        {
-            offsets[pair.first] = totalCount;
-            totalCount += pair.second;
-        }
-
-
-        std::vector<ObjectData> objects(totalCount);
-
-
-        // 4. Iterate through scene view once more and fill in the fixed size array.
-        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
-        {
-            Transform3D *t = scene->Get<Transform3D>(ent);
-            glm::mat4 model = GetTransformMatrix(t);
-            MeshComponent *m = scene->Get<MeshComponent>(ent);
-            u32 mesh = m->mesh;
-            ColorComponent *c = scene->Get<ColorComponent>(ent);
-
-            objects[offsets[mesh]++] = {model, glm::vec4(c->r, c->g, c->b, 1.0f)};
-        }
-
-        SendObjectData(objects);
-
-        int startIndex = 0;
-        for (std::pair<u32, u32> pair: meshCounts)
+        BeginDepthPass(CullMode::BACK);
+        startIndex = 0;
+        for (std::pair<MeshID, u32> pair: meshCounts)
         {
             SetMesh(pair.first);
             DrawObjects(pair.second, startIndex);
             startIndex += pair.second;
         }
+        EndPass();
 
+        SetDirLight(lightSpace, lightDir, dirShadowMap);
+
+        BeginColorPass(CullMode::BACK);
+        startIndex = 0;
+        for (std::pair<MeshID, u32> pair: meshCounts)
+        {
+            SetMesh(pair.first);
+            DrawObjects(pair.second, startIndex);
+            startIndex += pair.second;
+        }
+        DrawImGui();
+        EndPass();
         EndFrame();
     }
 };

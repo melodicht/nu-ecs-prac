@@ -22,6 +22,21 @@ uint32_t UploadMesh(MeshAsset &asset) {
     return wpu_renderer.UploadMesh(asset);
 }
 
+CameraID AddCamera()
+{
+
+}
+
+TextureID CreateDepthTexture(u32 width, u32 height)
+{
+
+}
+
+void DestroyTexture(TextureID textureID)
+{
+
+}
+
 void DestroyMesh(uint32_t meshID) {
     wpu_renderer.DestroyMesh(meshID);
 }
@@ -30,8 +45,43 @@ bool InitFrame() {
     return wpu_renderer.InitFrame();
 }
 
-void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos) {
+void SetCamera(CameraID camera)
+{
+
+}
+
+void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture)
+{
+
+}
+
+void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos) {
     wpu_renderer.SetCamera(view, proj, pos);
+}
+
+void BeginDepthPass(CullMode cullMode)
+{
+
+}
+
+void BeginDepthPass(TextureID target, CullMode cullMode)
+{
+
+}
+
+void BeginColorPass(CullMode cullMode)
+{
+
+}
+
+void EndPass()
+{
+
+}
+
+void DrawImGui()
+{
+
 }
 
 void SetMesh(uint32_t meshID) {

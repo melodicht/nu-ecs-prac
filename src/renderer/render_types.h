@@ -6,6 +6,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+typedef uint32_t MeshID;
+typedef uint32_t TextureID;
+typedef uint32_t CameraID;
+
 // Represents a vertex of a mesh (CPU->GPU)
 struct Vertex
 {
@@ -15,17 +19,16 @@ struct Vertex
     float uvY;
 };
 
-// Represents the transformation data of the camera (CPU->GPU)
-struct CameraData
-{
-    glm::mat4 view;
-    glm::mat4 proj;
-    glm::vec3 pos;
-};
-
 // Represents the transformation data of the objects in the scene (CPU->GPU)
 struct ObjectData
 {
     glm::mat4 model;
     glm::vec4 color;
+};
+
+enum CullMode
+{
+    NONE,
+    FRONT,
+    BACK
 };

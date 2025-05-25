@@ -40,7 +40,7 @@ struct ColorComponent
 
 struct MeshComponent
 {
-    uint32_t mesh;
+    MeshID mesh;
 };
 
 struct CameraComponent

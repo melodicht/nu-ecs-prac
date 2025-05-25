@@ -1,5 +1,5 @@
 //Create a buffer using VMA
-AllocatedBuffer CreateBuffer(VmaAllocator allocator, size_t allocSize, VkBufferUsageFlags usage, VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags)
+AllocatedBuffer CreateBuffer(VkDevice device, VmaAllocator allocator, size_t allocSize, VkBufferUsageFlags usage, VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags)
 {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -16,6 +16,13 @@ AllocatedBuffer CreateBuffer(VmaAllocator allocator, size_t allocSize, VkBufferU
     AllocatedBuffer newBuffer;
 
     VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &newBuffer.buffer, &newBuffer.allocation, nullptr));
+
+    if (usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT)
+    {
+        VkBufferDeviceAddressInfo addressInfo{.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+                .buffer = newBuffer.buffer};
+        newBuffer.address = vkGetBufferDeviceAddress(device, &addressInfo);
+    }
 
     return newBuffer;
 }
@@ -71,7 +78,7 @@ void TransitionImage(VkCommandBuffer commandBuffer, VkImage image, VkImageLayout
     imageBarrier.oldLayout = currentLayout;
     imageBarrier.newLayout = newLayout;
 
-    VkImageAspectFlags aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+    VkImageAspectFlags aspectMask = (newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL || currentLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
             ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
     VkImageSubresourceRange subImage {};
@@ -133,4 +140,17 @@ void EndImmediateCommands(VkDevice device, VkQueue graphicsQueue, VkCommandPool 
     VK_CHECK(vkQueueWaitIdle(graphicsQueue));
 
     vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+};
+
+VkCullModeFlags GetCullModeFlags(CullMode cullMode)
+{
+    switch (cullMode)
+    {
+        case NONE:
+            return VK_CULL_MODE_NONE;
+        case FRONT:
+            return VK_CULL_MODE_FRONT_BIT;
+        case BACK:
+            return VK_CULL_MODE_BACK_BIT;
+    }
 };

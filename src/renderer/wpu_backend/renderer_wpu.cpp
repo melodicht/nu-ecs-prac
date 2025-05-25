@@ -183,8 +183,8 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
       .label = wgpuStr("Default Queue")
     },
     .deviceLostCallbackInfo {
-      .callback = LostDeviceCallback,
-      .mode = WGPUCallbackMode_AllowSpontaneous
+      .mode = WGPUCallbackMode_AllowSpontaneous,
+      .callback = LostDeviceCallback
     },
     .uncapturedErrorCallbackInfo {
       .nextInChain = nullptr,
@@ -201,8 +201,8 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   m_wgpuQueue = wgpuDeviceGetQueue(m_wgpuDevice);
 
   WGPUQueueWorkDoneCallbackInfo queueDoneCallback =  WGPUQueueWorkDoneCallbackInfo {
-    .callback = QueueFinishCallback,
-    .mode = WGPUCallbackMode_AllowSpontaneous
+    .mode = WGPUCallbackMode_AllowSpontaneous,
+    .callback = QueueFinishCallback
   };
 
   wgpuQueueOnSubmittedWorkDone(m_wgpuQueue, queueDoneCallback);
@@ -257,15 +257,15 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   wgpuSurfaceGetCapabilities(m_wgpuSurface, adapter, &capabilities );
   WGPUSurfaceConfiguration config { 
     .nextInChain = nullptr,
-    .height = startHeight,
-    .width = startWidth,
     .device = m_wgpuDevice,
-    .usage = WGPUTextureUsage_RenderAttachment,
     .format = capabilities.formats[0],
-    .presentMode = WGPUPresentMode_Fifo,
-    .alphaMode = WGPUCompositeAlphaMode_Auto,
+    .usage = WGPUTextureUsage_RenderAttachment,
+    .width = startWidth,
+    .height = startHeight,
     .viewFormatCount = 0,
-    .viewFormats = nullptr
+    .viewFormats = nullptr,
+    .alphaMode = WGPUCompositeAlphaMode_Auto,
+    .presentMode = WGPUPresentMode_Fifo
   };
   wgpuSurfaceCapabilitiesFreeMembers( capabilities );
 
@@ -310,10 +310,10 @@ bool WGPURenderBackend::InitFrame() {
 
   WGPURenderPassColorAttachment colorAttachment {
     .view = textureView,
+    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
     .resolveTarget = nullptr,
     .loadOp = WGPULoadOp_Clear,
     .storeOp = WGPUStoreOp_Store,
-    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
     .clearValue = WGPUColor{ 0.9, 0.1, 0.2, 1.0 }
   };
 

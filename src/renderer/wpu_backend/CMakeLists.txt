@@ -7,6 +7,10 @@ if(APPLE)
     enable_language(OBJC)
 endif()
 
+if(UNIX)
+    set(USE_WAYLAND ON)
+endif()
+
 
 add_library(webgpu INTERFACE)
 set(DAWN_FETCH_DEPENDENCIES ON)
