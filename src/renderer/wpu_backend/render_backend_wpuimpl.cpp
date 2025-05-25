@@ -24,12 +24,12 @@ uint32_t UploadMesh(MeshAsset &asset) {
 
 CameraID AddCamera()
 {
-
+    return 0;
 }
 
 TextureID CreateDepthTexture(u32 width, u32 height)
 {
-
+    return 0;
 }
 
 void DestroyTexture(TextureID textureID)
