@@ -92,7 +92,7 @@ struct FragPushConstants
 FragPushConstants fpcs;
 
 [[vk::binding(0,0)]]
-Sampler2D[] textures;
+Sampler2DShadow[] shadowMaps;
 
 [shader("fragment")]
 float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
@@ -101,8 +101,16 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 
     float3 lightPosNorm = (vertData.lightRelPos.xyz / vertData.lightRelPos.w);
     float3 lightPosScaled = float3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
-    float4 lightDepth = textures[fpcs.shadowID].Sample(lightPosScaled.xy);
-    int unshadowed = lightDepth.r > lightPosScaled.z;
+
+    float unshadowed = 0;
+
+    for (int x = -2; x <= 2; x++)
+    {
+        for (int y = -2; y <= 2; y++)
+        {
+            unshadowed += shadowMaps[fpcs.shadowID].SampleCmp(lightPosScaled.xy, lightPosScaled.z, int2(x, y)) / 25;
+        }
+    }
 
     float ambient = 0.1;
     float diffuse = max(dot(normal, -fpcs.lightDir), 0.0);
