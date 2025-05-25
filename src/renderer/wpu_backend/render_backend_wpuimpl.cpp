@@ -2,7 +2,7 @@
 
 #include "renderer/wpu_backend/renderer_wpu.h"
 
-static WPURenderBackend wpu_renderer;
+static WGPURenderBackend wpu_renderer;
 
 // Uses composition to align more object oriented approach of web gpu backend to align with forward compilation 
 

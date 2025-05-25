@@ -1,5 +1,7 @@
 #pragma once
 
+#include <webgpu/webgpu.h>
+
 #include "renderer/render_types.h"
 #include "math/math_consts.h"
 #include "asset_types.h"
@@ -13,9 +15,40 @@
 #include <cstdint>
 
 // Allows for encapsulation of WebGPU render capabilities
-class WPURenderBackend {
+class WGPURenderBackend {
+private:
+    // WGPU objects
+    WGPUInstance m_wgpuInstance{ };
+    WGPUDevice m_wgpuDevice{ };
+    WGPUQueue m_wgpuQueue{ };
+    WGPUSurface m_wgpuSurface{ };
+
+
+    void printDeviceSpecs();
+
+
+    // Translates a c_string to a wgpu string view
+    static WGPUStringView wgpuStr(const char* str);
+
+    // The following getters occur asynchronously in wgpu but is awaited for by these functions
+    static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);
+
+    static WGPUDevice GetDevice(const WGPUAdapter adapter, WGPUDeviceDescriptor const * descriptor);
+
+    // What to call on the a queue finishing its work
+    static void QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
+
+    // What to call on m_wgpuDevice being lost.
+    static void LostDeviceCallback(WGPUDevice const * device, WGPUDeviceLostReason reason, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
+
+    // What to call on WebGPU error
+    static void ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
+
 public:
-    WPURenderBackend() { }
+    // No logic needed
+    WGPURenderBackend() { }
+
+    ~WGPURenderBackend();
 
     // Gets the SDL Flags eneded
     SDL_WindowFlags GetRenderWindowFlags() { return 0; }
@@ -32,7 +65,7 @@ public:
     void DestroyMesh(uint32_t meshID) { }
 
     // Establishes that the following commands apply to a new frame
-    bool InitFrame() { return false; }
+    bool InitFrame();
 
     // Sets the view of a camera
     void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos) { }
