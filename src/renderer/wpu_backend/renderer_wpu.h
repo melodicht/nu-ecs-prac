@@ -17,15 +17,15 @@
 // Allows for encapsulation of WebGPU render capabilities
 class WGPURenderBackend {
 private:
-    // WGPU objects
+    // WGPU objects important throughout entire lifetime
     WGPUInstance m_wgpuInstance{ };
     WGPUDevice m_wgpuDevice{ };
     WGPUQueue m_wgpuQueue{ };
     WGPUSurface m_wgpuSurface{ };
 
+    // WGPU objects that may 
 
     void printDeviceSpecs();
-
 
     // Translates a c_string to a wgpu string view
     static WGPUStringView wgpuStr(const char* str);
@@ -61,15 +61,36 @@ public:
     uint32_t UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices) { return 0; };
     uint32_t UploadMesh(MeshAsset &asset) { return 0; }
 
+    // Designates a camera as part of the render pass 
+    CameraID AddCamera() { return 0; }
+
+    TextureID CreateDepthTexture(u32 width, u32 height) { return 0; }
+    
+    void DestroyTexture(TextureID textureID) { };
+
     // Takes in a mesh ID and represents
     void DestroyMesh(uint32_t meshID) { }
 
     // Establishes that the following commands apply to a new frame
     bool InitFrame();
 
-    // Sets the view of a camera
-    void SetCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos) { }
+    void SetCamera(CameraID camera) { }
 
+    void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture) { }
+
+    // Sets the view of a camera
+    void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos) { }
+
+    void BeginDepthPass(CullMode cullMode) { }
+
+    void BeginDepthPass(TextureID target, CullMode cullMode) { }
+
+    void BeginColorPass(CullMode cullMode) { }
+    
+    void EndPass() { }
+    
+    void DrawImGui() { }
+    
     // Sets the mesh currently being rendered to
     void SetMesh(uint32_t meshID) { }
 

@@ -301,6 +301,7 @@ bool WGPURenderBackend::InitFrame() {
   {
     return false;
   }
+
 	// Create a command encoder for the draw call
 	WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
