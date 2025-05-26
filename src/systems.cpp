@@ -85,7 +85,7 @@ class RenderSystem : public System
     void OnStart(Scene *scene)
     {
         dirShadowMap = CreateDepthTexture(2028, 2048);
-        lightTransform.rotation = {0, 30, 0};
+        lightTransform.rotation = {0, 30, 120};
 
         mainCam = AddCamera();
         dirLightCam = AddCamera();
@@ -144,7 +144,7 @@ class RenderSystem : public System
         SetCamera(dirLightCam);
         UpdateCamera(lightView, lightProj, lightTransform.position);
 
-        BeginDepthPass(dirShadowMap, CullMode::FRONT);
+        BeginDepthPass(dirShadowMap, CullMode::BACK);
         int startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {

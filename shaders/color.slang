@@ -69,10 +69,13 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
                 cross(model[2].xyz, model[0].xyz),
                 cross(model[0].xyz, model[1].xyz));
 
+    float3 normal = normalize(mul(normMat, vert.normal));
+    float4 shadowPos = worldPos + float4(normal * 10, 0.0);
+
     CoarseVertex vertData;
     vertData.eyeRelPos = worldPos.xyz - vpcs.camera->pos;
-    vertData.lightRelPos = mul(vpcs.camera->lightSpace, worldPos);
-    vertData.normal = normalize(mul(normMat, vert.normal));
+    vertData.lightRelPos = mul(vpcs.camera->lightSpace, shadowPos);
+    vertData.normal = normal;
     vertData.color = object.color;
 
     output.pos = mul(vpcs.camera->proj, mul(vpcs.camera->view, worldPos));
