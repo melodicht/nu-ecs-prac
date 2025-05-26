@@ -104,11 +104,11 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 
     float unshadowed = 0;
 
-    for (int x = -2; x <= 2; x++)
+    for (int x = -1; x <= 1; x++)
     {
-        for (int y = -2; y <= 2; y++)
+        for (int y = -1; y <= 1; y++)
         {
-            unshadowed += shadowMaps[fpcs.shadowID].SampleCmp(lightPosScaled.xy, lightPosScaled.z, int2(x, y)) / 25;
+            unshadowed += shadowMaps[fpcs.shadowID].SampleCmp(lightPosScaled.xy, lightPosScaled.z, int2(x, y)) / 9;
         }
     }
 
