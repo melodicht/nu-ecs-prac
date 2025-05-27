@@ -26,6 +26,14 @@ struct ObjectData
     glm::vec4 color;
 };
 
+// Represents the transformation data of the camera (CPU->GPU)
+struct CameraData
+{
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::vec3 pos;
+};
+
 enum CullMode
 {
     NONE,

@@ -3,6 +3,7 @@
 #include <webgpu/webgpu.h>
 
 #include "renderer/render_types.h"
+#include "renderer/wpu_backend/render_types_wgpu.h"
 #include "math/math_consts.h"
 #include "asset_types.h"
 
@@ -14,21 +15,33 @@
 
 #include <cstdint>
 
+#include <unordered_map>
+
 // Allows for encapsulation of WebGPU render capabilities
 class WGPURenderBackend {
 private:
-    // WGPU objects important throughout entire lifetime
+    // WGPU objects that remains important throughout rendering 
+    // from init to destruction
     WGPUInstance m_wgpuInstance{ };
     WGPUDevice m_wgpuDevice{ };
     WGPUQueue m_wgpuQueue{ };
     WGPUSurface m_wgpuSurface{ };
+    WGPURenderPipeline m_wgpuPipeline{ };
 
-    // WGPU objects that may 
+    // Stores best supported format on current device
+    WGPUTextureFormat m_wgpuTextureFormat{ };
+
+    // Represents temporary variables that are inited/edited/and cleared over the course of
+    std::unordered_map<MeshID, Mesh> m_meshStore{ };
+    std::unordered_map<CameraID, CameraData> m_cameraStore{ };
 
     void printDeviceSpecs();
 
     // Translates a c_string to a wgpu string view
     static WGPUStringView wgpuStr(const char* str);
+
+    // Creates a default rendering pipeline
+    WGPURenderPipeline CreateDefaultPipeline();
 
     // The following getters occur asynchronously in wgpu but is awaited for by these functions
     static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);
@@ -58,8 +71,8 @@ public:
 
     // Moves mesh to the GPU, 
     // Returns a uint that represents the mesh's ID
-    uint32_t UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices) { return 0; };
-    uint32_t UploadMesh(MeshAsset &asset) { return 0; }
+    MeshID UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices) { return 0; };
+    MeshID UploadMesh(MeshAsset &asset) { return 0; }
 
     // Designates a camera as part of the render pass 
     CameraID AddCamera() { return 0; }
@@ -69,7 +82,7 @@ public:
     void DestroyTexture(TextureID textureID) { };
 
     // Takes in a mesh ID and represents
-    void DestroyMesh(uint32_t meshID) { }
+    void DestroyMesh(MeshID meshID) { }
 
     // Establishes that the following commands apply to a new frame
     bool InitFrame();
@@ -92,7 +105,7 @@ public:
     void DrawImGui() { }
     
     // Sets the mesh currently being rendered to
-    void SetMesh(uint32_t meshID) { }
+    void SetMesh(MeshID meshID) { }
 
     // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
     void SendObjectData(std::vector<ObjectData>& objects) { }

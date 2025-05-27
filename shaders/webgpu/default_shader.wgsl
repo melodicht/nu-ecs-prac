@@ -10,14 +10,9 @@ struct ObjData {
     color : vec3<f32>,
 }
 
-// A dynamically sized store for uniform
-struct ObjArray {
-    objs : array<ObjData>
-}
-
 @binding(0) @group(0) var<uniform> camera : Camera;
 
-@binding(1) @group(0) var<uniform> objStore : ObjArray; 
+@binding(1) @group(0) var<storage> objStore : array<ObjData>; 
 
 @binding(2) @group(0) var<uniform> baseIdx : u32;     // The index of the first instance of the mesh within objStore
 
@@ -41,13 +36,13 @@ fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
 @vertex
 fn vtxMain(in : VertexIn) -> VertexOut {
   var out : VertexOut;
-  out.position = camera.projMat * camera.viewMat * objStore.objs[baseIdx + instanceIdx].transform * vec4<f32>(in.position, 1);
-  out.color = objStore.objs[baseIdx + instanceIdx].color;
+  out.position = camera.projMat * camera.viewMat * objStore[baseIdx + instanceIdx].transform * vec4<f32>(in.position,1);
+  out.color = objStore[baseIdx + instanceIdx].color;
 
   return out;
 }
 
-@frag
+@fragment
 fn fsMain(in : VertexOut) -> @location(0) vec4<f32>  {
     return vec4<f32>(in.color, 1);
 }

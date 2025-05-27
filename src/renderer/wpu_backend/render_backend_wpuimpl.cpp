@@ -2,6 +2,7 @@
 
 #include "renderer/wpu_backend/renderer_wpu.h"
 
+// This is done to force encapsulation of the wgpu renderer
 static WGPURenderBackend wgpuRenderer;
 
 // Uses composition to align more object oriented approach of web gpu backend to align with forward compilation 
