@@ -61,6 +61,7 @@ FrameData frames[NUM_FRAMES];
 
 VkPipelineLayout depthPipelineLayout;
 VkPipelineLayout colorPipelineLayout;
+VkPipeline shadowPipeline;
 VkPipeline depthPipeline;
 VkPipeline colorPipeline;
 
@@ -362,6 +363,9 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     // Create window surface
     SDL_Vulkan_CreateSurface(window, instance, vkbInstance.allocation_callbacks, &surface);
 
+    VkPhysicalDeviceFeatures feat10{};
+    feat10.depthClamp = true;
+
     VkPhysicalDeviceVulkan11Features feat11{};
     feat11.shaderDrawParameters = true;
 
@@ -383,6 +387,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     vkb::PhysicalDevice vkbPhysDevice = selector
             .set_surface(surface)
             .set_minimum_version(1, 3)
+            .set_required_features(feat10)
             .set_required_features_11(feat11)
             .set_required_features_12(feat12)
             .set_required_features_13(feat13)
@@ -594,13 +599,12 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     {
             VK_DYNAMIC_STATE_VIEWPORT,
             VK_DYNAMIC_STATE_SCISSOR,
-            VK_DYNAMIC_STATE_CULL_MODE,
-            VK_DYNAMIC_STATE_FRONT_FACE
+            VK_DYNAMIC_STATE_CULL_MODE
     };
 
     VkPipelineDynamicStateCreateInfo dynamicState{};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-    dynamicState.dynamicStateCount = 4;
+    dynamicState.dynamicStateCount = 3;
     dynamicState.pDynamicStates = dynamicStates;
 
     VkPipelineVertexInputStateCreateInfo vertexInfo{};  // We are using vertex pulling so no need for vertex input description
@@ -624,10 +628,15 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     rasterizer.rasterizerDiscardEnable = VK_FALSE;
     rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth = 1.0f;
+    rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.00f;
     rasterizer.depthBiasClamp = 0.0f;
     rasterizer.depthBiasSlopeFactor = 0.0f;
+
+    VkPipelineRasterizationStateCreateInfo shadowRasterizer = rasterizer;
+    shadowRasterizer.depthClampEnable = VK_TRUE;
+    shadowRasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
     multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -716,6 +725,9 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     depthPipelineInfo.subpass = 0;
     depthPipelineInfo.pNext = &depthRenderInfo;
 
+    VkGraphicsPipelineCreateInfo shadowPipelineInfo = depthPipelineInfo;
+    shadowPipelineInfo.pRasterizationState = &shadowRasterizer;
+
     VkGraphicsPipelineCreateInfo colorPipelineInfo{};
     colorPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     colorPipelineInfo.stageCount = 2;
@@ -733,6 +745,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     colorPipelineInfo.subpass = 0;
     colorPipelineInfo.pNext = &colorRenderInfo;
 
+    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &shadowPipelineInfo, nullptr, &shadowPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &depthPipelineInfo, nullptr, &depthPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &colorPipelineInfo, nullptr, &colorPipeline));
 
@@ -823,8 +836,6 @@ void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode)
 
     vkCmdBeginRendering(cmd, &renderInfo);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
-
     currentLayout = &depthPipelineLayout;
 }
 
@@ -850,9 +861,10 @@ void BeginDepthPass(CullMode cullMode)
     scissor.extent.height = swapExtent.height;
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
-    vkCmdSetFrontFace(cmd, VK_FRONT_FACE_COUNTER_CLOCKWISE);
 
     BeginDepthPass(depthImageView, swapExtent, cullMode);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
 }
 
 void BeginDepthPass(TextureID target, CullMode cullMode)
@@ -879,10 +891,11 @@ void BeginDepthPass(TextureID target, CullMode cullMode)
     scissor.extent.height = extent.height;
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
-    vkCmdSetFrontFace(cmd, VK_FRONT_FACE_CLOCKWISE);
 
     TransitionImage(cmd, textures[target].texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     BeginDepthPass(textures[target].imageView, extent, cullMode);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline);
 }
 
 void BeginColorPass(CullMode cullMode)

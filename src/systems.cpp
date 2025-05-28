@@ -74,6 +74,31 @@ class CollisionSystem : public System
     }
 };
 
+std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
+{
+    glm::mat4 inverse = glm::inverse(proj * view);
+
+    std::vector<glm::vec4> frustumCorners;
+    for (u32 x = 0; x < 2; ++x)
+    {
+        for (u32 y = 0; y < 2; ++y)
+        {
+            for (u32 z = 0; z < 2; ++z)
+            {
+                const glm::vec4 pt =
+                        inverse * glm::vec4(
+                                    2.0f * x - 1.0f,
+                                    2.0f * y - 1.0f,
+                                    2.0f * z - 1.0f,
+                                    1.0f);
+                frustumCorners.push_back(pt / pt.w);
+            }
+        }
+    }
+
+    return frustumCorners;
+}
+
 class RenderSystem : public System
 {
     TextureID dirShadowMap;
@@ -84,7 +109,7 @@ class RenderSystem : public System
 
     void OnStart(Scene *scene)
     {
-        dirShadowMap = CreateDepthTexture(2028, 2048);
+        dirShadowMap = CreateDepthTexture(2048, 2048);
         lightTransform.rotation = {0, 30, 120};
 
         mainCam = AddCamera();
@@ -133,10 +158,42 @@ class RenderSystem : public System
         SendObjectData(objects);
 
         lightTransform.rotation.z += deltaTime * 45.0f;
-        lightTransform.position = {-cos(glm::radians(lightTransform.rotation.z)) * 2896.30937574f, -sin(glm::radians(lightTransform.rotation.z)) * 2896.30937574f, 1280};
+
+        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
+        if (cameraView.begin() == cameraView.end())
+        {
+            return;
+        }
+
+        EntityID cameraEnt = *cameraView.begin();
+        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
+        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
+        glm::mat4 view = GetViewMatrix(cameraTransform);
+        f32 aspect = (f32)windowWidth / (f32)windowHeight;
+        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
         glm::mat4 lightView = GetViewMatrix(&lightTransform);
-        glm::mat4 lightProj = glm::ortho(-2944.0f, 2944.0f, -2944.0f, 2944.0f, 1.0f, 8192.0f);
+
+        std::vector<glm::vec4> corners = getFrustumCorners(proj, view);
+
+        f32 minX = std::numeric_limits<f32>::max();
+        f32 maxX = std::numeric_limits<f32>::lowest();
+        f32 minY = std::numeric_limits<f32>::max();
+        f32 maxY = std::numeric_limits<f32>::lowest();
+        f32 minZ = std::numeric_limits<f32>::max();
+        f32 maxZ = std::numeric_limits<f32>::lowest();
+        for (const glm::vec3& v : corners)
+        {
+            const glm::vec4 trf = lightView * glm::vec4(v, 1.0);
+            minX = std::min(minX, trf.x);
+            maxX = std::max(maxX, trf.x);
+            minY = std::min(minY, trf.y);
+            maxY = std::max(maxY, trf.y);
+            minZ = std::min(minZ, trf.z);
+            maxZ = std::max(maxZ, trf.z);
+        }
+
+        glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
         glm::mat4 lightSpace = lightProj * lightView;
 
         glm::vec3 lightDir = GetForwardVector(&lightTransform);
@@ -153,20 +210,6 @@ class RenderSystem : public System
             startIndex += pair.second;
         }
         EndPass();
-
-
-        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
-        if (cameraView.begin() == cameraView.end())
-        {
-            return;
-        }
-
-        EntityID cameraEnt = *cameraView.begin();
-        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
-        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
-        glm::mat4 view = GetViewMatrix(cameraTransform);
-        f32 aspect = (f32)windowWidth / (f32)windowHeight;
-        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
         SetCamera(mainCam);
         UpdateCamera(view, proj, cameraTransform->position);
