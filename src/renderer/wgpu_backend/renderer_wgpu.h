@@ -3,7 +3,7 @@
 #include <webgpu/webgpu.h>
 
 #include "renderer/render_types.h"
-#include "renderer/wpu_backend/render_types_wgpu.h"
+#include "renderer/wgpu_backend/render_types_wgpu.h"
 #include "math/math_consts.h"
 #include "asset_types.h"
 
@@ -31,9 +31,16 @@ private:
     // Stores best supported format on current device
     WGPUTextureFormat m_wgpuTextureFormat{ };
 
-    // Represents temporary variables that are inited/edited/and cleared over the course of
+    // Represents temporary variables that are inited/edited/and cleared over the course of frame
+    WGPUTextureView m_textureView{ };
+    WGPUBuffer m_uniformBuffer{ };
+    WGPUBuffer m_storageBuffer{ };
     std::unordered_map<MeshID, Mesh> m_meshStore{ };
     std::unordered_map<CameraID, CameraData> m_cameraStore{ };
+    MeshID m_nextMeshID{ 0 };   // The mesh ID of the next mesh that will be created
+    CameraID m_nextCameraID{ 0 }; // The camera ID of the next camera that will be created
+    MeshID m_currentMeshID{ 0 };    // The mesh currently being drawn in frame loop
+    CameraID m_currentCameraID{ 0 }; // The camera currently being 
 
     void printDeviceSpecs();
 
@@ -41,7 +48,7 @@ private:
     static WGPUStringView wgpuStr(const char* str);
 
     // Creates a default rendering pipeline
-    WGPURenderPipeline CreateDefaultPipeline();
+    void CreateDefaultPipeline(WGPURenderPipeline& pipeline, WGPUBuffer& uniformBuffer);
 
     // The following getters occur asynchronously in wgpu but is awaited for by these functions
     static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);
@@ -71,8 +78,8 @@ public:
 
     // Moves mesh to the GPU, 
     // Returns a uint that represents the mesh's ID
-    MeshID UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices) { return 0; };
-    MeshID UploadMesh(MeshAsset &asset) { return 0; }
+    MeshID UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices);
+    MeshID UploadMesh(MeshAsset &asset);
 
     // Designates a camera as part of the render pass 
     CameraID AddCamera() { return 0; }
@@ -105,14 +112,14 @@ public:
     void DrawImGui() { }
     
     // Sets the mesh currently being rendered to
-    void SetMesh(MeshID meshID) { }
+    void SetMesh(MeshID meshID);
 
     // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
-    void SendObjectData(std::vector<ObjectData>& objects) { }
+    void SendObjectData(std::vector<ObjectData>& objects);
 
     // End the frame and present it to the screen
-    void EndFrame() { }
+    void EndFrame();
 
     // Draw multiple objects to the screen (Must be called between InitFrame and EndFrame and after SetMesh)
-    void DrawObjects(int count, int startIndex) { }
+    void DrawObjects(int count, int startIndex);
 };

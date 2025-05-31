@@ -1,4 +1,4 @@
-#include "renderer/wpu_backend/renderer_wpu.h"
+#include "renderer/wgpu_backend/renderer_wgpu.h"
 #include "webgpu/sdl3webgpu-main/sdl3webgpu.h"
 
 #include "skl_logger.h"
@@ -48,18 +48,24 @@ WGPUStringView WGPURenderBackend::wgpuStr(const char* string) {
 
 WGPUBindGroupLayoutEntry DefaultBindLayoutEntry() {
   return WGPUBindGroupLayoutEntry {
-    .binding = 0,
     .nextInChain = nullptr,
+    .binding = 0,
     .visibility = WGPUShaderStage_None,
     .buffer {
       .nextInChain = nullptr,
       .type = WGPUBufferBindingType_Undefined,
-      .minBindingSize = 0,
       .hasDynamicOffset = false,
+      .minBindingSize = 0,
     },
     .sampler {
       .nextInChain = nullptr,
       .type = WGPUSamplerBindingType_BindingNotUsed,
+    },
+    .texture {
+      .nextInChain = nullptr,
+      .sampleType = WGPUTextureSampleType_BindingNotUsed,
+      .viewDimension =  WGPUTextureViewDimension_Undefined,
+      .multisampled = false,
     },
     .storageTexture {
       .nextInChain = nullptr,
@@ -67,16 +73,10 @@ WGPUBindGroupLayoutEntry DefaultBindLayoutEntry() {
       .format = WGPUTextureFormat_Undefined,
       .viewDimension = WGPUTextureViewDimension_Undefined,
     },
-    .texture {
-      .nextInChain = nullptr,
-      .multisampled = false,
-      .sampleType = WGPUTextureSampleType_BindingNotUsed,
-      .viewDimension =  WGPUTextureViewDimension_Undefined,
-    },
   };
 }
 
-WGPURenderPipeline WGPURenderBackend::CreateDefaultPipeline() {
+void WGPURenderBackend::CreateDefaultPipeline(WGPURenderPipeline& pipeline, WGPUBuffer& uniformBuffer) {
   // Loads in shader module
   size_t loadedDatSize;
   auto loadedDat = SDL_LoadFile("shaders/default_shader.wgsl", &loadedDatSize);
@@ -106,14 +106,10 @@ WGPURenderPipeline WGPURenderBackend::CreateDefaultPipeline() {
 
   // Configures z-buffer
   WGPUDepthStencilState depthStencilState {
-    .depthCompare = WGPUCompareFunction_Less,
-    .depthWriteEnabled = WGPUOptionalBool_True,
+    .nextInChain = nullptr,
     .format = WGPUTextureFormat_Depth24Plus,
-    .stencilReadMask = 0,
-    .stencilWriteMask = 0,
-    .depthBias = 0,
-    .depthBiasSlopeScale = 0,
-    .depthBiasClamp = 0,
+    .depthWriteEnabled = WGPUOptionalBool_True,
+    .depthCompare = WGPUCompareFunction_Less,
     .stencilFront {
       .compare = WGPUCompareFunction_Always,
       .failOp = WGPUStencilOperation_Keep,
@@ -126,24 +122,30 @@ WGPURenderPipeline WGPURenderBackend::CreateDefaultPipeline() {
       .depthFailOp = WGPUStencilOperation_Keep,
       .passOp = WGPUStencilOperation_Keep
     },
+    .stencilReadMask = 0,
+    .stencilWriteMask = 0,
+    .depthBias = 0,
+    .depthBiasSlopeScale = 0,
+    .depthBiasClamp = 0,
   };
 
   WGPUBlendState blendState {
+    .color {
+      .operation = WGPUBlendOperation_Add,
+      .srcFactor = WGPUBlendFactor_SrcAlpha,
+      .dstFactor = WGPUBlendFactor_OneMinusSrcAlpha,
+    },
     .alpha {
+      .operation = WGPUBlendOperation_Add,
       .srcFactor = WGPUBlendFactor_Zero,
       .dstFactor = WGPUBlendFactor_One,
-      .operation = WGPUBlendOperation_Add,
     },
-    .color {
-      .srcFactor = WGPUBlendFactor_SrcAlpha,
-      .operation = WGPUBlendOperation_Add,
-      .dstFactor = WGPUBlendFactor_OneMinusSrcAlpha,
-    }
   };
 
   WGPUColorTargetState colorTarget {
-    .blend = &blendState,
+    .nextInChain = nullptr,
     .format = m_wgpuTextureFormat,
+    .blend = &blendState,
     .writeMask = WGPUColorWriteMask_All,
   };
 
@@ -156,21 +158,51 @@ WGPURenderPipeline WGPURenderBackend::CreateDefaultPipeline() {
     .targets = &colorTarget,
   };
 
-  WGPUVertexAttribute vertexAttribute {
+
+  std::vector<WGPUVertexAttribute> vertexAttributes;
+
+  WGPUVertexAttribute posVertAttribute {
+    .nextInChain = nullptr,
     .format = WGPUVertexFormat_Float32x3,
-    .shaderLocation = 0,
     .offset = 0,
+    .shaderLocation = 0,
   };
+  vertexAttributes.push_back(posVertAttribute);
+
+  WGPUVertexAttribute uvXVertAttribute {
+    .nextInChain = nullptr,
+    .format = WGPUVertexFormat_Float32,
+    .offset = sizeof(glm::vec3),
+    .shaderLocation = 1,
+  };
+  vertexAttributes.push_back(uvXVertAttribute);
+
+  WGPUVertexAttribute normVertAttribute {
+    .nextInChain = nullptr,
+    .format = WGPUVertexFormat_Float32x3,
+    .offset =  sizeof(glm::vec3) + sizeof(float),
+    .shaderLocation = 2,
+  };
+  vertexAttributes.push_back(normVertAttribute);
+
+  WGPUVertexAttribute uvYVertAttribute {
+    .nextInChain = nullptr,
+    .format = WGPUVertexFormat_Float32,
+    .offset =  sizeof(glm::vec3) * 2 + sizeof(float),
+    .shaderLocation = 3,
+  };
+  vertexAttributes.push_back(uvYVertAttribute);
+
 
   WGPUVertexBufferLayout bufferLayout {
-    .attributeCount = 1,
-    .attributes = &vertexAttribute,
-    .arrayStride = sizeof(glm::vec3),
+    .nextInChain = nullptr,
     .stepMode = WGPUVertexStepMode_Vertex,
+    .arrayStride = sizeof(glm::vec3) * 2 + sizeof(float) * 2,
+    .attributeCount = 4,
+    .attributes = vertexAttributes.data(),
   };
 
   std::vector<WGPUBindGroupLayoutEntry> bindEntities;
-  
   
   WGPUBindGroupLayoutEntry cameraBind = DefaultBindLayoutEntry();
   cameraBind.binding = 0;
@@ -201,22 +233,27 @@ WGPURenderPipeline WGPURenderBackend::CreateDefaultPipeline() {
   bindEntities.push_back( instanceIndexBind );
 
   WGPUBindGroupLayoutDescriptor bindLayoutDescriptor {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Default Bind Layout"),
     .entryCount = bindEntities.size(), 
     .entries = bindEntities.data(),
-    .label = wgpuStr("Default Bind Layout"),
-    .nextInChain = nullptr,
   };
 
   WGPUBindGroupLayout bindLayout = wgpuDeviceCreateBindGroupLayout(m_wgpuDevice, &bindLayoutDescriptor);
 
   WGPUPipelineLayoutDescriptor pipelineLayoutConstructor {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Base layout"),
     .bindGroupLayoutCount = 1,
     .bindGroupLayouts = &bindLayout,
-    .nextInChain = nullptr,
-    .label = wgpuStr("Base layout")
   };
 
+  WGPUPipelineLayout pipelineLayout = wgpuDeviceCreatePipelineLayout(m_wgpuDevice, &pipelineLayoutConstructor);
+
   WGPURenderPipelineDescriptor pipelineDesc {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Default Pipeline Layout"),
+    .layout = pipelineLayout,
     .vertex {
       .module = shaderModule,
       .entryPoint = wgpuStr("vtxMain"),
@@ -231,17 +268,31 @@ WGPURenderPipeline WGPURenderBackend::CreateDefaultPipeline() {
       .frontFace = WGPUFrontFace_CCW,
       .cullMode = WGPUCullMode_None
     },
+    .depthStencil = &depthStencilState,
     .multisample {
       .count = 1,
       .mask = ~0u,
       .alphaToCoverageEnabled = false,
     },
     .fragment = &fragState,
-    .depthStencil = &depthStencilState,
-    .layout = wgpuDeviceCreatePipelineLayout(m_wgpuDevice, &pipelineLayoutConstructor),
   };
 
-  return wgpuDeviceCreateRenderPipeline(m_wgpuDevice, &pipelineDesc);
+  pipeline = wgpuDeviceCreateRenderPipeline(m_wgpuDevice, &pipelineDesc);
+
+  WGPUBufferDescriptor uniformBufferDesc {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Uniform Buffer Description"),
+    .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform,
+    .size = sizeof(glm::mat4x4) * 2 + sizeof(u32) * 2,
+    .mappedAtCreation = false,
+  };
+
+  uniformBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &uniformBufferDesc);
+
+  SDL_free(loadedDat);
+  wgpuPipelineLayoutRelease(pipelineLayout);
+  wgpuShaderModuleRelease(shaderModule);
+  wgpuBindGroupLayoutRelease(bindLayout);
 }
 
 WGPUAdapter WGPURenderBackend::GetAdapter(WGPUInstance instance, WGPURequestAdapterOptions const * options) {
@@ -406,52 +457,6 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
 
   wgpuQueueOnSubmittedWorkDone(m_wgpuQueue, queueDoneCallback);
 
-  WGPUCommandEncoderDescriptor encoderDesc { 
-    .nextInChain = nullptr,
-    .label = wgpuStr("My Encoder")
-  };
-
-  WGPUCommandEncoder encoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
-
-  wgpuCommandEncoderInsertDebugMarker(
-    encoder,
-    WGPUStringView{
-      .data = "Do One Thing",
-      .length = 12
-    }
-  );
-  wgpuCommandEncoderInsertDebugMarker(
-    encoder, 
-    WGPUStringView{
-      .data = "Do Another Thing",
-      .length = 16
-    }
-  );
-
-  WGPUCommandBufferDescriptor cmdBufferDescriptor { 
-    .nextInChain = nullptr,
-    .label = wgpuStr("Command Buffer")
-  };
-
-  WGPUCommandBuffer command = wgpuCommandEncoderFinish(encoder, &cmdBufferDescriptor);
-  wgpuCommandEncoderRelease(encoder); // release encoder after it's finished
-
-  // Finally submit the command queue
-  LOG("Submitting command...");
-
-  wgpuQueueSubmit(m_wgpuQueue, 1, &command);
-  wgpuCommandBufferRelease(command);
-  LOG("Command submitted.");
-
-  for (int i = 0 ; i < 5 ; ++i) {
-    LOG("Tick/Poll device...");
-    #if EMSCRIPTEN
-    emscripten_sleep(100);
-    #else
-    wgpuInstanceProcessEvents(m_wgpuInstance);  
-    #endif
-  }
-  
   WGPUSurfaceCapabilities capabilities { };
   wgpuSurfaceGetCapabilities(m_wgpuSurface, adapter, &capabilities );
   m_wgpuTextureFormat = capabilities.formats[0];
@@ -472,7 +477,40 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   wgpuSurfaceConfigure(m_wgpuSurface, &config);
   wgpuAdapterRelease(adapter);
 
-  m_wgpuPipeline = CreateDefaultPipeline();
+  CreateDefaultPipeline(m_wgpuPipeline, m_uniformBuffer);
+}
+
+MeshID WGPURenderBackend::UploadMesh(MeshAsset &asset) {
+  return UploadMesh(asset.vertices.size(), asset.vertices.data(), asset.indices.size(), asset.indices.data());
+}
+
+MeshID WGPURenderBackend::UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices) {
+  WGPUBufferDescriptor vertexBufferDesc {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Mesh Vertex Buffer"),
+    .usage = WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst,
+    .size = sizeof(Vertex) * vertCount, // For now we only store vec3 positions
+    .mappedAtCreation = false,
+  };
+
+  WGPUBuffer vertexBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &vertexBufferDesc);
+  wgpuQueueWriteBuffer(m_wgpuQueue, vertexBuffer, 0, vertices, vertCount * sizeof(Vertex));
+
+  WGPUBufferDescriptor indexBufferDesc {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Mesh Vertex Buffer"),
+    .usage = WGPUBufferUsage_Index | WGPUBufferUsage_CopyDst,
+    .size = sizeof(u32) * indexCount, // For now we only store vec3 positions
+    .mappedAtCreation = false,
+  };
+
+  WGPUBuffer indexBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &indexBufferDesc);
+  wgpuQueueWriteBuffer(m_wgpuQueue, indexBuffer, 0, indices, indexCount * sizeof(u32));
+
+  u32 retInt = m_nextMeshID;
+  m_meshStore.emplace(std::pair<u32, Mesh>(retInt, Mesh(vertexBuffer,indexBuffer, indexCount)));
+  m_nextMeshID++;
+  return retInt;
 }
 
 bool WGPURenderBackend::InitFrame() {
@@ -554,4 +592,16 @@ bool WGPURenderBackend::InitFrame() {
 #endif
   return true;
 }
-#pragma endregion
+
+void SetMesh(MeshID meshID) {
+  
+}
+
+void WGPURenderBackend::EndFrame() {
+  
+}
+
+void WGPURenderBackend::DrawObjects(int count, int startIndex) {
+
+}
+#pragma endregio

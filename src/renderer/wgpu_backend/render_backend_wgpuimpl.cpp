@@ -1,6 +1,6 @@
 #include "renderer/render_backend.h"
 
-#include "renderer/wpu_backend/renderer_wpu.h"
+#include "renderer/wgpu_backend/renderer_wgpu.h"
 
 // This is done to force encapsulation of the wgpu renderer
 static WGPURenderBackend wgpuRenderer;

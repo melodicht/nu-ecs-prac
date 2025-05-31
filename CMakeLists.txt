@@ -97,10 +97,10 @@ if(${render_sys} STREQUAL "Vulkan")
 elseif(${render_sys} STREQUAL "WebGPU")
 
         # Includes backend dll as part of projects
-        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wpu_backend wpu-backend)
-        target_compile_definitions(wpu-backend PRIVATE SKL_LOGGING_ENABLED=1)
+        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wgpu_backend wgpu-backend)
+        target_compile_definitions(wgpu-backend PRIVATE SKL_LOGGING_ENABLED=1)
         target_link_libraries(DEPENDENCIES INTERFACE
-                wpu-backend
+                wgpu-backend
         )
 
         # Allows for switching off certain pieces of logic not supported by certain backends
@@ -127,38 +127,52 @@ if (WIN32)
     )
 endif()
 
-# Includes shaders in build
-if(render_sys STREQUAL "Vulkan")
-        set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-        set(SHADERS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+# Deals with moving files into build folder
 
-        file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
+# Deals with local compilation
+if(NOT EMSCRIPTEN)
+        # Includes shaders in build
+        if(render_sys STREQUAL "Vulkan")
+                set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+                set(SHADERS_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
 
-        set(SLANGC "slangc")
+                file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
 
-        file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
+                set(SLANGC "slangc")
 
-        foreach(SHADER ${SHADERS})
-        get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
-        set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
-        list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
-        add_custom_command(
-                MAIN_DEPENDENCY ${SHADER}
-                OUTPUT ${SHADER_OUT_NAME}
-                COMMAND ${SLANGC} ${SHADER} -o ${SHADER_OUT_NAME} -target spirv -fvk-use-entrypoint-name -emit-spirv-directly -fvk-use-scalar-layout -matrix-layout-column-major
-                VERBATIM)
-        endforeach()
+                file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
 
-        add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
+                foreach(SHADER ${SHADERS})
+                get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
+                set(SHADER_OUT_NAME "${SHADERS_OUT_DIR}/${SHADER_NAME}.spv")
+                list(APPEND SHADER_OUT_NAMES ${SHADER_OUT_NAME})
+                add_custom_command(
+                        MAIN_DEPENDENCY ${SHADER}
+                        OUTPUT ${SHADER_OUT_NAME}
+                        COMMAND ${SLANGC} ${SHADER} -o ${SHADER_OUT_NAME} -target spirv -fvk-use-entrypoint-name -emit-spirv-directly -fvk-use-scalar-layout -matrix-layout-column-major
+                        VERBATIM)
+                endforeach()
 
-        add_dependencies(${PROJECT_NAME} build_shaders)
-else(render_sys STREQUAL "WebGPU")
-        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-                COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${CMAKE_BINARY_DIR}/shaders"
+                add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
+
+                add_dependencies(${PROJECT_NAME} build_shaders)
+        else(render_sys STREQUAL "WebGPU")
+                add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${CMAKE_BINARY_DIR}/shaders"
+                )
+        endif()
+
+        # Imports other resources into build
+        add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
+                COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${CMAKE_BINARY_DIR}
+        )
+
+# Preloads files for emscripten
+else()
+        target_link_options(${PROJECT_NAME} PRIVATE
+                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/shaders/webgpu@/shaders/" #This isn't great, would be better to encapsulate all of this into a specific folder
+                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/models@/models/"
+                "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/fonts@/fonts/"
+                --preload-plugins
         )
 endif()
-
-# Imports other resources into build
-add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${CMAKE_BINARY_DIR}
-)

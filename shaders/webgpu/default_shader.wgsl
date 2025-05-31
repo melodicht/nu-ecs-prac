@@ -21,11 +21,14 @@ struct ObjData {
 
 struct VertexIn {
     @location(0) position: vec3<f32>,
+    @location(1) uvX : f32,
+    @location(2) normal : vec3<f32>,
+    @location(3) uvY : f32,
 }
 
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
-    @location(0) color: vec3<f32>
+    @location(0) color: vec3<f32>,
 }
 
 // Collects translation
