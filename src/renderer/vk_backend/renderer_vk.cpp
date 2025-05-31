@@ -365,6 +365,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
 
     VkPhysicalDeviceFeatures feat10{};
     feat10.depthClamp = true;
+    feat10.shaderInt64 = true;
 
     VkPhysicalDeviceVulkan11Features feat11{};
     feat11.shaderDrawParameters = true;
