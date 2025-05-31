@@ -70,7 +70,7 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
                 cross(model[0].xyz, model[1].xyz));
 
     float3 normal = normalize(mul(normMat, vert.normal));
-    float4 shadowPos = worldPos + float4(normal * 10, 0.0);
+    float4 shadowPos = worldPos + float4(normal * 16, 0.0);
 
     CoarseVertex vertData;
     vertData.eyeRelPos = worldPos.xyz - vpcs.camera->pos;
