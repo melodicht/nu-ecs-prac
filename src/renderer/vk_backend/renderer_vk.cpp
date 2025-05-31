@@ -365,6 +365,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
 
     VkPhysicalDeviceFeatures feat10{};
     feat10.depthClamp = true;
+    feat10.shaderInt64 = true;
 
     VkPhysicalDeviceVulkan11Features feat11{};
     feat11.shaderDrawParameters = true;
@@ -485,35 +486,42 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     // Create shader stages
     VkShaderModuleCreateInfo depthShaderInfo{};
     depthShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *depthShaderFile = SDL_LoadFile("shaders/depth.spv", &depthShaderInfo.codeSize);
+    void *depthShaderFile = SDL_LoadFile("shaders/depth.vert.spv", &depthShaderInfo.codeSize);
     depthShaderInfo.pCode = reinterpret_cast<const uint32_t*>(depthShaderFile);
     VkShaderModule depthShader;
     VK_CHECK(vkCreateShaderModule(device, &depthShaderInfo, nullptr, &depthShader));
 
     VkShaderModuleCreateInfo colorShaderInfo{};
     colorShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *colorShaderFile = SDL_LoadFile("shaders/color.spv", &colorShaderInfo.codeSize);
+    void *colorShaderFile = SDL_LoadFile("shaders/color.vert.spv", &colorShaderInfo.codeSize);
     colorShaderInfo.pCode = reinterpret_cast<const uint32_t*>(colorShaderFile);
     VkShaderModule colorShader;
     VK_CHECK(vkCreateShaderModule(device, &colorShaderInfo, nullptr, &colorShader));
+
+    VkShaderModuleCreateInfo colorFragShaderInfo{};
+    colorFragShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    void *colorFragShaderFile = SDL_LoadFile("shaders/color.frag.spv", &colorFragShaderInfo.codeSize);
+    colorFragShaderInfo.pCode = reinterpret_cast<const uint32_t*>(colorFragShaderFile);
+    VkShaderModule colorFragShader;
+    VK_CHECK(vkCreateShaderModule(device, &colorFragShaderInfo, nullptr, &colorFragShader));
 
     VkPipelineShaderStageCreateInfo colorVertStageInfo{};
     colorVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     colorVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
     colorVertStageInfo.module = colorShader;
-    colorVertStageInfo.pName = "vertexMain";
+    colorVertStageInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo depthVertStageInfo{};
     depthVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     depthVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
     depthVertStageInfo.module = depthShader;
-    depthVertStageInfo.pName = "vertexMain";
+    depthVertStageInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo fragStageInfo{};
     fragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragStageInfo.module = colorShader;
-    fragStageInfo.pName = "fragmentMain";
+    fragStageInfo.module = colorFragShader;
+    fragStageInfo.pName = "main";
 
     VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, fragStageInfo};
 
