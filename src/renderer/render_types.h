@@ -32,6 +32,18 @@ struct CameraData
     glm::mat4 view;
     glm::mat4 proj;
     glm::vec3 pos;
+
+    CameraData() :
+        view(),
+        proj(),
+        pos()
+    { }
+
+    CameraData(glm::mat4 setView, glm::mat4 setProj, glm::vec3 setPos) :
+        view(setView),
+        proj(setProj),
+        pos(setPos)
+    { }
 };
 
 enum CullMode

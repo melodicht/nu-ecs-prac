@@ -31,9 +31,20 @@ private:
     // Stores best supported format on current device
     WGPUTextureFormat m_wgpuTextureFormat{ };
 
+    // Represents amount of objects that can be represented by a single mesh
+    u32 m_maxObjArraySize{ 4096 }; // TODO: Fill with number informed by limits
+
+    bool m_doingColorPass{ false }; // Currently does nothing happens whatsoever if it isn't a color pass
+    // Depth stuff will come later
+
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUTextureView m_textureView{ };
-    WGPUBuffer m_uniformBuffer{ };
+    WGPUCommandEncoder m_renderCommandEncoder{ };
+    WGPURenderPassEncoder m_renderPassEncoder{ };
+    WGPUBindGroup m_bindGroup{ };
+    WGPUBuffer m_cameraBuffer{ };
+    WGPUBuffer m_baseIndexBuffer{ };
+    WGPUBuffer m_instanceIndexBuffer{ };
     WGPUBuffer m_storageBuffer{ };
     std::unordered_map<MeshID, Mesh> m_meshStore{ };
     std::unordered_map<CameraID, CameraData> m_cameraStore{ };
@@ -48,7 +59,7 @@ private:
     static WGPUStringView wgpuStr(const char* str);
 
     // Creates a default rendering pipeline
-    void CreateDefaultPipeline(WGPURenderPipeline& pipeline, WGPUBuffer& uniformBuffer);
+    void CreateDefaultPipeline();
 
     // The following getters occur asynchronously in wgpu but is awaited for by these functions
     static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);
@@ -82,7 +93,7 @@ public:
     MeshID UploadMesh(MeshAsset &asset);
 
     // Designates a camera as part of the render pass 
-    CameraID AddCamera() { return 0; }
+    CameraID AddCamera();
 
     TextureID CreateDepthTexture(u32 width, u32 height) { return 0; }
     
@@ -94,20 +105,20 @@ public:
     // Establishes that the following commands apply to a new frame
     bool InitFrame();
 
-    void SetCamera(CameraID camera) { }
+    void SetCamera(CameraID camera);
 
-    void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture) { }
+    void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture){ };
 
     // Sets the view of a camera
-    void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos) { }
+    void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);
 
     void BeginDepthPass(CullMode cullMode) { }
 
     void BeginDepthPass(TextureID target, CullMode cullMode) { }
 
-    void BeginColorPass(CullMode cullMode) { }
+    void BeginColorPass(CullMode cullMode);
     
-    void EndPass() { }
+    void EndPass();
     
     void DrawImGui() { }
     
