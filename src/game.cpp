@@ -28,7 +28,7 @@ void GameInitialize(Scene &scene)
     FlyingMovement *playerMovement = scene.Assign<FlyingMovement>(player);
     playerCamera->fov = 90.0f;
     playerCamera->far = 5000.0f;
-    playerCamera->near = 0.15f;
+    playerCamera->near = 0.2f;
     playerMovement->moveSpeed = 200.0f;
     playerMovement->turnSpeed = 0.1f;
     playerTransform->position.x = -2560.0f;

@@ -26,6 +26,8 @@ MeshID UploadMesh(MeshAsset &asset);
 // and can also be sampled from shaders
 TextureID CreateDepthTexture(u32 width, u32 height);
 
+TextureID CreateDepthArray(u32 width, u32 height, u32 layers);
+
 // Destroy the texture at the given TextureID
 void DestroyTexture(TextureID textureID);
 
@@ -36,6 +38,8 @@ void DestroyMesh(MeshID meshID);
 // if you want to render multiple views in the same frame.
 CameraID AddCamera();
 
+CameraID AddMultiCamera(u32 viewCount);
+
 // Initialize the frame and begin recording rendering commands
 bool InitFrame();
 
@@ -45,7 +49,7 @@ bool InitFrame();
 void BeginDepthPass(CullMode cullMode);
 
 // Begin a depth only rendering pass onto the given depth texture
-void BeginDepthPass(TextureID target, CullMode cullMode);
+void BeginDepthPass(TextureID target, CullMode cullMode, u32 layerCount);
 
 // Begin a color rendering pass
 // cullMode specifies the face culling mode to use for this pass
@@ -63,6 +67,8 @@ void SetCamera(CameraID id);
 
 // Update the camera settings and transformation to use for rendering
 void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);
+
+void UpdateMultiCamera(std::vector<CameraData> &views);
 
 // Set scene directional light information to use for rendering
 void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture);

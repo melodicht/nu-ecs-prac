@@ -95,7 +95,7 @@ struct FragPushConstants
 FragPushConstants fpcs;
 
 [[vk::binding(0,0)]]
-Sampler2DShadow[] shadowMaps;
+Sampler2DArrayShadow[] shadowArrays;
 
 [shader("fragment")]
 float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
@@ -111,7 +111,8 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
     {
         for (int y = -1; y <= 1; y++)
         {
-            unshadowed += shadowMaps[fpcs.shadowID].SampleCmp(lightPosScaled.xy, lightPosScaled.z, int2(x, y)) / 9;
+            unshadowed += shadowArrays[fpcs.shadowID].SampleCmp(float3(lightPosScaled.xy, 0),
+                                                                lightPosScaled.z, int2(x, y)) / 9;
         }
     }
 

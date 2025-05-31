@@ -34,14 +34,6 @@ struct Texture
     u32 descriptorIndex;
 };
 
-// Represents the transformation data of the camera (CPU->GPU)
-struct CameraData
-{
-    glm::mat4 view;
-    glm::mat4 proj;
-    glm::vec3 pos;
-};
-
 // Represents the GPU memory locations of the camera, object, and vertex buffers (CPU->GPU)
 struct VertPushConstants
 {

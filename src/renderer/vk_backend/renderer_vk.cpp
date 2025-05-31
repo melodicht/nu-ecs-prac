@@ -75,7 +75,7 @@ u32 swapIndex;
 bool resize = false;
 u32 currentIndexCount;
 
-u32 currentCamID;
+CameraID currentCamID;
 
 VkPipelineLayout *currentLayout;
 
@@ -174,6 +174,22 @@ CameraID AddCamera()
     return frames[0].cameraBuffers.size() - 1;
 }
 
+CameraID AddMultiCamera(u32 viewCount)
+{
+    for (int i = 0; i < NUM_FRAMES; i++)
+    {
+        frames[i].cameraBuffers.push_back(CreateBuffer(device, allocator,
+                                                       sizeof(CameraData) * viewCount,
+                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                       | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                       VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                       | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
+    }
+
+    return frames[0].cameraBuffers.size() - 1;
+}
+
 TextureID CreateDepthTexture(u32 width, u32 height)
 {
     currentTexID++;
@@ -184,7 +200,7 @@ TextureID CreateDepthTexture(u32 width, u32 height)
                              depthFormat,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                              VK_IMAGE_USAGE_SAMPLED_BIT,
-                             {width, height, 1},
+                             {width, height, 1}, 1,
                              VMA_MEMORY_USAGE_GPU_ONLY,
                              VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
 
@@ -199,6 +215,69 @@ TextureID CreateDepthTexture(u32 width, u32 height)
     depthViewInfo.subresourceRange.levelCount = 1;
     depthViewInfo.subresourceRange.baseArrayLayer = 0;
     depthViewInfo.subresourceRange.layerCount = 1;
+    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
+
+    VkSampler sampler;
+
+    VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.compareEnable = VK_TRUE;
+    samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageView = depthTexView;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.sampler = sampler;
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.dstArrayElement = currentTexID - 1;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.dstSet = texDescriptorSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+
+    texture.texture = depthTexture;
+    texture.imageView = depthTexView;
+    texture.sampler = sampler;
+    texture.extent = {width, height};
+    texture.descriptorIndex = currentTexID - 1;
+
+    return currentTexID;
+}
+
+TextureID CreateDepthArray(u32 width, u32 height, u32 layers)
+{
+    currentTexID++;
+    auto iter = textures.emplace(currentTexID, Texture());
+    Texture& texture = iter.first->second;
+
+    AllocatedImage depthTexture = CreateImage(allocator,
+                                              depthFormat,
+                                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                                              VK_IMAGE_USAGE_SAMPLED_BIT,
+                                              {width, height, 1}, layers,
+                                              VMA_MEMORY_USAGE_GPU_ONLY,
+                                              VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+
+    VkImageView depthTexView;
+
+    VkImageViewCreateInfo depthViewInfo{};
+    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    depthViewInfo.format = depthFormat;
+    depthViewInfo.image = depthTexture.image;
+    depthViewInfo.subresourceRange.baseMipLevel = 0;
+    depthViewInfo.subresourceRange.levelCount = 1;
+    depthViewInfo.subresourceRange.baseArrayLayer = 0;
+    depthViewInfo.subresourceRange.layerCount = layers;
     depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
@@ -280,7 +359,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
     depthImage = CreateImage(allocator,
                              depthFormat,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-                             depthImageExtent,
+                             depthImageExtent, 1,
                              VMA_MEMORY_USAGE_GPU_ONLY,
                              VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
 
@@ -368,6 +447,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
 
     VkPhysicalDeviceVulkan11Features feat11{};
     feat11.shaderDrawParameters = true;
+    feat11.multiview = true;
 
     VkPhysicalDeviceVulkan12Features feat12{};
     feat12.bufferDeviceAddress = true;
@@ -810,7 +890,7 @@ bool InitFrame()
     return true;
 }
 
-void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode)
+void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode, u32 layerCount)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
@@ -828,7 +908,7 @@ void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode)
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderInfo.renderArea.offset = {0, 0};
     renderInfo.renderArea.extent = extent;
-    renderInfo.layerCount = 1;
+    renderInfo.layerCount = layerCount;
     renderInfo.colorAttachmentCount = 0;
     renderInfo.pColorAttachments = nullptr;
     renderInfo.pDepthAttachment = &depthAttachment;
@@ -862,12 +942,12 @@ void BeginDepthPass(CullMode cullMode)
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    BeginDepthPass(depthImageView, swapExtent, cullMode);
+    BeginDepthPass(depthImageView, swapExtent, cullMode, 1);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
 }
 
-void BeginDepthPass(TextureID target, CullMode cullMode)
+void BeginDepthPass(TextureID target, CullMode cullMode, u32 layerCount)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
@@ -892,8 +972,7 @@ void BeginDepthPass(TextureID target, CullMode cullMode)
 
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    TransitionImage(cmd, textures[target].texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-    BeginDepthPass(textures[target].imageView, extent, cullMode);
+    BeginDepthPass(textures[target].imageView, extent, cullMode, layerCount);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline);
 }
@@ -986,11 +1065,16 @@ void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos)
     memcpy(cameraData, &camera, sizeof(CameraData));
 }
 
+void UpdateMultiCamera(std::vector<CameraData> &views)
+{
+    void* cameraData = frames[frameNum].cameraBuffers[currentCamID].allocation->GetMappedData();
+    memcpy(cameraData, views.data(), sizeof(CameraData) * views.size());
+}
+
 void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    TransitionImage(cmd, textures[texture].texture.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     void* cameraData = frames[frameNum].cameraBuffers[currentCamID].allocation->GetMappedData();
     memcpy((char*)cameraData + sizeof(CameraData), &lightSpace, sizeof(glm::mat4));
     FragPushConstants pushConstants = {lightDir, textures[texture].descriptorIndex};

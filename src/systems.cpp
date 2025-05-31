@@ -99,6 +99,8 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
     return frustumCorners;
 }
 
+#define NUM_CASCADES 6
+
 class RenderSystem : public System
 {
     TextureID dirShadowMap;
@@ -109,11 +111,11 @@ class RenderSystem : public System
 
     void OnStart(Scene *scene)
     {
-        dirShadowMap = CreateDepthTexture(2048, 2048);
+        dirShadowMap = CreateDepthArray(2048, 2048, NUM_CASCADES);
         lightTransform.rotation = {0, 30, 120};
 
         mainCam = AddCamera();
-        dirLightCam = AddCamera();
+        dirLightCam = AddMultiCamera(NUM_CASCADES);
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
@@ -170,38 +172,54 @@ class RenderSystem : public System
         Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
         glm::mat4 view = GetViewMatrix(cameraTransform);
         f32 aspect = (f32)windowWidth / (f32)windowHeight;
+
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
+
+        std::vector<CameraData> lightViews;
+
+        f32 subFrustumSize = (camera->far - camera->near) / NUM_CASCADES;
+
+        f32 currentNear = camera->near;
 
         glm::mat4 lightView = GetViewMatrix(&lightTransform);
 
-        std::vector<glm::vec4> corners = getFrustumCorners(proj, view);
-
-        f32 minX = std::numeric_limits<f32>::max();
-        f32 maxX = std::numeric_limits<f32>::lowest();
-        f32 minY = std::numeric_limits<f32>::max();
-        f32 maxY = std::numeric_limits<f32>::lowest();
-        f32 minZ = std::numeric_limits<f32>::max();
-        f32 maxZ = std::numeric_limits<f32>::lowest();
-        for (const glm::vec3& v : corners)
+        for (int i = 0; i < NUM_CASCADES; i++)
         {
-            const glm::vec4 trf = lightView * glm::vec4(v, 1.0);
-            minX = std::min(minX, trf.x);
-            maxX = std::max(maxX, trf.x);
-            minY = std::min(minY, trf.y);
-            maxY = std::max(maxY, trf.y);
-            minZ = std::min(minZ, trf.z);
-            maxZ = std::max(maxZ, trf.z);
+            glm::mat4 subProj = glm::perspective(glm::radians(camera->fov), aspect,
+                                                 currentNear, currentNear + subFrustumSize);
+            currentNear += subFrustumSize;
+
+            f32 minX = std::numeric_limits<f32>::max();
+            f32 maxX = std::numeric_limits<f32>::lowest();
+            f32 minY = std::numeric_limits<f32>::max();
+            f32 maxY = std::numeric_limits<f32>::lowest();
+            f32 minZ = std::numeric_limits<f32>::max();
+            f32 maxZ = std::numeric_limits<f32>::lowest();
+
+            std::vector<glm::vec4> corners = getFrustumCorners(subProj, view);
+
+            for (const glm::vec3& v : corners)
+            {
+                const glm::vec4 trf = lightView * glm::vec4(v, 1.0);
+                minX = std::min(minX, trf.x);
+                maxX = std::max(maxX, trf.x);
+                minY = std::min(minY, trf.y);
+                maxY = std::max(maxY, trf.y);
+                minZ = std::min(minZ, trf.z);
+                maxZ = std::max(maxZ, trf.z);
+            }
+            lightViews.push_back({lightView, glm::ortho(minX, maxX, minY, maxY, minZ, maxZ)});
         }
 
-        glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-        glm::mat4 lightSpace = lightProj * lightView;
+
+        glm::mat4 lightSpace = lightViews[0].proj * lightView;
 
         glm::vec3 lightDir = GetForwardVector(&lightTransform);
 
         SetCamera(dirLightCam);
-        UpdateCamera(lightView, lightProj, lightTransform.position);
+        UpdateMultiCamera(lightViews);
 
-        BeginDepthPass(dirShadowMap, CullMode::BACK);
+        BeginDepthPass(dirShadowMap, CullMode::BACK, NUM_CASCADES);
         int startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {
