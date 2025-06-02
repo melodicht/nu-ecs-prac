@@ -414,7 +414,9 @@ out
 
 build
 
+/SkylineEngine_XCode
 /subprojects
 /webbuild
+/xcodebuild
 /.vscode
 .DS_Store

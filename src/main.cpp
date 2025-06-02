@@ -133,8 +133,12 @@ void updateLoop(void* appInfo) {
     return;
 }
 
+
+#include <filesystem>
+
 int main()
 {
+    std::cout << "Current path: " << std::filesystem::current_path() << std::endl;
     srand(static_cast<unsigned>(time(0)));
 
     SDL_Window *window = NULL;

@@ -520,7 +520,7 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   m_wgpuQueue = wgpuDeviceGetQueue(m_wgpuDevice);
 
   WGPUQueueWorkDoneCallbackInfo queueDoneCallback =  WGPUQueueWorkDoneCallbackInfo {
-    .mode = WGPUCallbackMode_AllowSpontaneous,
+    .mode = WGPUCallbackMode_AllowProcessEvents,
     .callback = QueueFinishCallback
   };
 
@@ -616,7 +616,7 @@ bool WGPURenderBackend::InitFrame() {
     .nextInChain = nullptr,
     .label = wgpuStr("My command encoder")
   };
-	m_renderCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+  m_renderCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
 
   WGPURenderPassColorAttachment colorAttachment {
     .view = m_textureView,
@@ -657,17 +657,18 @@ void WGPURenderBackend::SetMesh(MeshID meshID) {
 
 void WGPURenderBackend::EndFrame() {
   wgpuRenderPassEncoderEnd(m_renderPassEncoder);
-	wgpuRenderPassEncoderRelease(m_renderPassEncoder);
+  wgpuRenderPassEncoderRelease(m_renderPassEncoder);
 
   WGPUCommandBufferDescriptor cmdBufferDescriptor = {
     .nextInChain = nullptr,
     .label =  wgpuStr("Command buffer"),
   };
-	WGPUCommandBuffer command = wgpuCommandEncoderFinish(m_renderCommandEncoder, &cmdBufferDescriptor);
-	wgpuCommandEncoderRelease(m_renderCommandEncoder);
+    
+  WGPUCommandBuffer command = wgpuCommandEncoderFinish(m_renderCommandEncoder, &cmdBufferDescriptor);
+  wgpuCommandEncoderRelease(m_renderCommandEncoder);
 
   wgpuQueueSubmit(m_wgpuQueue, 1, &command);
-	wgpuCommandBufferRelease(command);
+  wgpuCommandBufferRelease(command);
 
   if(m_textureView) {
     wgpuTextureViewRelease(m_textureView);
@@ -683,9 +684,7 @@ void WGPURenderBackend::EndFrame() {
 }
 
 void WGPURenderBackend::SendObjectData(std::vector<ObjectData>& objects) {
-  if(m_doingColorPass) {
-    wgpuQueueWriteBuffer(m_wgpuQueue, m_storageBuffer, 0, objects.data(), sizeof(ObjectData) * objects.size());
-  }
+  wgpuQueueWriteBuffer(m_wgpuQueue, m_storageBuffer, 0, objects.data(), sizeof(ObjectData) * objects.size());
 }
 
 void WGPURenderBackend::DrawObjects(int count, int startIndex) {
@@ -700,6 +699,9 @@ void WGPURenderBackend::DrawObjects(int count, int startIndex) {
 
 void WGPURenderBackend::BeginColorPass(CullMode cullMode) {
   m_doingColorPass = true;
+  CameraData& gotCamera = m_cameraStore[m_currentCameraID];
+  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
+
 }
 
 void WGPURenderBackend::EndPass() {
@@ -715,14 +717,18 @@ CameraID WGPURenderBackend::AddCamera() {
 
 void WGPURenderBackend::SetCamera(CameraID camera) {
   m_currentCameraID = camera;
+    if(m_doingColorPass) {
+      CameraData& gotCamera = m_cameraStore[m_currentCameraID];
+      wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
+    }
 }
 
 void WGPURenderBackend::UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos) {
+  CameraData& gotCamera = m_cameraStore[m_currentCameraID];
+  gotCamera.pos = pos;
+  gotCamera.proj = proj;
+  gotCamera.view = view;
   if(m_doingColorPass) {
-    CameraData& gotCamera = m_cameraStore[m_currentCameraID];
-    gotCamera.pos = pos;
-    gotCamera.proj = proj;
-    gotCamera.view = view;
     wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
   }
 }
