@@ -589,8 +589,8 @@ bool WGPURenderBackend::InitFrame() {
     return false;
   }
 
-	// Create a command encoder for the draw call
-	WGPUCommandEncoderDescriptor encoderDesc = {
+  // Create a command encoder for the draw call
+  WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
     .label = wgpuStr("Starting Encoder Descriptor")
   };
@@ -639,41 +639,43 @@ bool WGPURenderBackend::InitFrame() {
 }
 
 void WGPURenderBackend::SetMesh(MeshID meshID) {
-  EndMeshPass(); // Makes sure previous mesh pass ended before this one begins
+  if(m_doingColorPass) {
+    EndMeshPass(); // Makes sure previous mesh pass ended before this one begins
 
-  WGPUCommandEncoderDescriptor encoderDesc = {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Mesh Encoder Descriptor")
-  };
-  m_meshCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+    WGPUCommandEncoderDescriptor encoderDesc = {
+      .nextInChain = nullptr,
+      .label = wgpuStr("Mesh Encoder Descriptor")
+    };
+    m_meshCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
 
-  WGPURenderPassColorAttachment meshColorPass {
-    .view = m_textureView,
-    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
-    .resolveTarget = nullptr,
-    .loadOp = WGPULoadOp_Load,
-    .storeOp = WGPUStoreOp_Store,
-  };
+    WGPURenderPassColorAttachment meshColorPass {
+      .view = m_textureView,
+      .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+      .resolveTarget = nullptr,
+      .loadOp = WGPULoadOp_Load,
+      .storeOp = WGPUStoreOp_Store,
+    };
 
-  WGPURenderPassDescriptor meshPassDesc {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Basic mesh render pass"),
-    .colorAttachmentCount = 1,
-    .colorAttachments = &meshColorPass,
-    .depthStencilAttachment = nullptr,
-    .timestampWrites = nullptr,
-  };
+    WGPURenderPassDescriptor meshPassDesc {
+      .nextInChain = nullptr,
+      .label = wgpuStr("Basic mesh render pass"),
+      .colorAttachmentCount = 1,
+      .colorAttachments = &meshColorPass,
+      .depthStencilAttachment = nullptr,
+      .timestampWrites = nullptr,
+    };
 
-  m_meshPassEncoder = wgpuCommandEncoderBeginRenderPass(m_meshCommandEncoder, &meshPassDesc);
-  wgpuRenderPassEncoderSetPipeline(m_meshPassEncoder, m_wgpuPipeline);
-  wgpuRenderPassEncoderSetBindGroup(m_meshPassEncoder, 0, m_bindGroup, 0, nullptr);
+    m_meshPassEncoder = wgpuCommandEncoderBeginRenderPass(m_meshCommandEncoder, &meshPassDesc);
+    wgpuRenderPassEncoderSetPipeline(m_meshPassEncoder, m_wgpuPipeline);
+    wgpuRenderPassEncoderSetBindGroup(m_meshPassEncoder, 0, m_bindGroup, 0, nullptr);
 
 
-  m_currentMeshID = meshID;
-  wgpuRenderPassEncoderSetVertexBuffer(m_meshPassEncoder, 0, m_meshStore[meshID].m_vertexBuffer, 0, sizeof(Vertex) * m_meshStore[meshID].m_vertexCount);
-  wgpuRenderPassEncoderSetIndexBuffer(m_meshPassEncoder,  m_meshStore[meshID].m_indexBuffer, WGPUIndexFormat_Uint32, 0, sizeof(u32) * m_meshStore[meshID].m_indexCount);
+    m_currentMeshID = meshID;
+    wgpuRenderPassEncoderSetVertexBuffer(m_meshPassEncoder, 0, m_meshStore[meshID].m_vertexBuffer, 0, sizeof(Vertex) * m_meshStore[meshID].m_vertexCount);
+    wgpuRenderPassEncoderSetIndexBuffer(m_meshPassEncoder,  m_meshStore[meshID].m_indexBuffer, WGPUIndexFormat_Uint32, 0, sizeof(u32) * m_meshStore[meshID].m_indexCount);
 
-  m_meshBufferActive = true;
+    m_meshBufferActive = true;
+  }
 }
 
 void WGPURenderBackend::EndFrame() {
