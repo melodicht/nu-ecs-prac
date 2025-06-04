@@ -14,12 +14,9 @@ struct ObjData {
 
 @binding(1) @group(0) var<storage> objStore : array<ObjData>; 
 
-@binding(2) @group(0) var<uniform> baseIdx : u32;     // The index of the first instance of the mesh within objStore
-
-@binding(3) @group(0) var<uniform> instanceIdx : u32; // The index of the specified instance relative to baseIdx
-
 
 struct VertexIn {
+    @builtin(instance_index) instance: u32, // Represents which instance within objStore to pull data from
     @location(0) position: vec3<f32>,
     @location(1) uvX : f32,
     @location(2) normal : vec3<f32>,
@@ -39,8 +36,8 @@ fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
 @vertex
 fn vtxMain(in : VertexIn) -> VertexOut {
   var out : VertexOut;
-  out.position = camera.projMat * camera.viewMat * objStore[baseIdx + instanceIdx].transform * vec4<f32>(in.position,1);
-  out.color = objStore[baseIdx + instanceIdx].color;
+  out.position = camera.projMat * camera.viewMat * objStore[in.instance].transform * vec4<f32>(in.position,1);
+  out.color = objStore[in.instance].color;
 
   return out;
 }

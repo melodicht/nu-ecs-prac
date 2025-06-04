@@ -218,20 +218,6 @@ void WGPURenderBackend::CreateDefaultPipeline() {
   objDatBind.buffer.minBindingSize = sizeof(glm::mat4x4) + (sizeof(glm::vec3) + 4); // Makes sure to adjust for padding of vec3
   bindEntities.push_back( objDatBind );
 
-  WGPUBindGroupLayoutEntry primaryIndexBind = DefaultBindLayoutEntry();
-  primaryIndexBind.binding = 2;
-  primaryIndexBind.visibility = WGPUShaderStage_Vertex;
-  primaryIndexBind.buffer.type = WGPUBufferBindingType_Uniform;
-  primaryIndexBind.buffer.minBindingSize = sizeof(u32);
-  bindEntities.push_back( primaryIndexBind );
-
-  WGPUBindGroupLayoutEntry instanceIndexBind = DefaultBindLayoutEntry();
-  instanceIndexBind.binding = 3;
-  instanceIndexBind.visibility = WGPUShaderStage_Vertex;
-  instanceIndexBind.buffer.type = WGPUBufferBindingType_Uniform;
-  instanceIndexBind.buffer.minBindingSize = sizeof(u32);
-  bindEntities.push_back( instanceIndexBind );
-
   WGPUBindGroupLayoutDescriptor bindLayoutDescriptor {
     .nextInChain = nullptr,
     .label = wgpuStr("Default Bind Layout"),
@@ -289,17 +275,6 @@ void WGPURenderBackend::CreateDefaultPipeline() {
 
   m_cameraBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &cameraBufferDesc);
 
-  WGPUBufferDescriptor indicesBufferDesc {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Uniform Buffer Description"),
-    .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform,
-    .size = sizeof(u32),
-    .mappedAtCreation = false,
-  };
-
-  m_baseIndexBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &indicesBufferDesc);
-  m_instanceIndexBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &indicesBufferDesc);
-
   WGPUBufferDescriptor storageBufferDesc {
     .nextInChain = nullptr,
     .label = wgpuStr("Storage Buffer Description"),
@@ -321,23 +296,6 @@ void WGPURenderBackend::CreateDefaultPipeline() {
   };
   bindGroupEntries.push_back(cameraBindEntry);
 
-  WGPUBindGroupEntry baseIndexEntry {
-    .nextInChain = nullptr,
-    .binding = 2,
-    .buffer = m_baseIndexBuffer,
-    .offset = 0,
-    .size = sizeof(u32),
-  };
-  bindGroupEntries.push_back(baseIndexEntry);
-
-  WGPUBindGroupEntry instanceIndexEntry {
-    .nextInChain = nullptr,
-    .binding = 3,
-    .buffer = m_baseIndexBuffer,
-    .offset = 0,
-    .size = sizeof(u32),
-  };
-  bindGroupEntries.push_back(instanceIndexEntry);
 
   WGPUBindGroupEntry objDataBindEntry {
     .nextInChain = nullptr,
@@ -351,8 +309,8 @@ void WGPURenderBackend::CreateDefaultPipeline() {
   WGPUBindGroupDescriptor bindGroupDescriptor {
     .nextInChain = nullptr,
     .entries = bindGroupEntries.data(),
-    .entryCount = 4,
-    .label = wgpuStr("String"),
+    .entryCount = bindGroupEntries.size(),
+    .label = wgpuStr("Default Pipeline Bind Group"),
     .layout = bindLayout,
   };
 
@@ -362,6 +320,25 @@ void WGPURenderBackend::CreateDefaultPipeline() {
   wgpuPipelineLayoutRelease(pipelineLayout);
   wgpuShaderModuleRelease(shaderModule);
   wgpuBindGroupLayoutRelease(bindLayout);
+}
+
+void WGPURenderBackend::EndMeshPass() {
+  if(m_meshBufferActive) {
+    wgpuRenderPassEncoderEnd(m_meshPassEncoder);
+    wgpuRenderPassEncoderRelease(m_meshPassEncoder);
+
+    WGPUCommandBufferDescriptor cmdBufferDescriptor = {
+      .nextInChain = nullptr,
+      .label =  wgpuStr("Mesh Command Buffer"),
+    };
+  
+    WGPUCommandBuffer meshCommand = wgpuCommandEncoderFinish(m_meshCommandEncoder, &cmdBufferDescriptor);
+    wgpuCommandEncoderRelease(m_meshCommandEncoder);
+  
+    wgpuQueueSubmit(m_wgpuQueue, 1, &meshCommand);
+    wgpuCommandBufferRelease(meshCommand);
+    m_meshBufferActive = false;
+  }
 }
 
 WGPUAdapter WGPURenderBackend::GetAdapter(WGPUInstance instance, WGPURequestAdapterOptions const * options) {
@@ -436,8 +413,9 @@ WGPUDevice WGPURenderBackend::GetDevice(WGPUAdapter adapter, WGPUDeviceDescripto
   return set;
 }
 
-void WGPURenderBackend::QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
+void WGPURenderBackend::QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
   LOG("Queued work finished with status: " << status);
+  LOG("Included Message: " << message.data);
 }
 
 void WGPURenderBackend::LostDeviceCallback(WGPUDevice const * device, WGPUDeviceLostReason reason, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
@@ -614,11 +592,11 @@ bool WGPURenderBackend::InitFrame() {
 	// Create a command encoder for the draw call
 	WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
-    .label = wgpuStr("My command encoder")
+    .label = wgpuStr("Starting Encoder Descriptor")
   };
-  m_renderCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+  WGPUCommandEncoder startCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
 
-  WGPURenderPassColorAttachment colorAttachment {
+  WGPURenderPassColorAttachment startPass {
     .view = m_textureView,
     .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
     .resolveTarget = nullptr,
@@ -632,43 +610,74 @@ bool WGPURenderBackend::InitFrame() {
   //   .
   // }
 
-  WGPURenderPassDescriptor renderPassDescriptor {
+  WGPURenderPassDescriptor startPassDescriptor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Default Render Pass Descriptor"),
+    .label = wgpuStr("Starting Render Pass Descriptor"),
     .colorAttachmentCount = 1,
-    .colorAttachments = &colorAttachment,
+    .colorAttachments = &startPass,
     .depthStencilAttachment = nullptr,
     .timestampWrites = nullptr,
   };
 
-  m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_renderCommandEncoder, &renderPassDescriptor);
+  WGPURenderPassEncoder startPassEncoder = wgpuCommandEncoderBeginRenderPass(startCommandEncoder, &startPassDescriptor);
 
-  wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_wgpuPipeline);
-  wgpuRenderPassEncoderSetBindGroup(m_renderPassEncoder, 0, m_bindGroup, 0, nullptr);
+  wgpuRenderPassEncoderEnd(startPassEncoder);
+  wgpuRenderPassEncoderRelease(startPassEncoder);
+
+  WGPUCommandBufferDescriptor cmdBufferDescriptor = {
+    .nextInChain = nullptr,
+    .label =  wgpuStr("Starting Command buffer"),
+  };
+
+  WGPUCommandBuffer startCommand = wgpuCommandEncoderFinish(startCommandEncoder, &cmdBufferDescriptor);
+  wgpuCommandEncoderRelease(startCommandEncoder);
+
+  wgpuQueueSubmit(m_wgpuQueue, 1, &startCommand);
+  wgpuCommandBufferRelease(startCommand);
 
   return true;
 }
 
 void WGPURenderBackend::SetMesh(MeshID meshID) {
+  EndMeshPass(); // Makes sure previous mesh pass ended before this one begins
+
+  WGPUCommandEncoderDescriptor encoderDesc = {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Mesh Encoder Descriptor")
+  };
+  m_meshCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+
+  WGPURenderPassColorAttachment meshColorPass {
+    .view = m_textureView,
+    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+    .resolveTarget = nullptr,
+    .loadOp = WGPULoadOp_Load,
+    .storeOp = WGPUStoreOp_Store,
+  };
+
+  WGPURenderPassDescriptor meshPassDesc {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Basic mesh render pass"),
+    .colorAttachmentCount = 1,
+    .colorAttachments = &meshColorPass,
+    .depthStencilAttachment = nullptr,
+    .timestampWrites = nullptr,
+  };
+
+  m_meshPassEncoder = wgpuCommandEncoderBeginRenderPass(m_meshCommandEncoder, &meshPassDesc);
+  wgpuRenderPassEncoderSetPipeline(m_meshPassEncoder, m_wgpuPipeline);
+  wgpuRenderPassEncoderSetBindGroup(m_meshPassEncoder, 0, m_bindGroup, 0, nullptr);
+
+
   m_currentMeshID = meshID;
-  wgpuRenderPassEncoderSetVertexBuffer(m_renderPassEncoder, 0, m_meshStore[meshID].m_vertexBuffer, 0, sizeof(Vertex) * m_meshStore[meshID].m_vertexCount);
-  wgpuRenderPassEncoderSetIndexBuffer(m_renderPassEncoder,  m_meshStore[meshID].m_indexBuffer, WGPUIndexFormat_Uint32, 0, sizeof(u32) * m_meshStore[meshID].m_indexCount);
+  wgpuRenderPassEncoderSetVertexBuffer(m_meshPassEncoder, 0, m_meshStore[meshID].m_vertexBuffer, 0, sizeof(Vertex) * m_meshStore[meshID].m_vertexCount);
+  wgpuRenderPassEncoderSetIndexBuffer(m_meshPassEncoder,  m_meshStore[meshID].m_indexBuffer, WGPUIndexFormat_Uint32, 0, sizeof(u32) * m_meshStore[meshID].m_indexCount);
+
+  m_meshBufferActive = true;
 }
 
 void WGPURenderBackend::EndFrame() {
-  wgpuRenderPassEncoderEnd(m_renderPassEncoder);
-  wgpuRenderPassEncoderRelease(m_renderPassEncoder);
-
-  WGPUCommandBufferDescriptor cmdBufferDescriptor = {
-    .nextInChain = nullptr,
-    .label =  wgpuStr("Command buffer"),
-  };
-    
-  WGPUCommandBuffer command = wgpuCommandEncoderFinish(m_renderCommandEncoder, &cmdBufferDescriptor);
-  wgpuCommandEncoderRelease(m_renderCommandEncoder);
-
-  wgpuQueueSubmit(m_wgpuQueue, 1, &command);
-  wgpuCommandBufferRelease(command);
+  EndMeshPass(); // Wraps up any loose mesh passes
 
   if(m_textureView) {
     wgpuTextureViewRelease(m_textureView);
@@ -688,12 +697,8 @@ void WGPURenderBackend::SendObjectData(std::vector<ObjectData>& objects) {
 }
 
 void WGPURenderBackend::DrawObjects(int count, int startIndex) {
-  if(m_doingColorPass) {
-    wgpuQueueWriteBuffer(m_wgpuQueue, m_baseIndexBuffer, 0, &startIndex, sizeof(u32));
-    for(int indexIter = 0 ; indexIter < count ; indexIter++) {
-      wgpuQueueWriteBuffer(m_wgpuQueue, m_instanceIndexBuffer, 0, &indexIter, sizeof(u32));
-      wgpuRenderPassEncoderDrawIndexed(m_renderPassEncoder, m_meshStore[m_currentMeshID].m_indexCount, 1, 0, 0, 0);
-    }
+  if(m_doingColorPass && m_meshBufferActive) {
+    wgpuRenderPassEncoderDrawIndexed(m_meshPassEncoder, m_meshStore[m_currentMeshID].m_indexCount, count, 0, 0, startIndex);
   }
 }
 

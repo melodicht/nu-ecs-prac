@@ -39,19 +39,23 @@ private:
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUTextureView m_textureView{ };
-    WGPUCommandEncoder m_renderCommandEncoder{ };
-    WGPURenderPassEncoder m_renderPassEncoder{ };
+    WGPUCommandEncoder m_meshCommandEncoder{ };
+    WGPURenderPassEncoder m_meshPassEncoder{ };
+    bool m_meshBufferActive{ }; // Determines whether current mesh commands needs to end for another to continue
+
+    // Defines part of default pipeline
     WGPUBindGroup m_bindGroup{ };
     WGPUBuffer m_cameraBuffer{ };
     WGPUBuffer m_baseIndexBuffer{ };
     WGPUBuffer m_instanceIndexBuffer{ };
     WGPUBuffer m_storageBuffer{ };
+
     std::unordered_map<MeshID, Mesh> m_meshStore{ };
     std::unordered_map<CameraID, CameraData> m_cameraStore{ };
-    MeshID m_nextMeshID{ 0 };   // The mesh ID of the next mesh that will be created
-    CameraID m_nextCameraID{ 0 }; // The camera ID of the next camera that will be created
-    MeshID m_currentMeshID{ 0 };    // The mesh currently being drawn in frame loop
-    CameraID m_currentCameraID{ 0 }; // The camera currently being 
+    MeshID m_nextMeshID{ 0 };        // The mesh ID of the next mesh that will be created
+    CameraID m_nextCameraID{ 0 };    // The camera ID of the next camera that will be created
+    MeshID m_currentMeshID{ 0 };     // The mesh currently being drawn in frame loop
+    CameraID m_currentCameraID{ 0 }; // The camera currently being viewed from
 
     void printDeviceSpecs();
 
@@ -61,13 +65,16 @@ private:
     // Creates a default rendering pipeline
     void CreateDefaultPipeline();
 
+    // Ends current mesh pass if exists
+    void EndMeshPass();
+
     // The following getters occur asynchronously in wgpu but is awaited for by these functions
     static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);
 
     static WGPUDevice GetDevice(const WGPUAdapter adapter, WGPUDeviceDescriptor const * descriptor);
 
     // What to call on the a queue finishing its work
-    static void QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
+    static void QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
 
     // What to call on m_wgpuDevice being lost.
     static void LostDeviceCallback(WGPUDevice const * device, WGPUDeviceLostReason reason, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);

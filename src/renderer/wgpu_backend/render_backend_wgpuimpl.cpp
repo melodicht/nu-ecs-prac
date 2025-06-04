@@ -15,11 +15,11 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
     wgpuRenderer.InitRenderer(window, startWidth, startHeight);
 }
 
-uint32_t UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices) {
+u32 UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices) {
     return wgpuRenderer.UploadMesh(vertCount, vertices, indexCount, indices);
 }
 
-uint32_t UploadMesh(MeshAsset &asset) {
+u32 UploadMesh(MeshAsset &asset) {
     return wgpuRenderer.UploadMesh(asset);
 }
 
@@ -77,7 +77,7 @@ void DrawImGui()
     wgpuRenderer.DrawImGui();
 }
 
-void SetMesh(uint32_t meshID) {
+void SetMesh(MeshID meshID) {
     wgpuRenderer.SetMesh(meshID);
 }
 
