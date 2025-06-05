@@ -20,6 +20,9 @@
 // Allows for encapsulation of WebGPU render capabilities
 class WGPURenderBackend {
 private:
+    u32 m_screenWidth{ 0 };
+    u32 m_screenHeight{ 0 };
+
     // WGPU objects that remains important throughout rendering 
     // from init to destruction
     WGPUInstance m_wgpuInstance{ };
@@ -30,6 +33,7 @@ private:
 
     // Stores best supported format on current device
     WGPUTextureFormat m_wgpuTextureFormat{ };
+    WGPUTextureFormat m_wgpuDepthTextureFormat{ WGPUTextureFormat_Depth24Plus };
 
     // Represents amount of objects that can be represented by a single mesh
     u32 m_maxObjArraySize{ 4096 }; // TODO: Fill with number informed by limits
@@ -39,6 +43,7 @@ private:
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUTextureView m_textureView{ };
+    WGPUTextureView m_depthTextureFormat{ };
     WGPUCommandEncoder m_meshCommandEncoder{ };
     WGPURenderPassEncoder m_meshPassEncoder{ };
     bool m_meshBufferActive{ }; // Determines whether current mesh commands needs to end for another to continue

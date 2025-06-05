@@ -1,13 +1,14 @@
 // Represents camera that player sees through
 struct Camera {
-    projMat : mat4x4<f32>,
     viewMat : mat4x4<f32>,
+    projMat : mat4x4<f32>,
+    pos: vec3<f32>,
 }
 
 // Represents the data that differentiates each instance of the same mesh
 struct ObjData {
     transform : mat4x4<f32>,
-    color : vec3<f32>,
+    color : vec4<f32>,
 }
 
 @binding(0) @group(0) var<uniform> camera : Camera;
@@ -16,16 +17,16 @@ struct ObjData {
 
 
 struct VertexIn {
-    @builtin(instance_index) instance: u32, // Represents which instance within objStore to pull data from
     @location(0) position: vec3<f32>,
     @location(1) uvX : f32,
     @location(2) normal : vec3<f32>,
     @location(3) uvY : f32,
+    @builtin(instance_index) instance: u32, // Represents which instance within objStore to pull data from
 }
 
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
-    @location(0) color: vec3<f32>,
+    @location(0) color: vec4<f32>,
 }
 
 // Collects translation
@@ -44,5 +45,5 @@ fn vtxMain(in : VertexIn) -> VertexOut {
 
 @fragment
 fn fsMain(in : VertexOut) -> @location(0) vec4<f32>  {
-    return vec4<f32>(in.color, 1);
+    return in.color;
 }

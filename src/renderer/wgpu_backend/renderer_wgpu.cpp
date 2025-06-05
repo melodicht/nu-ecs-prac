@@ -208,14 +208,14 @@ void WGPURenderBackend::CreateDefaultPipeline() {
   cameraBind.binding = 0;
   cameraBind.visibility = WGPUShaderStage_Vertex;
   cameraBind.buffer.type = WGPUBufferBindingType_Uniform;
-  cameraBind.buffer.minBindingSize = sizeof(glm::mat4x4) * 2;
+  cameraBind.buffer.minBindingSize = sizeof(CameraData) + 4; // Adjusts for padding of vec3
   bindEntities.push_back( cameraBind );
 
   WGPUBindGroupLayoutEntry objDatBind = DefaultBindLayoutEntry();
   objDatBind.binding = 1;
   objDatBind.visibility = WGPUShaderStage_Vertex;
   objDatBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
-  objDatBind.buffer.minBindingSize = sizeof(glm::mat4x4) + (sizeof(glm::vec3) + 4); // Makes sure to adjust for padding of vec3
+  objDatBind.buffer.minBindingSize = sizeof(glm::mat4x4) + (sizeof(glm::vec4));
   bindEntities.push_back( objDatBind );
 
   WGPUBindGroupLayoutDescriptor bindLayoutDescriptor {
@@ -254,7 +254,7 @@ void WGPURenderBackend::CreateDefaultPipeline() {
       .frontFace = WGPUFrontFace_CCW,
       .cullMode = WGPUCullMode_None
     },
-    .depthStencil = nullptr, // TODO: Implement depth stencil later
+    .depthStencil = nullptr, //&depthStencilState,
     .multisample {
       .count = 1,
       .mask = ~0u,
@@ -269,7 +269,7 @@ void WGPURenderBackend::CreateDefaultPipeline() {
     .nextInChain = nullptr,
     .label = wgpuStr("Uniform Buffer Description"),
     .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform,
-    .size = sizeof(CameraData),
+    .size = sizeof(CameraData) + 4, // Adjusts for padding
     .mappedAtCreation = false,
   };
 
@@ -292,7 +292,7 @@ void WGPURenderBackend::CreateDefaultPipeline() {
     .binding = 0,
     .buffer = m_cameraBuffer,
     .offset = 0,
-    .size = sizeof(CameraData),
+    .size = sizeof(CameraData) + 4, // Adjusts for padding
   };
   bindGroupEntries.push_back(cameraBindEntry);
 
@@ -439,6 +439,9 @@ WGPURenderBackend::~WGPURenderBackend() {
 }
 
 void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
+  m_screenHeight = startHeight;
+  m_screenWidth = startWidth;
+
   // Creates instance
   WGPUInstanceDescriptor instanceDescriptor { 
     .nextInChain = nullptr
@@ -499,7 +502,11 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
 
   WGPUQueueWorkDoneCallbackInfo queueDoneCallback =  WGPUQueueWorkDoneCallbackInfo {
     .mode = WGPUCallbackMode_AllowProcessEvents,
-    .callback = QueueFinishCallback
+    #if EMSCRIPTEN // TODO: It seems that emdawn has split off from native for now, check frequently
+    .callback = nullptr,
+    #else
+    .callback = QueueFinishCallback,
+    #endif
   };
 
   wgpuQueueOnSubmittedWorkDone(m_wgpuQueue, queueDoneCallback);
@@ -519,6 +526,7 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
     .alphaMode = WGPUCompositeAlphaMode_Auto,
     .presentMode = WGPUPresentMode_Fifo
   };
+
   wgpuSurfaceCapabilitiesFreeMembers( capabilities );
 
   wgpuSurfaceConfigure(m_wgpuSurface, &config);
@@ -561,8 +569,8 @@ MeshID WGPURenderBackend::UploadMesh(u32 vertCount, Vertex* vertices, u32 indexC
 }
 
 bool WGPURenderBackend::InitFrame() {
+  // Gets current color texture
   WGPUSurfaceTexture surfaceTexture;
-  WGPUTextureView textureView = nullptr;
   wgpuSurfaceGetCurrentTexture(m_wgpuSurface, &surfaceTexture);
 
   if (surfaceTexture.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal) {
@@ -589,6 +597,22 @@ bool WGPURenderBackend::InitFrame() {
     return false;
   }
 
+  // // Creates a depth texture
+  // WGPUTextureDescriptor depthTextureDescriptor {
+  //   .nextInChain = nullptr,
+  //   .label = wgpuStr("Surface depth texture view"),
+  //   .dimension = WGPUTextureDimension_2D,
+  //   .format = m_wgpuDepthTextureFormat,
+  //   .mipLevelCount = 1,
+  //   .sampleCount = 1,
+  //   .size = {m_screenWidth, m_screenHeight, 1},
+  //   .usage = WGPUTextureUsage_RenderAttachment,
+  //   .viewFormatCount = 1,
+  //   .viewFormats = &m_wgpuDepthTextureFormat,
+  // };
+
+  // m_
+
   // Create a command encoder for the draw call
   WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
@@ -607,15 +631,23 @@ bool WGPURenderBackend::InitFrame() {
 
   // WGPURenderPassDepthStencilAttachment depthStencilAttachment {
   //   .nextInChain = nullptr,
-  //   .
-  // }
+  //   .view = m_textureView,
+  //   .depthClearValue = 1.0f,
+  //   .depthLoadOp = WGPULoadOp_Clear,
+  //   .depthStoreOp = WGPUStoreOp_Store,
+  //   .depthReadOnly = false,
+  //   .stencilClearValue = 0,
+  //   .stencilLoadOp = WGPULoadOp_Clear,
+  //   .stencilStoreOp = WGPUStoreOp_Store,
+  //   .stencilReadOnly = true,
+  // };
 
   WGPURenderPassDescriptor startPassDescriptor {
     .nextInChain = nullptr,
     .label = wgpuStr("Starting Render Pass Descriptor"),
     .colorAttachmentCount = 1,
     .colorAttachments = &startPass,
-    .depthStencilAttachment = nullptr,
+    .depthStencilAttachment = nullptr, //&depthStencilAttachment,
     .timestampWrites = nullptr,
   };
 
