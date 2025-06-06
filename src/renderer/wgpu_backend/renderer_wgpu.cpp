@@ -254,7 +254,7 @@ void WGPURenderBackend::CreateDefaultPipeline() {
       .frontFace = WGPUFrontFace_CCW,
       .cullMode = WGPUCullMode_None
     },
-    .depthStencil = nullptr, //&depthStencilState,
+    .depthStencil = &depthStencilState,
     .multisample {
       .count = 1,
       .mask = ~0u,
@@ -570,17 +570,16 @@ MeshID WGPURenderBackend::UploadMesh(u32 vertCount, Vertex* vertices, u32 indexC
 
 bool WGPURenderBackend::InitFrame() {
   // Gets current color texture
-  WGPUSurfaceTexture surfaceTexture;
-  wgpuSurfaceGetCurrentTexture(m_wgpuSurface, &surfaceTexture);
+  wgpuSurfaceGetCurrentTexture(m_wgpuSurface, &m_surfaceTexture);
 
-  if (surfaceTexture.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal) {
+  if (m_surfaceTexture.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal) {
       return false;
   }
 
   WGPUTextureViewDescriptor viewDescriptor {
     .nextInChain = nullptr,
     .label = wgpuStr("Surface texture view"),
-    .format = wgpuTextureGetFormat(surfaceTexture.texture),
+    .format = wgpuTextureGetFormat(m_surfaceTexture.texture),
     .dimension = WGPUTextureViewDimension_2D,
     .baseMipLevel = 0,
     .mipLevelCount = 1,
@@ -590,28 +589,44 @@ bool WGPURenderBackend::InitFrame() {
     .usage = WGPUTextureUsage_RenderAttachment
   };
 
-  m_textureView = wgpuTextureCreateView(surfaceTexture.texture, &viewDescriptor);
+  m_surfaceTextureView = wgpuTextureCreateView(m_surfaceTexture.texture, &viewDescriptor);
 
-  if(!m_textureView)
+  if(!m_surfaceTextureView)
   {
     return false;
   }
 
-  // // Creates a depth texture
-  // WGPUTextureDescriptor depthTextureDescriptor {
-  //   .nextInChain = nullptr,
-  //   .label = wgpuStr("Surface depth texture view"),
-  //   .dimension = WGPUTextureDimension_2D,
-  //   .format = m_wgpuDepthTextureFormat,
-  //   .mipLevelCount = 1,
-  //   .sampleCount = 1,
-  //   .size = {m_screenWidth, m_screenHeight, 1},
-  //   .usage = WGPUTextureUsage_RenderAttachment,
-  //   .viewFormatCount = 1,
-  //   .viewFormats = &m_wgpuDepthTextureFormat,
-  // };
+  // Creates a depth texture
+  WGPUTextureDescriptor depthTextureDescriptor {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Surface texture view"),
+    .dimension = WGPUTextureDimension_2D,
+    .format = m_wgpuDepthTextureFormat,
+    .mipLevelCount = 1,
+    .sampleCount = 1,
+    .size = {m_screenWidth, m_screenHeight, 1},
+    .usage = WGPUTextureUsage_RenderAttachment,
+    .viewFormatCount = 1,
+    .viewFormats = &m_wgpuDepthTextureFormat,
+  };
+  m_depthTexture = wgpuDeviceCreateTexture(m_wgpuDevice, &depthTextureDescriptor);
 
-  // m_
+  WGPUTextureViewDescriptor depthViewDescriptor {
+    .aspect = WGPUTextureAspect_DepthOnly,
+    .baseArrayLayer = 0,
+    .arrayLayerCount = 1,
+    .baseMipLevel = 0,
+    .mipLevelCount = 1,
+    .dimension = WGPUTextureViewDimension_2D,
+    .format = m_wgpuDepthTextureFormat,
+  };
+
+  m_depthTextureView = wgpuTextureCreateView(m_depthTexture, &depthViewDescriptor);
+
+  if(!m_depthTextureView) {
+    wgpuTextureRelease(m_depthTexture);
+    return false;
+  }
 
   // Create a command encoder for the draw call
   WGPUCommandEncoderDescriptor encoderDesc = {
@@ -621,7 +636,7 @@ bool WGPURenderBackend::InitFrame() {
   WGPUCommandEncoder startCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
 
   WGPURenderPassColorAttachment startPass {
-    .view = m_textureView,
+    .view = m_surfaceTextureView,
     .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
     .resolveTarget = nullptr,
     .loadOp = WGPULoadOp_Clear,
@@ -629,25 +644,22 @@ bool WGPURenderBackend::InitFrame() {
     .clearValue = WGPUColor{ 0.9, 0.1, 0.2, 1.0 }
   };
 
-  // WGPURenderPassDepthStencilAttachment depthStencilAttachment {
-  //   .nextInChain = nullptr,
-  //   .view = m_textureView,
-  //   .depthClearValue = 1.0f,
-  //   .depthLoadOp = WGPULoadOp_Clear,
-  //   .depthStoreOp = WGPUStoreOp_Store,
-  //   .depthReadOnly = false,
-  //   .stencilClearValue = 0,
-  //   .stencilLoadOp = WGPULoadOp_Clear,
-  //   .stencilStoreOp = WGPUStoreOp_Store,
-  //   .stencilReadOnly = true,
-  // };
+  WGPURenderPassDepthStencilAttachment depthStencilAttachment {
+    .nextInChain = nullptr,
+    .view = m_depthTextureView,
+    .depthClearValue = 1.0f,
+    .depthLoadOp = WGPULoadOp_Clear,
+    .depthStoreOp = WGPUStoreOp_Store,
+    .depthReadOnly = false,
+    .stencilReadOnly = true,
+  };
 
   WGPURenderPassDescriptor startPassDescriptor {
     .nextInChain = nullptr,
     .label = wgpuStr("Starting Render Pass Descriptor"),
     .colorAttachmentCount = 1,
     .colorAttachments = &startPass,
-    .depthStencilAttachment = nullptr, //&depthStencilAttachment,
+    .depthStencilAttachment = &depthStencilAttachment,
     .timestampWrites = nullptr,
   };
 
@@ -681,11 +693,21 @@ void WGPURenderBackend::SetMesh(MeshID meshID) {
     m_meshCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
 
     WGPURenderPassColorAttachment meshColorPass {
-      .view = m_textureView,
+      .view = m_surfaceTextureView,
       .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
       .resolveTarget = nullptr,
       .loadOp = WGPULoadOp_Load,
       .storeOp = WGPUStoreOp_Store,
+    };
+
+    WGPURenderPassDepthStencilAttachment depthStencilAttachment {
+      .nextInChain = nullptr,
+      .view = m_depthTextureView,
+      .depthClearValue = 1.0f,
+      .depthLoadOp = WGPULoadOp_Load,
+      .depthStoreOp = WGPUStoreOp_Store,
+      .depthReadOnly = false,
+      .stencilReadOnly = true,
     };
 
     WGPURenderPassDescriptor meshPassDesc {
@@ -693,7 +715,7 @@ void WGPURenderBackend::SetMesh(MeshID meshID) {
       .label = wgpuStr("Basic mesh render pass"),
       .colorAttachmentCount = 1,
       .colorAttachments = &meshColorPass,
-      .depthStencilAttachment = nullptr,
+      .depthStencilAttachment = &depthStencilAttachment,
       .timestampWrites = nullptr,
     };
 
@@ -713,8 +735,16 @@ void WGPURenderBackend::SetMesh(MeshID meshID) {
 void WGPURenderBackend::EndFrame() {
   EndMeshPass(); // Wraps up any loose mesh passes
 
-  if(m_textureView) {
-    wgpuTextureViewRelease(m_textureView);
+  if (m_surfaceTextureView) {
+    wgpuTextureViewRelease(m_surfaceTextureView);
+  }
+
+  if (m_depthTextureView) {
+    wgpuTextureViewRelease(m_depthTextureView);
+  }
+
+  if (m_depthTexture) {
+    wgpuTextureRelease(m_depthTexture);
   }
 
   #ifndef __EMSCRIPTEN__
@@ -722,7 +752,7 @@ void WGPURenderBackend::EndFrame() {
   wgpuInstanceProcessEvents(m_wgpuInstance);  
   #else
     
-  emscripten_sleep(100);
+  emscripten_sleep(10);
   #endif
 }
 

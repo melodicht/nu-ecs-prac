@@ -42,7 +42,10 @@ private:
     // Depth stuff will come later
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
-    WGPUTextureView m_textureView{ };
+    WGPUTextureView m_surfaceTextureView{ };
+    WGPUSurfaceTexture m_surfaceTexture{ };
+    WGPUTextureView m_depthTextureView{ };
+    WGPUTexture m_depthTexture{ };
     WGPUTextureView m_depthTextureFormat{ };
     WGPUCommandEncoder m_meshCommandEncoder{ };
     WGPURenderPassEncoder m_meshPassEncoder{ };
