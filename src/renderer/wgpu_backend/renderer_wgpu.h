@@ -37,6 +37,7 @@ private:
 
     // Represents amount of objects that can be represented by a single mesh
     u32 m_maxObjArraySize{ 4096 }; // TODO: Fill with number informed by limits
+    u32 m_maxTotalMeshVertices{ 4096 };
 
     bool m_doingColorPass{ false }; // Currently does nothing happens whatsoever if it isn't a color pass
     // Depth stuff will come later
@@ -44,16 +45,17 @@ private:
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUTextureView m_textureView{ };
     WGPUTextureView m_depthTextureFormat{ };
-    WGPUCommandEncoder m_meshCommandEncoder{ };
-    WGPURenderPassEncoder m_meshPassEncoder{ };
-    bool m_meshBufferActive{ }; // Determines whether current mesh commands needs to end for another to continue
+    WGPUCommandEncoder m_colorPassCommandEncoder{ };
+    WGPURenderPassEncoder m_colorPassEncoder{ };
 
     // Defines part of default pipeline
     WGPUBindGroup m_bindGroup{ };
     WGPUBuffer m_cameraBuffer{ };
     WGPUBuffer m_baseIndexBuffer{ };
     WGPUBuffer m_instanceIndexBuffer{ };
-    WGPUBuffer m_storageBuffer{ };
+    WGPUBuffer m_objDataBuffer{ };
+    WGPUBuffer m_meshDataBuffer{ };
+    u32 m_meshDataCurrentVertSize;
 
     std::unordered_map<MeshID, Mesh> m_meshStore{ };
     std::unordered_map<CameraID, CameraData> m_cameraStore{ };
@@ -69,9 +71,6 @@ private:
 
     // Creates a default rendering pipeline
     void CreateDefaultPipeline();
-
-    // Ends current mesh pass if exists
-    void EndMeshPass();
 
     // The following getters occur asynchronously in wgpu but is awaited for by these functions
     static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);

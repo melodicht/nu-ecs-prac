@@ -11,20 +11,25 @@ struct ObjData {
     color : vec4<f32>,
 }
 
+struct VertexData {
+    position: vec3<f32>,
+    uvX : f32,
+    normal : vec3<f32>,
+    uvY : f32,
+}
+
 @binding(0) @group(0) var<uniform> camera : Camera;
 
 @binding(1) @group(0) var<storage> objStore : array<ObjData>; 
 
+@binding(2) @group(0) var<storage> meshStore : array<VertexData>; 
 
-struct VertexIn {
-    @location(0) position: vec3<f32>,
-    @location(1) uvX : f32,
-    @location(2) normal : vec3<f32>,
-    @location(3) uvY : f32,
-    @builtin(instance_index) instance: u32, // Represents which instance within objStore to pull data from
+struct VertexStageIn {
+    @builtin(instance_index) instanceIdx: u32,
+    @builtin(vertex_index) vertexIdx: u32,
 }
 
-struct VertexOut {
+struct VertexStageOut {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
 }
@@ -35,15 +40,15 @@ fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
 }
 
 @vertex
-fn vtxMain(in : VertexIn) -> VertexOut {
-  var out : VertexOut;
-  out.position = camera.projMat * camera.viewMat * objStore[in.instance].transform * vec4<f32>(in.position,1);
-  out.color = objStore[in.instance].color;
+fn vtxMain(in : VertexStageIn) -> VertexStageOut {
+  var out : VertexStageOut;
+  out.position = camera.projMat * camera.viewMat * objStore[in.instanceIdx].transform * vec4(meshStore[in.vertexIdx].position, 1);
+  out.color = objStore[in.instanceIdx].color;
 
   return out;
 }
 
 @fragment
-fn fsMain(in : VertexOut) -> @location(0) vec4<f32>  {
+fn fsMain(in : VertexStageOut) -> @location(0) vec4<f32>  {
     return in.color;
 }
