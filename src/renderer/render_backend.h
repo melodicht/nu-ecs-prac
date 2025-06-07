@@ -17,6 +17,7 @@ SDL_WindowFlags GetRenderWindowFlags();
 // Sets a SDL window to draw to and initializes the back end
 void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight);
 
+// Set up the render pipelines
 void InitPipelines(u32 numCascades);
 
 // Moves a mesh to the GPU,
@@ -28,6 +29,7 @@ MeshID UploadMesh(MeshAsset &asset);
 // and can also be sampled from shaders
 TextureID CreateDepthTexture(u32 width, u32 height);
 
+// Create a depth array texture with the given dimensions and number of layers
 TextureID CreateDepthArray(u32 width, u32 height, u32 layers);
 
 // Destroy the texture at the given TextureID
@@ -48,9 +50,10 @@ bool InitFrame();
 // depthBias specifies whether to apply a bias to the depth test during this pass (to solve shadow acne)
 void BeginDepthPass(CullMode cullMode);
 
-// Begin a depth only rendering pass onto the given depth texture
+// Begin a shadow depth pass onto the given texture
 void BeginShadowPass(TextureID target, CullMode cullMode);
 
+// Begin a multiview shadow depth pass onto the given array texture
 void BeginCascadedPass(TextureID target, CullMode cullMode);
 
 // Begin a color rendering pass
@@ -67,6 +70,7 @@ void DrawImGui();
 // Set the camera to use for rendering with the given ID
 void SetCamera(CameraID id);
 
+// Update the currently selected camera. viewCount must be equal to the number of views that the selected camera has.
 void UpdateCamera(u32 viewCount, CameraData* views);
 
 // Set scene directional light information to use for rendering

@@ -113,7 +113,7 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
         cascade = pcs.cascadeCount;
     }
 
-    float4 lightRelPos = mul(pcs.cascades[cascade].lightSpace, vertData.worldPos + float4(vertData.normal * 10, 0.0));
+    float4 lightRelPos = mul(pcs.cascades[cascade].lightSpace, vertData.worldPos + float4(vertData.normal * 8, 0.0));
 
     float3 normal = vertData.normal;
 

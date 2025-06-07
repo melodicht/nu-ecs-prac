@@ -99,7 +99,7 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
     return frustumCorners;
 }
 
-#define NUM_CASCADES 4
+#define NUM_CASCADES 6
 
 class RenderSystem : public System
 {
@@ -161,7 +161,7 @@ class RenderSystem : public System
 
         SendObjectData(objects);
 
-        //lightTransform.rotation.z += deltaTime * 45.0f;
+        lightTransform.rotation.z += deltaTime * 45.0f;
 
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
@@ -370,7 +370,7 @@ public:
             Transform3D *t = scene->Get<Transform3D>(ent);
             Plane *plane = scene->Get<Plane>(ent);
 
-            if (plane->width <= 16.0f || plane->length <= 16.0f)
+            if (plane->width <= 16.0f || plane->length <= 16.0f || (plane->width / plane->length) >= 128 || (plane->length / plane->width) >= 128)
             {
                 if (RandInBetween(0.0f, 1.0f) > 0.9375f)
                 {
