@@ -807,17 +807,13 @@ CameraID WGPURenderBackend::AddCamera(u32 viewCount) {
 
 void WGPURenderBackend::SetCamera(CameraID camera) {
   m_currentCameraID = camera;
-    if(m_doingColorPass) {
-      CameraData& gotCamera = m_cameraStore[m_currentCameraID];
-      wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
-    }
+  CameraData& gotCamera = m_cameraStore[m_currentCameraID];
+  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
 }
 
 void WGPURenderBackend::UpdateCamera(u32 viewCount, CameraData* data) {
-  if(m_doingColorPass) {
-    m_cameraStore[m_currentCameraID] = *data;
-    wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, data, sizeof(CameraData));
-  }
+  m_cameraStore[m_currentCameraID] = *data;
+  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, data, sizeof(CameraData));
 }
 
 
