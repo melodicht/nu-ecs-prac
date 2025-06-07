@@ -34,6 +34,7 @@ struct ObjectData
     glm::vec4 color;
 };
 
+// Represents one cascade of a cascaded directional light (CPU->GPU)
 struct LightCascade
 {
     glm::mat4 lightSpace;

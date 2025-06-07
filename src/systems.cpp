@@ -163,6 +163,8 @@ class RenderSystem : public System
 
         lightTransform.rotation.z += deltaTime * 45.0f;
 
+        // Get the main camera view
+
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
         {
@@ -176,6 +178,8 @@ class RenderSystem : public System
         f32 aspect = (f32)windowWidth / (f32)windowHeight;
 
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
+
+        // Calculate cascaded shadow views
 
         std::vector<CameraData> lightViews;
 
