@@ -11,6 +11,10 @@
 #include <cstring>
 #include <iostream>
 
+#if SKL_ENABLED_EDITOR
+#include <backends/imgui_impl_wgpu.h>
+#endif
+
 // Much of this was taken from https://eliemichel.github.io/LearnWebGPU
 
 #pragma region Helper Functions
@@ -157,7 +161,6 @@ void WGPURenderBackend::CreateDefaultPipeline() {
     .targetCount = 1,
     .targets = &colorTarget,
   };
-
 
   std::vector<WGPUVertexAttribute> vertexAttributes;
 
@@ -308,10 +311,10 @@ void WGPURenderBackend::CreateDefaultPipeline() {
 
   WGPUBindGroupDescriptor bindGroupDescriptor {
     .nextInChain = nullptr,
-    .entries = bindGroupEntries.data(),
-    .entryCount = bindGroupEntries.size(),
     .label = wgpuStr("Default Pipeline Bind Group"),
     .layout = bindLayout,
+    .entryCount = bindGroupEntries.size(),
+    .entries = bindGroupEntries.data(),
   };
 
   m_bindGroup = wgpuDeviceCreateBindGroup(m_wgpuDevice, &bindGroupDescriptor);
@@ -533,6 +536,19 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   wgpuAdapterRelease(adapter);
 
   CreateDefaultPipeline();
+
+  // Initializes imgui
+  #if SKL_ENABLED_EDITOR
+  ImGui_ImplWGPU_InitInfo imguiInit;
+  imguiInit.Device = m_wgpuDevice;
+  imguiInit.RenderTargetFormat = m_wgpuTextureFormat;
+  imguiInit.DepthStencilFormat = m_wgpuDepthTextureFormat;
+  imguiInit.NumFramesInFlight = 3;
+
+  ImGui_ImplWGPU_Init(&imguiInit);
+
+  ImGui_ImplWGPU_NewFrame();
+  #endif
 }
 
 MeshID WGPURenderBackend::UploadMesh(MeshAsset &asset) {
@@ -569,6 +585,10 @@ MeshID WGPURenderBackend::UploadMesh(u32 vertCount, Vertex* vertices, u32 indexC
 }
 
 bool WGPURenderBackend::InitFrame() {
+  #if SKL_ENABLED_EDITOR
+  ImGui_ImplWGPU_NewFrame();
+  #endif
+
   // Gets current color texture
   wgpuSurfaceGetCurrentTexture(m_wgpuSurface, &m_surfaceTexture);
 
@@ -600,25 +620,27 @@ bool WGPURenderBackend::InitFrame() {
   WGPUTextureDescriptor depthTextureDescriptor {
     .nextInChain = nullptr,
     .label = wgpuStr("Surface texture view"),
+    .usage = WGPUTextureUsage_RenderAttachment,
     .dimension = WGPUTextureDimension_2D,
+    .size = {m_screenWidth, m_screenHeight, 1},
     .format = m_wgpuDepthTextureFormat,
     .mipLevelCount = 1,
     .sampleCount = 1,
-    .size = {m_screenWidth, m_screenHeight, 1},
-    .usage = WGPUTextureUsage_RenderAttachment,
     .viewFormatCount = 1,
     .viewFormats = &m_wgpuDepthTextureFormat,
   };
   m_depthTexture = wgpuDeviceCreateTexture(m_wgpuDevice, &depthTextureDescriptor);
 
   WGPUTextureViewDescriptor depthViewDescriptor {
-    .aspect = WGPUTextureAspect_DepthOnly,
-    .baseArrayLayer = 0,
-    .arrayLayerCount = 1,
+    .nextInChain = nullptr,
+    .label = wgpuStr("Start depth view descriptor"),
+    .format = m_wgpuDepthTextureFormat,
+    .dimension = WGPUTextureViewDimension_2D,
     .baseMipLevel = 0,
     .mipLevelCount = 1,
-    .dimension = WGPUTextureViewDimension_2D,
-    .format = m_wgpuDepthTextureFormat,
+    .baseArrayLayer = 0,
+    .arrayLayerCount = 1,
+    .aspect = WGPUTextureAspect_DepthOnly,
   };
 
   m_depthTextureView = wgpuTextureCreateView(m_depthTexture, &depthViewDescriptor);
@@ -647,9 +669,9 @@ bool WGPURenderBackend::InitFrame() {
   WGPURenderPassDepthStencilAttachment depthStencilAttachment {
     .nextInChain = nullptr,
     .view = m_depthTextureView,
-    .depthClearValue = 1.0f,
     .depthLoadOp = WGPULoadOp_Clear,
     .depthStoreOp = WGPUStoreOp_Store,
+    .depthClearValue = 1.0f,
     .depthReadOnly = false,
     .stencilReadOnly = true,
   };
@@ -703,9 +725,9 @@ void WGPURenderBackend::SetMesh(MeshID meshID) {
     WGPURenderPassDepthStencilAttachment depthStencilAttachment {
       .nextInChain = nullptr,
       .view = m_depthTextureView,
-      .depthClearValue = 1.0f,
       .depthLoadOp = WGPULoadOp_Load,
       .depthStoreOp = WGPUStoreOp_Store,
+      .depthClearValue = 1.0f,
       .depthReadOnly = false,
       .stencilReadOnly = true,
     };
@@ -802,4 +824,62 @@ void WGPURenderBackend::UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 p
   }
 }
 
+
+void WGPURenderBackend::DrawImGui() {
+  #if SKL_ENABLED_EDITOR
+  EndMeshPass();
+
+  WGPUCommandEncoderDescriptor encoderDesc = {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Imgui Encoder Descriptor")
+  };
+  WGPUCommandEncoder imguiCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+
+  WGPURenderPassColorAttachment meshColorPass {
+    .view = m_surfaceTextureView,
+    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+    .resolveTarget = nullptr,
+    .loadOp = WGPULoadOp_Load,
+    .storeOp = WGPUStoreOp_Store,
+  };
+
+  WGPURenderPassDepthStencilAttachment depthStencilAttachment {
+    .nextInChain = nullptr,
+    .view = m_depthTextureView,
+    .depthLoadOp = WGPULoadOp_Load,
+    .depthStoreOp = WGPUStoreOp_Store,
+    .depthClearValue = 1.0f,
+    .depthReadOnly = false,
+    .stencilReadOnly = true,
+  };
+
+  WGPURenderPassDescriptor meshPassDesc {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Imgui render pass"),
+    .colorAttachmentCount = 1,
+    .colorAttachments = &meshColorPass,
+    .depthStencilAttachment = &depthStencilAttachment,
+    .timestampWrites = nullptr,
+  };
+
+  WGPURenderPassEncoder imguiPassEncoder = wgpuCommandEncoderBeginRenderPass(imguiCommandEncoder, &meshPassDesc);
+
+  ImGui::Render();
+  ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), imguiPassEncoder);
+
+  wgpuRenderPassEncoderEnd(imguiPassEncoder);
+  wgpuRenderPassEncoderRelease(imguiPassEncoder);
+
+  WGPUCommandBufferDescriptor cmdBufferDescriptor = {
+    .nextInChain = nullptr,
+    .label =  wgpuStr("Imgui Command Buffer"),
+  };
+
+  WGPUCommandBuffer imguiCommand = wgpuCommandEncoderFinish(imguiCommandEncoder, &cmdBufferDescriptor);
+  wgpuCommandEncoderRelease(imguiCommandEncoder);
+
+  wgpuQueueSubmit(m_wgpuQueue, 1, &imguiCommand);
+  wgpuCommandBufferRelease(imguiCommand);
+  #endif
+}
 #pragma endregion

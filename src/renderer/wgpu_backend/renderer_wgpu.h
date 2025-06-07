@@ -135,7 +135,7 @@ public:
     
     void EndPass();
     
-    void DrawImGui() { }
+    void DrawImGui();
     
     // Sets the mesh currently being rendered to
     void SetMesh(MeshID meshID);

@@ -27,6 +27,7 @@ struct VertexIn {
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
+    @location(1) camToVertRelPos: vec4<f32>,
 }
 
 // Collects translation
@@ -37,7 +38,10 @@ fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
 @vertex
 fn vtxMain(in : VertexIn) -> VertexOut {
   var out : VertexOut;
-  out.position = camera.projMat * camera.viewMat * objStore[in.instance].transform * vec4<f32>(in.position,1);
+
+  var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
+
+  out.position = camera.projMat * camera.viewMat * worldPos;
   out.color = objStore[in.instance].color;
 
   return out;

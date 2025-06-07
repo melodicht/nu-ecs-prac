@@ -34,16 +34,27 @@ if(NOT DEFINED SKL_RENDER_SYS)
         set_property(CACHE SKL_RENDER_SYS PROPERTY STRINGS "Default" "WebGPU" "Vulkan")
 endif()
 
+if(NOT DEFINED SKL_ENABLE_EDITOR_MODE)
+        if(${EMSCRIPTEN})
+                option(SKL_ENABLE_EDITOR_MODE "Whether editor " OFF)
+                if(${SKL_EDITOR_MODE})
+                        message(FATAL_ERROR "Editor functionality should not be active with emscripten")
+                endif()
+        else()
+                option(SKL_ENABLE_EDITOR_MODE "Whether editor " ON)
+        endif()
+endif()
+
 # Determines whether debugging functionality is enabled
 if(NOT DEFINED SKL_ENABLE_DEBUGGING)
-        option(SKL_ENABLE_DEBUGGING "Whether debug functionality" ON)
+        option(SKL_ENABLE_DEBUGGING "Whether debug functionality is enabled" ON)
 endif()
 
 # When debugging mode is active, determines whether logging should also be enabled.
 if(NOT DEFINED SKL_ENABLE_LOGGING)
-        if(SKL_ENABLE_DEBUGGING)
+        if(${SKL_ENABLE_DEBUGGING})
                 option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" ON)
-        elseif(NOT SKL_ENABLE_DEBUGGING)
+        elseif(NOT ${SKL_ENABLE_DEBUGGING})
                 option(SKL_ENABLE_LOGGING "Whether logging should be enabled or not" OFF)
                 message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
         endif()
@@ -52,20 +63,19 @@ endif()
 # When debugging mode is active, determines whether hard stopping asserts should also be enabled.
 # Currently not implemented.
 if(NOT DEFINED SKL_ENABLE_ASSERTS)
-        if(SKL_ENABLE_DEBUGGING)
+        if(${SKL_ENABLE_DEBUGGING})
                 option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" ON)
-        elseif(NOT SKL_ENABLE_DEBUGGING)
+        elseif(NOT ${SKL_ENABLE_DEBUGGING})
                 option(SKL_ENABLE_ASSERTS "Whether logging should be enabled or not" OFF)
-                message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
+                if(${SKL_ENABLE_ASSERTS})
+                        message(FATAL_ERROR "Logging cannot be turned on for non debugging builds")
+                endif()
         endif()
 endif()
 
-# Plugs in logging functionality to main executable (If logging logic is used by other)
-if(${SKL_ENABLE_LOGGING})
-        target_compile_definitions(DEPENDENCIES INTERFACE SKL_LOGGING_ENABLED=1)
-else()
-        target_compile_definitions(DEPENDENCIES INTERFACE SKL_LOGGING_ENABLED=0)
-endif()
+# Plugs in options to main executable
+target_compile_definitions(DEPENDENCIES INTERFACE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE})
+target_compile_definitions(DEPENDENCIES INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING})
 
 # Determines rendering backend if none is explicitly picked
 if(${SKL_RENDER_SYS} STREQUAL "Default")
@@ -127,7 +137,6 @@ elseif(${SKL_RENDER_SYS} STREQUAL "WebGPU")
 
         # Includes backend dll as part of projects
         add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wgpu_backend wgpu-backend)
-        target_compile_definitions(wgpu-backend PRIVATE SKL_LOGGING_ENABLED=1)
         target_link_libraries(DEPENDENCIES INTERFACE
                 wgpu-backend
         )

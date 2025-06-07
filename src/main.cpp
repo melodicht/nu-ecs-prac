@@ -30,8 +30,7 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
-// Cut off Imgui until we actually implement a base renderer for WGPU
-#if SKL_RENDERER != 1
+#if SKL_ENABLED_EDITOR
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
 #endif
@@ -92,7 +91,7 @@ void updateLoop(void* appInfo) {
     while (SDL_PollEvent(&info->e))
     {
         // Cut off Imgui until we actually implement a base renderer for WGPU
-        #if SKL_RENDERER != 1
+        #if SKL_ENABLED_EDITOR
         ImGui_ImplSDL3_ProcessEvent(&info->e);
         #endif
         switch (info->e.type)
@@ -118,10 +117,11 @@ void updateLoop(void* appInfo) {
     SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);
 
     // Cut off Imgui until we actually implement a base renderer for WGPU
-    #if SKL_RENDERER != 1
+    #if SKL_ENABLED_EDITOR
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-    #endif    
+    #endif
+
     GameUpdateAndRender(info->scene, info->window, deltaTime);
 
     mouseDeltaX = 0;
@@ -156,8 +156,7 @@ int main()
         return 1;
     }
 
-    // Cuts off ImGui
-    #if SKL_RENDERER != 1
+    #if SKL_ENABLED_EDITOR
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     ImGui_ImplSDL3_InitForOther(window);
