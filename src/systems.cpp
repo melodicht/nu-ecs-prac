@@ -219,7 +219,7 @@ class RenderSystem : public System
 
             glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
 
-            lightViews.push_back({lightView, lightProj});
+            lightViews.push_back({lightView, lightProj, {}});
 
             cascades[i] = {lightProj * lightView, currentNear};
         }

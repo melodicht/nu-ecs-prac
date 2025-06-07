@@ -61,4 +61,19 @@ struct Plane
     f32 width;
     f32 length;
 };
+
+struct DirectionalLight
+{
+    f32 strength;
+};
+
+struct SpotLight
+{
+
+};
+
+struct PointLight
+{
+    
+};
 // Centered on the transform position
