@@ -80,7 +80,232 @@ WGPUBindGroupLayoutEntry DefaultBindLayoutEntry() {
   };
 }
 
-void WGPURenderBackend::CreateDefaultPipeline() {
+void WGPURenderBackend::EndMeshPass() {
+  if(m_meshBufferActive) {
+    wgpuRenderPassEncoderEnd(m_meshPassEncoder);
+    wgpuRenderPassEncoderRelease(m_meshPassEncoder);
+
+    WGPUCommandBufferDescriptor cmdBufferDescriptor = {
+      .nextInChain = nullptr,
+      .label =  wgpuStr("Mesh Command Buffer"),
+    };
+  
+    WGPUCommandBuffer meshCommand = wgpuCommandEncoderFinish(m_meshCommandEncoder, &cmdBufferDescriptor);
+    wgpuCommandEncoderRelease(m_meshCommandEncoder);
+  
+    wgpuQueueSubmit(m_wgpuQueue, 1, &meshCommand);
+    wgpuCommandBufferRelease(meshCommand);
+    m_meshBufferActive = false;
+  }
+}
+
+WGPUAdapter WGPURenderBackend::GetAdapter(WGPUInstance instance, WGPURequestAdapterOptions const * options) {
+  WGPUAdapter set = nullptr;
+  bool requestEnded = false;
+
+  WGPURequestAdapterCallbackInfo callbackInfo;
+  callbackInfo.callback = [](WGPURequestAdapterStatus status, WGPUAdapterImpl* adapter, WGPUStringView message, void *userdata1, void *userdata2) 
+  {
+      if (status == WGPURequestAdapterStatus_Success) {
+        *((WGPUAdapter *)userdata1) = adapter;
+      } else {
+          // LOG("Could not get WebGPU adapter: " << (message.data));
+          LOG("Could not get WebGPU adapter: " << (message.data));
+      }
+      *(bool *)userdata2 = true;
+  };
+
+  callbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
+  callbackInfo.userdata1 = &set;
+  callbackInfo.userdata2 = &requestEnded;
+
+  // Call to the WebGPU request adapter procedure
+  wgpuInstanceRequestAdapter(
+      instance /* equivalent of navigator.gpu */,
+      options,
+      callbackInfo
+  );
+  // We wait until userData.requestEnded gets true
+  #if EMSCRIPTEN
+  while (!requestEnded) {
+      emscripten_sleep(100);
+  }
+  #endif
+
+  assert(requestEnded);
+
+  return set;
+}
+
+WGPUDevice WGPURenderBackend::GetDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const * descriptor) {
+  WGPUDevice set = nullptr;
+  bool requestEnded = false;
+
+  WGPURequestDeviceCallbackInfo callbackInfo;
+  callbackInfo.callback = [](WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView message, void * userdata1, void * userdata2) {
+      if (status == WGPURequestDeviceStatus_Success) {
+        *((WGPUDevice *)userdata1) = device;
+      } else {
+          LOG("Could not get WebGPU device: " << message.data);
+      }
+      *((bool *)userdata2) = true;
+  };
+  callbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
+  callbackInfo.userdata1 = &set;
+  callbackInfo.userdata2 = &requestEnded;
+
+  wgpuAdapterRequestDevice(
+      adapter,
+      descriptor,
+      callbackInfo
+  );
+
+#ifdef __EMSCRIPTEN__
+  while (!requestEnded) {
+      emscripten_sleep(100);
+  }
+#endif // __EMSCRIPTEN__
+
+  assert(requestEnded);
+
+  return set;
+}
+
+void WGPURenderBackend::QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
+  LOG("Queued work finished with status: " << status);
+  LOG("Included Message: " << message.data);
+}
+
+void WGPURenderBackend::LostDeviceCallback(WGPUDevice const * device, WGPUDeviceLostReason reason, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
+  LOG("Device lost: reason " << reason);
+  if (message.data) LOG(" (" << message.data << ")");
+}
+
+void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
+  LOG("Error happened: error " << type);
+  if (message.data) LOG("(" << message.data << ")");
+}
+#pragma endregion
+
+#pragma region Interface Impl
+WGPURenderBackend::~WGPURenderBackend() {
+  wgpuSurfaceUnconfigure(m_wgpuSurface);
+  wgpuSurfaceRelease(m_wgpuSurface);
+  wgpuQueueRelease(m_wgpuQueue);
+  wgpuDeviceRelease(m_wgpuDevice);
+  wgpuInstanceRelease(m_wgpuInstance);
+}
+
+void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
+  m_screenHeight = startHeight;
+  m_screenWidth = startWidth;
+
+  // Creates instance
+  WGPUInstanceDescriptor instanceDescriptor { 
+    .nextInChain = nullptr
+  };
+
+  #if EMSCRIPTEN
+  m_wgpuInstance = wgpuCreateInstance(nullptr);
+  #else
+  m_wgpuInstance = wgpuCreateInstance(&instanceDescriptor);
+  #endif
+  if (m_wgpuInstance == nullptr) {
+    LOG_ERROR("Instance creation failed!");
+    return;
+  }
+  LOG("Instance Created" << m_wgpuInstance);
+
+  LOG("Requesting adapter...");
+
+  m_wgpuSurface = SDL_GetWGPUSurface(m_wgpuInstance, window);
+  WGPURequestAdapterOptions adapterOpts = {
+    .nextInChain = nullptr,
+    .compatibleSurface = m_wgpuSurface
+  };
+
+  WGPUAdapter adapter = GetAdapter(m_wgpuInstance, &adapterOpts);
+
+  LOG("Got adapter: " << adapter);
+
+  LOG("Requesting device...");
+
+  // General device description
+  WGPUDeviceDescriptor deviceDesc = {
+    .nextInChain = nullptr,
+    .label = wgpuStr("My Device"),
+    .requiredFeatureCount = 0,
+    .requiredLimits = nullptr,
+    .defaultQueue {
+      .nextInChain = nullptr,
+      .label = wgpuStr("Default Queue")
+    },
+    .deviceLostCallbackInfo {
+      .mode = WGPUCallbackMode_AllowSpontaneous,
+      .callback = LostDeviceCallback
+    },
+    .uncapturedErrorCallbackInfo {
+      .nextInChain = nullptr,
+      .callback = ErrorCallback
+    }
+  };
+
+  m_wgpuDevice = GetDevice(adapter, &deviceDesc);
+
+  LOG("Got device: " << m_wgpuDevice);
+
+  printDeviceSpecs();
+
+  m_wgpuQueue = wgpuDeviceGetQueue(m_wgpuDevice);
+
+  WGPUQueueWorkDoneCallbackInfo queueDoneCallback =  WGPUQueueWorkDoneCallbackInfo {
+    .mode = WGPUCallbackMode_AllowProcessEvents,
+    #if EMSCRIPTEN // TODO: It seems that emdawn has split off from native for now, check frequently
+    .callback = nullptr,
+    #else
+    .callback = QueueFinishCallback,
+    #endif
+  };
+
+  wgpuQueueOnSubmittedWorkDone(m_wgpuQueue, queueDoneCallback);
+
+  WGPUSurfaceCapabilities capabilities { };
+  wgpuSurfaceGetCapabilities(m_wgpuSurface, adapter, &capabilities );
+  m_wgpuTextureFormat = capabilities.formats[0];
+  WGPUSurfaceConfiguration config { 
+    .nextInChain = nullptr,
+    .device = m_wgpuDevice,
+    .format = m_wgpuTextureFormat,
+    .usage = WGPUTextureUsage_RenderAttachment,
+    .width = startWidth,
+    .height = startHeight,
+    .viewFormatCount = 0,
+    .viewFormats = nullptr,
+    .alphaMode = WGPUCompositeAlphaMode_Auto,
+    .presentMode = WGPUPresentMode_Fifo
+  };
+
+  wgpuSurfaceCapabilitiesFreeMembers( capabilities );
+
+  wgpuSurfaceConfigure(m_wgpuSurface, &config);
+  wgpuAdapterRelease(adapter);
+
+  // Initializes imgui
+  #if SKL_ENABLED_EDITOR
+  ImGui_ImplWGPU_InitInfo imguiInit;
+  imguiInit.Device = m_wgpuDevice;
+  imguiInit.RenderTargetFormat = m_wgpuTextureFormat;
+  imguiInit.DepthStencilFormat = m_wgpuDepthTextureFormat;
+  imguiInit.NumFramesInFlight = 3;
+
+  ImGui_ImplWGPU_Init(&imguiInit);
+
+  ImGui_ImplWGPU_NewFrame();
+  #endif
+}
+
+void WGPURenderBackend::InitPipelines(u32 numCascades)
+{
   // Loads in shader module
   size_t loadedDatSize;
   auto loadedDat = SDL_LoadFile("shaders/default_shader.wgsl", &loadedDatSize);
@@ -323,232 +548,6 @@ void WGPURenderBackend::CreateDefaultPipeline() {
   wgpuPipelineLayoutRelease(pipelineLayout);
   wgpuShaderModuleRelease(shaderModule);
   wgpuBindGroupLayoutRelease(bindLayout);
-}
-
-void WGPURenderBackend::EndMeshPass() {
-  if(m_meshBufferActive) {
-    wgpuRenderPassEncoderEnd(m_meshPassEncoder);
-    wgpuRenderPassEncoderRelease(m_meshPassEncoder);
-
-    WGPUCommandBufferDescriptor cmdBufferDescriptor = {
-      .nextInChain = nullptr,
-      .label =  wgpuStr("Mesh Command Buffer"),
-    };
-  
-    WGPUCommandBuffer meshCommand = wgpuCommandEncoderFinish(m_meshCommandEncoder, &cmdBufferDescriptor);
-    wgpuCommandEncoderRelease(m_meshCommandEncoder);
-  
-    wgpuQueueSubmit(m_wgpuQueue, 1, &meshCommand);
-    wgpuCommandBufferRelease(meshCommand);
-    m_meshBufferActive = false;
-  }
-}
-
-WGPUAdapter WGPURenderBackend::GetAdapter(WGPUInstance instance, WGPURequestAdapterOptions const * options) {
-  WGPUAdapter set = nullptr;
-  bool requestEnded = false;
-
-  WGPURequestAdapterCallbackInfo callbackInfo;
-  callbackInfo.callback = [](WGPURequestAdapterStatus status, WGPUAdapterImpl* adapter, WGPUStringView message, void *userdata1, void *userdata2) 
-  {
-      if (status == WGPURequestAdapterStatus_Success) {
-        *((WGPUAdapter *)userdata1) = adapter;
-      } else {
-          // LOG("Could not get WebGPU adapter: " << (message.data));
-          LOG("Could not get WebGPU adapter: " << (message.data));
-      }
-      *(bool *)userdata2 = true;
-  };
-
-  callbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
-  callbackInfo.userdata1 = &set;
-  callbackInfo.userdata2 = &requestEnded;
-
-  // Call to the WebGPU request adapter procedure
-  wgpuInstanceRequestAdapter(
-      instance /* equivalent of navigator.gpu */,
-      options,
-      callbackInfo
-  );
-  // We wait until userData.requestEnded gets true
-  #if EMSCRIPTEN
-  while (!requestEnded) {
-      emscripten_sleep(100);
-  }
-  #endif
-
-  assert(requestEnded);
-
-  return set;
-}
-
-WGPUDevice WGPURenderBackend::GetDevice(WGPUAdapter adapter, WGPUDeviceDescriptor const * descriptor) {
-  WGPUDevice set = nullptr;
-  bool requestEnded = false;
-
-  WGPURequestDeviceCallbackInfo callbackInfo;
-  callbackInfo.callback = [](WGPURequestDeviceStatus status, WGPUDevice device, WGPUStringView message, void * userdata1, void * userdata2) {
-      if (status == WGPURequestDeviceStatus_Success) {
-        *((WGPUDevice *)userdata1) = device;
-      } else {
-          LOG("Could not get WebGPU device: " << message.data);
-      }
-      *((bool *)userdata2) = true;
-  };
-  callbackInfo.mode = WGPUCallbackMode_AllowSpontaneous;
-  callbackInfo.userdata1 = &set;
-  callbackInfo.userdata2 = &requestEnded;
-
-  wgpuAdapterRequestDevice(
-      adapter,
-      descriptor,
-      callbackInfo
-  );
-
-#ifdef __EMSCRIPTEN__
-  while (!requestEnded) {
-      emscripten_sleep(100);
-  }
-#endif // __EMSCRIPTEN__
-
-  assert(requestEnded);
-
-  return set;
-}
-
-void WGPURenderBackend::QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
-  LOG("Queued work finished with status: " << status);
-  LOG("Included Message: " << message.data);
-}
-
-void WGPURenderBackend::LostDeviceCallback(WGPUDevice const * device, WGPUDeviceLostReason reason, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
-  LOG("Device lost: reason " << reason);
-  if (message.data) LOG(" (" << message.data << ")");
-}
-
-void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2) {
-  LOG("Error happened: error " << type);
-  if (message.data) LOG("(" << message.data << ")");
-}
-#pragma endregion
-
-#pragma region Interface Impl
-WGPURenderBackend::~WGPURenderBackend() {
-  wgpuSurfaceUnconfigure(m_wgpuSurface);
-  wgpuSurfaceRelease(m_wgpuSurface);
-  wgpuQueueRelease(m_wgpuQueue);
-  wgpuDeviceRelease(m_wgpuDevice);
-  wgpuInstanceRelease(m_wgpuInstance);
-}
-
-void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
-  m_screenHeight = startHeight;
-  m_screenWidth = startWidth;
-
-  // Creates instance
-  WGPUInstanceDescriptor instanceDescriptor { 
-    .nextInChain = nullptr
-  };
-
-  #if EMSCRIPTEN
-  m_wgpuInstance = wgpuCreateInstance(nullptr);
-  #else
-  m_wgpuInstance = wgpuCreateInstance(&instanceDescriptor);
-  #endif
-  if (m_wgpuInstance == nullptr) {
-    LOG_ERROR("Instance creation failed!");
-    return;
-  }
-  LOG("Instance Created" << m_wgpuInstance);
-
-  LOG("Requesting adapter...");
-
-  m_wgpuSurface = SDL_GetWGPUSurface(m_wgpuInstance, window);
-  WGPURequestAdapterOptions adapterOpts = {
-    .nextInChain = nullptr,
-    .compatibleSurface = m_wgpuSurface
-  };
-
-  WGPUAdapter adapter = GetAdapter(m_wgpuInstance, &adapterOpts);
-
-  LOG("Got adapter: " << adapter);
-
-  LOG("Requesting device...");
-
-  // General device description
-  WGPUDeviceDescriptor deviceDesc = {
-    .nextInChain = nullptr,
-    .label = wgpuStr("My Device"),
-    .requiredFeatureCount = 0,
-    .requiredLimits = nullptr,
-    .defaultQueue {
-      .nextInChain = nullptr,
-      .label = wgpuStr("Default Queue")
-    },
-    .deviceLostCallbackInfo {
-      .mode = WGPUCallbackMode_AllowSpontaneous,
-      .callback = LostDeviceCallback
-    },
-    .uncapturedErrorCallbackInfo {
-      .nextInChain = nullptr,
-      .callback = ErrorCallback
-    }
-  };
-
-  m_wgpuDevice = GetDevice(adapter, &deviceDesc);
-
-  LOG("Got device: " << m_wgpuDevice);
-
-  printDeviceSpecs();
-
-  m_wgpuQueue = wgpuDeviceGetQueue(m_wgpuDevice);
-
-  WGPUQueueWorkDoneCallbackInfo queueDoneCallback =  WGPUQueueWorkDoneCallbackInfo {
-    .mode = WGPUCallbackMode_AllowProcessEvents,
-    #if EMSCRIPTEN // TODO: It seems that emdawn has split off from native for now, check frequently
-    .callback = nullptr,
-    #else
-    .callback = QueueFinishCallback,
-    #endif
-  };
-
-  wgpuQueueOnSubmittedWorkDone(m_wgpuQueue, queueDoneCallback);
-
-  WGPUSurfaceCapabilities capabilities { };
-  wgpuSurfaceGetCapabilities(m_wgpuSurface, adapter, &capabilities );
-  m_wgpuTextureFormat = capabilities.formats[0];
-  WGPUSurfaceConfiguration config { 
-    .nextInChain = nullptr,
-    .device = m_wgpuDevice,
-    .format = m_wgpuTextureFormat,
-    .usage = WGPUTextureUsage_RenderAttachment,
-    .width = startWidth,
-    .height = startHeight,
-    .viewFormatCount = 0,
-    .viewFormats = nullptr,
-    .alphaMode = WGPUCompositeAlphaMode_Auto,
-    .presentMode = WGPUPresentMode_Fifo
-  };
-
-  wgpuSurfaceCapabilitiesFreeMembers( capabilities );
-
-  wgpuSurfaceConfigure(m_wgpuSurface, &config);
-  wgpuAdapterRelease(adapter);
-
-  CreateDefaultPipeline();
-
-  // Initializes imgui
-  #if SKL_ENABLED_EDITOR
-  ImGui_ImplWGPU_InitInfo imguiInit;
-  imguiInit.Device = m_wgpuDevice;
-  imguiInit.RenderTargetFormat = m_wgpuTextureFormat;
-  imguiInit.DepthStencilFormat = m_wgpuDepthTextureFormat;
-  imguiInit.NumFramesInFlight = 3;
-
-  ImGui_ImplWGPU_Init(&imguiInit);
-
-  ImGui_ImplWGPU_NewFrame();
-  #endif
 }
 
 MeshID WGPURenderBackend::UploadMesh(MeshAsset &asset) {
@@ -799,7 +798,7 @@ void WGPURenderBackend::EndPass() {
   m_doingColorPass = false;
 }
 
-CameraID WGPURenderBackend::AddCamera() {
+CameraID WGPURenderBackend::AddCamera(u32 viewCount) {
   u32 retID = m_nextCameraID;
   m_cameraStore.emplace(std::pair<u32, CameraData>(retID, CameraData()));
   m_nextCameraID++;
@@ -814,13 +813,10 @@ void WGPURenderBackend::SetCamera(CameraID camera) {
     }
 }
 
-void WGPURenderBackend::UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos) {
-  CameraData& gotCamera = m_cameraStore[m_currentCameraID];
-  gotCamera.pos = pos;
-  gotCamera.proj = proj;
-  gotCamera.view = view;
+void WGPURenderBackend::UpdateCamera(u32 viewCount, CameraData* data) {
   if(m_doingColorPass) {
-    wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
+    m_cameraStore[m_currentCameraID] = *data;
+    wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, data, sizeof(CameraData));
   }
 }
 

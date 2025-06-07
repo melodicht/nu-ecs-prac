@@ -70,9 +70,6 @@ private:
     // Translates a c_string to a wgpu string view
     static WGPUStringView wgpuStr(const char* str);
 
-    // Creates a default rendering pipeline
-    void CreateDefaultPipeline();
-
     // Ends current mesh pass if exists
     void EndMeshPass();
 
@@ -102,19 +99,20 @@ public:
     // Sets a SDL window to draw to and initializes the back end
     void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight);
 
+    void InitPipelines(u32 numCascades);
+
     // Moves mesh to the GPU, 
     // Returns a uint that represents the mesh's ID
     MeshID UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices);
     MeshID UploadMesh(MeshAsset &asset);
 
     // Designates a camera as part of the render pass 
-    CameraID AddCamera();
+    CameraID AddCamera(u32 viewCount);
 
     TextureID CreateDepthTexture(u32 width, u32 height) { return 0; }
     
     void DestroyTexture(TextureID textureID) { };
 
-    // Takes in a mesh ID and represents
     void DestroyMesh(MeshID meshID) { }
 
     // Establishes that the following commands apply to a new frame
@@ -122,14 +120,16 @@ public:
 
     void SetCamera(CameraID camera);
 
-    void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture){ };
+    void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture) { };
 
     // Sets the view of a camera
-    void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);
+    void UpdateCamera(u32 viewCount, CameraData* data);
 
     void BeginDepthPass(CullMode cullMode) { }
 
-    void BeginDepthPass(TextureID target, CullMode cullMode) { }
+    void BeginShadowPass(TextureID target, CullMode cullMode) { }
+
+    void BeginCascadedPass(TextureID target, CullMode cullMode) { }
 
     void BeginColorPass(CullMode cullMode);
     
@@ -148,4 +148,6 @@ public:
 
     // Draw multiple objects to the screen (Must be called between InitFrame and EndFrame and after SetMesh)
     void DrawObjects(int count, int startIndex);
+
+    TextureID CreateDepthArray(u32 width, u32 height, u32 layers) { return 0; }
 };

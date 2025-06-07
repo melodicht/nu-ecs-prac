@@ -15,6 +15,10 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
     wgpuRenderer.InitRenderer(window, startWidth, startHeight);
 }
 
+void InitPipelines(u32 numCascades) {
+    wgpuRenderer.InitPipelines(numCascades);
+}
+
 u32 UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices) {
     return wgpuRenderer.UploadMesh(vertCount, vertices, indexCount, indices);
 }
@@ -23,8 +27,8 @@ u32 UploadMesh(MeshAsset &asset) {
     return wgpuRenderer.UploadMesh(asset);
 }
 
-CameraID AddCamera() { 
-    return wgpuRenderer.AddCamera();
+CameraID AddCamera(u32 viewCount) { 
+    return wgpuRenderer.AddCamera(viewCount);
 }
 
 TextureID CreateDepthTexture(u32 width, u32 height) { 
@@ -35,7 +39,7 @@ void DestroyTexture(TextureID textureID) {
     wgpuRenderer.DestroyTexture(textureID);
 }
 
-void DestroyMesh(uint32_t meshID) {
+void DestroyMesh(u32 meshID) {
     wgpuRenderer.DestroyMesh(meshID);
 }
 
@@ -47,20 +51,24 @@ void SetCamera(CameraID camera) {
     wgpuRenderer.SetCamera(camera);
 }
 
-void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture) {
-    wgpuRenderer.SetDirLight(lightSpace, lightDir, texture);
+void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture) {
+    wgpuRenderer.SetDirLight(cascades, lightDir, texture);
 }
 
-void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos) {
-    wgpuRenderer.UpdateCamera(view, proj, pos);
+void UpdateCamera(u32 viewCount, CameraData* views) {
+    wgpuRenderer.UpdateCamera(viewCount, views);
 }
 
 void BeginDepthPass(CullMode cullMode) {
     wgpuRenderer.BeginDepthPass(cullMode);
 }
 
-void BeginDepthPass(TextureID target, CullMode cullMode) {
-    wgpuRenderer.BeginDepthPass(target, cullMode);
+void BeginShadowPass(TextureID target, CullMode cullMode) {
+    wgpuRenderer.BeginShadowPass(target, cullMode);
+}
+
+void BeginCascadedPass(TextureID target, CullMode cullMode) {
+    wgpuRenderer.BeginCascadedPass(target, cullMode);
 }
 
 void BeginColorPass(CullMode cullMode) {
@@ -91,4 +99,8 @@ void EndFrame() {
 
 void DrawObjects(int count, int startIndex) {
     wgpuRenderer.DrawObjects(count, startIndex);
+}
+
+TextureID CreateDepthArray(u32 width, u32 height, u32 layers) {
+    return wgpuRenderer.CreateDepthArray(width, height, layers);
 }

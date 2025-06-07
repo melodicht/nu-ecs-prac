@@ -28,9 +28,9 @@ struct ObjectData
 
 // Represents one cascade of a cascaded directional light (CPU->GPU)
 struct LightCascade
-        {
+{
     glm::mat4 lightSpace;
-    f32 maxDepth;
+    float maxDepth;
 };
 
 // Represents the transformation data of the camera (CPU->GPU)
