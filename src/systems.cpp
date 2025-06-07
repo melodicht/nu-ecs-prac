@@ -89,7 +89,7 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
                         inverse * glm::vec4(
                                     2.0f * x - 1.0f,
                                     2.0f * y - 1.0f,
-                                    2.0f * z - 1.0f,
+                                    z,
                                     1.0f);
                 frustumCorners.push_back(pt / pt.w);
             }
@@ -98,6 +98,8 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
 
     return frustumCorners;
 }
+
+#define NUM_CASCADES 6
 
 class RenderSystem : public System
 {
@@ -109,11 +111,13 @@ class RenderSystem : public System
 
     void OnStart(Scene *scene)
     {
-        dirShadowMap = CreateDepthTexture(2048, 2048);
+        InitPipelines(NUM_CASCADES);
+
+        dirShadowMap = CreateDepthArray(2048, 2048, NUM_CASCADES);
         lightTransform.rotation = {0, 30, 120};
 
-        mainCam = AddCamera();
-        dirLightCam = AddCamera();
+        mainCam = AddCamera(2);
+        dirLightCam = AddCamera(NUM_CASCADES);
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
@@ -159,6 +163,8 @@ class RenderSystem : public System
 
         lightTransform.rotation.z += deltaTime * 45.0f;
 
+        // Get the main camera view
+
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
         {
@@ -170,38 +176,61 @@ class RenderSystem : public System
         Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
         glm::mat4 view = GetViewMatrix(cameraTransform);
         f32 aspect = (f32)windowWidth / (f32)windowHeight;
+
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
+
+        // Calculate cascaded shadow views
+
+        std::vector<CameraData> lightViews;
+
+        f32 subFrustumSize = (camera->far - camera->near) / NUM_CASCADES;
+
+        f32 currentNear = camera->near;
 
         glm::mat4 lightView = GetViewMatrix(&lightTransform);
 
-        std::vector<glm::vec4> corners = getFrustumCorners(proj, view);
+        LightCascade cascades[NUM_CASCADES];
 
-        f32 minX = std::numeric_limits<f32>::max();
-        f32 maxX = std::numeric_limits<f32>::lowest();
-        f32 minY = std::numeric_limits<f32>::max();
-        f32 maxY = std::numeric_limits<f32>::lowest();
-        f32 minZ = std::numeric_limits<f32>::max();
-        f32 maxZ = std::numeric_limits<f32>::lowest();
-        for (const glm::vec3& v : corners)
+        for (int i = 0; i < NUM_CASCADES; i++)
         {
-            const glm::vec4 trf = lightView * glm::vec4(v, 1.0);
-            minX = std::min(minX, trf.x);
-            maxX = std::max(maxX, trf.x);
-            minY = std::min(minY, trf.y);
-            maxY = std::max(maxY, trf.y);
-            minZ = std::min(minZ, trf.z);
-            maxZ = std::max(maxZ, trf.z);
-        }
+            glm::mat4 subProj = glm::perspective(glm::radians(camera->fov), aspect,
+                                                 currentNear, currentNear + subFrustumSize);
+            currentNear += subFrustumSize;
 
-        glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-        glm::mat4 lightSpace = lightProj * lightView;
+            f32 minX = std::numeric_limits<f32>::max();
+            f32 maxX = std::numeric_limits<f32>::lowest();
+            f32 minY = std::numeric_limits<f32>::max();
+            f32 maxY = std::numeric_limits<f32>::lowest();
+            f32 minZ = std::numeric_limits<f32>::max();
+            f32 maxZ = std::numeric_limits<f32>::lowest();
+
+            std::vector<glm::vec4> corners = getFrustumCorners(subProj, view);
+
+            for (const glm::vec3& v : corners)
+            {
+                const glm::vec4 trf = lightView * glm::vec4(v, 1.0);
+                minX = std::min(minX, trf.x);
+                maxX = std::max(maxX, trf.x);
+                minY = std::min(minY, trf.y);
+                maxY = std::max(maxY, trf.y);
+                minZ = std::min(minZ, trf.z);
+                maxZ = std::max(maxZ, trf.z);
+            }
+
+            glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+
+            lightViews.push_back({lightView, lightProj});
+
+            cascades[i] = {lightProj * lightView, currentNear};
+        }
 
         glm::vec3 lightDir = GetForwardVector(&lightTransform);
 
-        SetCamera(dirLightCam);
-        UpdateCamera(lightView, lightProj, lightTransform.position);
+        BeginCascadedPass(dirShadowMap, CullMode::BACK);
 
-        BeginDepthPass(dirShadowMap, CullMode::BACK);
+        SetCamera(dirLightCam);
+        UpdateCamera(lightViews.size(), lightViews.data());
+
         int startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {
@@ -211,10 +240,12 @@ class RenderSystem : public System
         }
         EndPass();
 
-        SetCamera(mainCam);
-        UpdateCamera(view, proj, cameraTransform->position);
-
         BeginDepthPass(CullMode::BACK);
+
+        SetCamera(mainCam);
+        CameraData mainCamData = {view, proj, cameraTransform->position};
+        UpdateCamera(1, &mainCamData);
+
         startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {
@@ -224,9 +255,10 @@ class RenderSystem : public System
         }
         EndPass();
 
-        SetDirLight(lightSpace, lightDir, dirShadowMap);
-
         BeginColorPass(CullMode::BACK);
+
+        SetDirLight(cascades, lightDir, dirShadowMap);
+
         startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {
@@ -342,7 +374,7 @@ public:
             Transform3D *t = scene->Get<Transform3D>(ent);
             Plane *plane = scene->Get<Plane>(ent);
 
-            if (plane->width <= 16.0f || plane->length <= 16.0f)
+            if (plane->width <= 16.0f || plane->length <= 16.0f || (plane->width / plane->length) >= 128 || (plane->length / plane->width) >= 128)
             {
                 if (RandInBetween(0.0f, 1.0f) > 0.9375f)
                 {
