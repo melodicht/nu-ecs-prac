@@ -19,14 +19,6 @@ struct Vertex
     float uvY;
 };
 
-// Represents the transformation data of the camera (CPU->GPU)
-struct CameraData
-{
-    glm::mat4 view;
-    glm::mat4 proj;
-    glm::vec3 pos;
-};
-
 // Represents the transformation data of the objects in the scene (CPU->GPU)
 struct ObjectData
 {
@@ -36,9 +28,29 @@ struct ObjectData
 
 // Represents one cascade of a cascaded directional light (CPU->GPU)
 struct LightCascade
-{
+        {
     glm::mat4 lightSpace;
     f32 maxDepth;
+};
+
+// Represents the transformation data of the camera (CPU->GPU)
+struct CameraData
+{
+    glm::mat4 view;
+    glm::mat4 proj;
+    glm::vec3 pos;
+
+    CameraData() :
+        view(),
+        proj(),
+        pos()
+    { }
+
+    CameraData(glm::mat4 setView, glm::mat4 setProj, glm::vec3 setPos) :
+        view(setView),
+        proj(setProj),
+        pos(setPos)
+    { }
 };
 
 enum CullMode

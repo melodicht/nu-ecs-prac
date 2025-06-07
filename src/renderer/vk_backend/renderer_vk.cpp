@@ -567,6 +567,7 @@ void InitPipelines(u32 cascades)
     VkShaderModuleCreateInfo depthShaderInfo{};
     depthShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     void *depthShaderFile = SDL_LoadFile("shaders/depth.spv", &depthShaderInfo.codeSize);
+    
     depthShaderInfo.pCode = reinterpret_cast<const uint32_t*>(depthShaderFile);
     VkShaderModule depthShader;
     VK_CHECK(vkCreateShaderModule(device, &depthShaderInfo, nullptr, &depthShader));
