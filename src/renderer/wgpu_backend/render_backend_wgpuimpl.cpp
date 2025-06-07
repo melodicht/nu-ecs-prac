@@ -67,13 +67,11 @@ void BeginColorPass(CullMode cullMode) {
     wgpuRenderer.BeginColorPass(cullMode);
 }
 
-void EndPass()
-{
+void EndPass() {
     wgpuRenderer.EndPass();
 }
 
-void DrawImGui()
-{
+void DrawImGui() {
     wgpuRenderer.DrawImGui();
 }
 
