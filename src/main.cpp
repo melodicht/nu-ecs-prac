@@ -120,6 +120,8 @@ void updateLoop(void* appInfo) {
     #if SKL_ENABLED_EDITOR
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
+
+    ImGui::ShowDemoWindow();
     #endif
 
     GameUpdateAndRender(info->scene, info->window, deltaTime);
