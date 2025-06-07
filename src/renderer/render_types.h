@@ -34,6 +34,12 @@ struct ObjectData
     glm::vec4 color;
 };
 
+struct LightCascade
+{
+    glm::mat4 lightSpace;
+    f32 maxDepth;
+};
+
 enum CullMode
 {
     NONE,

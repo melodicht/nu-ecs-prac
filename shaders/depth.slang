@@ -35,7 +35,8 @@ VertPushConstants pcs;
 
 [shader("vertex")]
 float4 vertexMain(uint vertexID : SV_VertexID,
-    uint instanceID : SV_InstanceID, uint baseInstance : SV_StartInstanceLocation) : SV_Position
+    uint instanceID : SV_InstanceID, uint baseInstance : SV_StartInstanceLocation,
+    uint viewID : SV_ViewID) : SV_Position
 {
     ObjectData object = pcs.objects[baseInstance + instanceID];
 
@@ -44,5 +45,5 @@ float4 vertexMain(uint vertexID : SV_VertexID,
     float4 pos = float4(vert.pos, 1.0);
     float4 worldPos = mul(model, pos);
 
-    return mul(pcs.camera->proj, mul(pcs.camera->view, worldPos));
+    return mul(pcs.camera[viewID].proj, mul(pcs.camera[viewID].view, worldPos));
 };

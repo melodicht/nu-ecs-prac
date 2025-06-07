@@ -37,7 +37,6 @@ struct Texture
 // Represents the GPU memory locations of the camera, object, and vertex buffers (CPU->GPU)
 struct VertPushConstants
 {
-    VkDeviceAddress cameraAddress;
     VkDeviceAddress objectAddress;
     VkDeviceAddress vertexAddress;
 };
@@ -47,6 +46,8 @@ struct FragPushConstants
 {
     glm::vec3 lightDir;
     u32 shadowID;
+    VkDeviceAddress lightAddress;
+    u32 cascadeCount;
 };
 
 // Represents the data for a single frame in flight of rendering
@@ -60,4 +61,5 @@ struct FrameData
 
     std::vector<AllocatedBuffer> cameraBuffers;
     AllocatedBuffer objectBuffer;
+    AllocatedBuffer lightBuffer;
 };

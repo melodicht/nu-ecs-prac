@@ -89,7 +89,7 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
                         inverse * glm::vec4(
                                     2.0f * x - 1.0f,
                                     2.0f * y - 1.0f,
-                                    2.0f * z - 1.0f,
+                                    z,
                                     1.0f);
                 frustumCorners.push_back(pt / pt.w);
             }
@@ -99,7 +99,7 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
     return frustumCorners;
 }
 
-#define NUM_CASCADES 6
+#define NUM_CASCADES 4
 
 class RenderSystem : public System
 {
@@ -111,11 +111,13 @@ class RenderSystem : public System
 
     void OnStart(Scene *scene)
     {
+        InitPipelines(NUM_CASCADES);
+
         dirShadowMap = CreateDepthArray(2048, 2048, NUM_CASCADES);
         lightTransform.rotation = {0, 30, 120};
 
-        mainCam = AddCamera();
-        dirLightCam = AddMultiCamera(NUM_CASCADES);
+        mainCam = AddCamera(2);
+        dirLightCam = AddCamera(NUM_CASCADES);
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
@@ -159,7 +161,7 @@ class RenderSystem : public System
 
         SendObjectData(objects);
 
-        lightTransform.rotation.z += deltaTime * 45.0f;
+        //lightTransform.rotation.z += deltaTime * 45.0f;
 
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
@@ -182,6 +184,8 @@ class RenderSystem : public System
         f32 currentNear = camera->near;
 
         glm::mat4 lightView = GetViewMatrix(&lightTransform);
+
+        LightCascade cascades[NUM_CASCADES];
 
         for (int i = 0; i < NUM_CASCADES; i++)
         {
@@ -208,18 +212,21 @@ class RenderSystem : public System
                 minZ = std::min(minZ, trf.z);
                 maxZ = std::max(maxZ, trf.z);
             }
-            lightViews.push_back({lightView, glm::ortho(minX, maxX, minY, maxY, minZ, maxZ)});
+
+            glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+
+            lightViews.push_back({lightView, lightProj});
+
+            cascades[i] = {lightProj * lightView, currentNear};
         }
-
-
-        glm::mat4 lightSpace = lightViews[0].proj * lightView;
 
         glm::vec3 lightDir = GetForwardVector(&lightTransform);
 
-        SetCamera(dirLightCam);
-        UpdateMultiCamera(lightViews);
+        BeginCascadedPass(dirShadowMap, CullMode::BACK);
 
-        BeginDepthPass(dirShadowMap, CullMode::BACK, NUM_CASCADES);
+        SetCamera(dirLightCam);
+        UpdateCamera(lightViews.size(), lightViews.data());
+
         int startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {
@@ -229,10 +236,12 @@ class RenderSystem : public System
         }
         EndPass();
 
-        SetCamera(mainCam);
-        UpdateCamera(view, proj, cameraTransform->position);
-
         BeginDepthPass(CullMode::BACK);
+
+        SetCamera(mainCam);
+        CameraData mainCamData = {view, proj, cameraTransform->position};
+        UpdateCamera(1, &mainCamData);
+
         startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {
@@ -242,9 +251,10 @@ class RenderSystem : public System
         }
         EndPass();
 
-        SetDirLight(lightSpace, lightDir, dirShadowMap);
-
         BeginColorPass(CullMode::BACK);
+
+        SetDirLight(cascades, lightDir, dirShadowMap);
+
         startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
         {

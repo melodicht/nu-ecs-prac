@@ -1,7 +1,7 @@
 #pragma once
 
-#include "render_types.h"
 #include "math/math_consts.h"
+#include "render_types.h"
 #include "asset_types.h"
 
 #include <SDL3/SDL.h>
@@ -16,6 +16,8 @@ SDL_WindowFlags GetRenderWindowFlags();
 
 // Sets a SDL window to draw to and initializes the back end
 void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight);
+
+void InitPipelines(u32 numCascades);
 
 // Moves a mesh to the GPU,
 // Returns a uint that represents the mesh's ID
@@ -36,9 +38,7 @@ void DestroyMesh(MeshID meshID);
 
 // Add a new camera to the scene. You need multiple cameras
 // if you want to render multiple views in the same frame.
-CameraID AddCamera();
-
-CameraID AddMultiCamera(u32 viewCount);
+CameraID AddCamera(u32 viewCount);
 
 // Initialize the frame and begin recording rendering commands
 bool InitFrame();
@@ -49,7 +49,9 @@ bool InitFrame();
 void BeginDepthPass(CullMode cullMode);
 
 // Begin a depth only rendering pass onto the given depth texture
-void BeginDepthPass(TextureID target, CullMode cullMode, u32 layerCount);
+void BeginShadowPass(TextureID target, CullMode cullMode);
+
+void BeginCascadedPass(TextureID target, CullMode cullMode);
 
 // Begin a color rendering pass
 // cullMode specifies the face culling mode to use for this pass
@@ -65,13 +67,10 @@ void DrawImGui();
 // Set the camera to use for rendering with the given ID
 void SetCamera(CameraID id);
 
-// Update the camera settings and transformation to use for rendering
-void UpdateCamera(glm::mat4 view, glm::mat4 proj, glm::vec3 pos);
-
-void UpdateMultiCamera(std::vector<CameraData> &views);
+void UpdateCamera(u32 viewCount, CameraData* views);
 
 // Set scene directional light information to use for rendering
-void SetDirLight(glm::mat4 lightSpace, glm::vec3 lightDir, TextureID texture);
+void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture);
 
 // Set the mesh currently being rendered to
 void SetMesh(MeshID meshID);
