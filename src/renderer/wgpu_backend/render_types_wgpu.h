@@ -4,24 +4,23 @@
 
 #include <webgpu/webgpu.h>
 
-// Represents the gpu side buffers representing a mesh within the WebGPU renderer
+// Represents location of a specified mesh within the WebGPU renderer
 struct Mesh {
-    // All of theses buffers and indices should be mapped already
-    WGPUBuffer m_vertexBuffer{ };
-    WGPUBuffer m_indexBuffer{ };
+    u32 m_baseIndex{ 0 };
+    u32 m_baseVertex{ 0 };
     u32 m_indexCount{ 0 };
     u32 m_vertexCount{ 0 };
 
     Mesh() : 
-        m_vertexBuffer(),
-        m_indexBuffer(),
+        m_baseIndex(),
+        m_baseVertex(),
         m_indexCount(),
         m_vertexCount()
     {}
 
-    Mesh(WGPUBuffer vertBuffer, WGPUBuffer indexBuffer, u32 indexCount, u32 vertexCount) : 
-        m_vertexBuffer(vertBuffer),
-        m_indexBuffer(indexBuffer),
+    Mesh(u32 baseIndex, u32 baseVertex, u32 indexCount, u32 vertexCount) : 
+        m_baseIndex(baseIndex),
+        m_baseVertex(baseVertex),
         m_indexCount(indexCount),
         m_vertexCount(vertexCount)
     {}

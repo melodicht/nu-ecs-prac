@@ -35,8 +35,9 @@ private:
     WGPUTextureFormat m_wgpuTextureFormat{ };
     WGPUTextureFormat m_wgpuDepthTextureFormat{ WGPUTextureFormat_Depth24Plus };
 
-    // Represents amount of objects that can be represented by a single mesh
+    // Represents limits of gpu storage
     u32 m_maxObjArraySize{ 4096 }; // TODO: Fill with number informed by limits
+    u32 m_maxMeshVertSize{ 4096 }; // TODO: Fill with number informed by limits
 
     bool m_doingColorPass{ false }; // Currently does nothing happens whatsoever if it isn't a color pass
     // Depth stuff will come later
@@ -58,7 +59,13 @@ private:
     WGPUBuffer m_instanceIndexBuffer{ };
     WGPUBuffer m_storageBuffer{ };
 
+    // Stores mesh information
+    WGPUBuffer m_meshVertexBuffer;
+    WGPUBuffer m_meshIndexBuffer;
+    u32 m_meshTotalVertices;
+    u32 m_meshTotalIndices;
     std::unordered_map<MeshID, Mesh> m_meshStore{ };
+
     std::unordered_map<CameraID, CameraData> m_cameraStore{ };
     MeshID m_nextMeshID{ 0 };        // The mesh ID of the next mesh that will be created
     CameraID m_nextCameraID{ 0 };    // The camera ID of the next camera that will be created
