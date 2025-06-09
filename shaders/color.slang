@@ -68,7 +68,7 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
     float4x4 model = object.model;
     Vertex vert = pcs.vertices[vertexID];
     float4 pos = float4(vert.pos, 1.0);
-    float4 worldPos = mul(model, pos);
+    float4 worldPos = mul(pos, model);
 
     VertexOutput output;
     float3x3 normMat = float3x3(
@@ -76,7 +76,7 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
                 cross(model[2].xyz, model[0].xyz),
                 cross(model[0].xyz, model[1].xyz));
 
-    float3 normal = normalize(mul(normMat, vert.normal));
+    float3 normal = normalize(mul(vert.normal, normMat));
 
     CoarseVertex vertData;
     vertData.eyeRelPos = worldPos.xyz - pcs.camera->pos;
@@ -84,7 +84,7 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
     vertData.normal = normal;
     vertData.color = object.color;
 
-    output.pos = mul(pcs.camera->proj, mul(pcs.camera->view, worldPos));
+    output.pos = mul(mul(worldPos, pcs.camera->view), pcs.camera->proj);
     output.vertData = vertData;
 
     return output;
@@ -97,7 +97,7 @@ Sampler2DArrayShadow[] shadowArrays;
 [shader("fragment")]
 float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 {
-    float4 viewPos = mul(pcs.camera->view, vertData.worldPos);
+    float4 viewPos = mul(vertData.worldPos, pcs.camera->view);
 
     int cascade = -1;
     for (int i = 0; i < pcs.cascadeCount; i++)
@@ -113,7 +113,7 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
         cascade = pcs.cascadeCount;
     }
 
-    float4 lightRelPos = mul(pcs.cascades[cascade].lightSpace, vertData.worldPos + float4(vertData.normal * 8, 0.0));
+    float4 lightRelPos = mul(vertData.worldPos + float4(vertData.normal * 8, 0.0), pcs.cascades[cascade].lightSpace);
 
     float3 normal = vertData.normal;
 
