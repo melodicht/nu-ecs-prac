@@ -705,9 +705,6 @@ void InitPipelines(u32 cascades)
     rasterizer.lineWidth = 1.0f;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
-    rasterizer.depthBiasConstantFactor = 0.00f;
-    rasterizer.depthBiasClamp = 0.0f;
-    rasterizer.depthBiasSlopeFactor = 0.0f;
 
     VkPipelineRasterizationStateCreateInfo shadowRasterizer = rasterizer;
     shadowRasterizer.depthClampEnable = VK_TRUE;

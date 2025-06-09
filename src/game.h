@@ -62,18 +62,31 @@ struct Plane
     f32 length;
 };
 
-struct DirectionalLight
+struct DirLight
 {
-    f32 strength;
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
 };
 
 struct SpotLight
 {
+    f32 innerCutoff;
+    f32 outerCutoff;
 
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
 };
 
 struct PointLight
 {
-    
+    f32 constant;
+    f32 linear;
+    f32 quadratic;
+
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
 };
 // Centered on the transform position
