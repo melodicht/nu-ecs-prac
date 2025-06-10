@@ -28,8 +28,6 @@ struct ObjectData
 
 struct DirLightData
 {
-    glm::mat4 lightSpace;
-
     glm::vec3 direction;
     TextureID shadowID;
 
@@ -57,8 +55,6 @@ struct SpotLightData
 
 struct PointLightData
 {
-    glm::mat4 lightSpace;
-
     glm::vec3 position;
     TextureID shadowID;
 

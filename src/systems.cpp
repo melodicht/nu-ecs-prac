@@ -280,12 +280,13 @@ class RenderSystem : public System
         }
         EndPass();
 
-        u32 spotLightCount = 0;
+        DirLightData dirLightData = {GetForwardVector(dirTransform), dirLight->shadowID,
+                                     dirLight->ambient, dirLight->diffuse, dirLight->specular};
+
+        std::vector<SpotLightData> spotLightData;
 
         for (EntityID spotEnt: SceneView<SpotLight, Transform3D>(*scene))
         {
-            spotLightCount++;
-
             Transform3D *spotTransform = scene->Get<Transform3D>(spotEnt);
             SpotLight *spotLight = scene->Get<SpotLight>(spotEnt);
 
@@ -306,23 +307,35 @@ class RenderSystem : public System
                 startIndex += pair.second;
             }
             EndPass();
+
+            spotLightData.push_back({spotProj * spotView, spotTransform->position, GetForwardVector(spotTransform),
+                                     spotLight->shadowID, spotLight->ambient, spotLight->diffuse, spotLight->specular,
+                                     spotLight->innerCutoff, spotLight->outerCutoff, spotLight->range});
         }
 
-        u32 pointLightCount = 0;
+        std::vector<PointLightData> pointLightData;
 
         for (EntityID pointEnt: SceneView<PointLight, Transform3D>(*scene))
         {
-            pointLightCount++;
-
             Transform3D *pointTransform = scene->Get<Transform3D>(pointEnt);
             PointLight *pointLight = scene->Get<PointLight>(pointEnt);
 
+            glm::vec3 pointPos = pointTransform->position;
+
             CameraData pointCamData[6];
 
-            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.01f, pointLight->maxRange);
+            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.5f, pointLight->maxRange);
+            glm::mat4 pointViews[6];
+            pointViews[0] = glm::lookAt(pointPos, pointPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+            pointViews[1] = glm::lookAt(pointPos, pointPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+            pointViews[2] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+            pointViews[3] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
+            pointViews[4] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0));
+            pointViews[5] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0));
+
             for (int i = 0; i < 6; i++)
             {
-                pointCamData[i] = {{}, pointProj, pointTransform->position};
+                pointCamData[i] = {pointViews[i], pointProj, pointPos};
             }
 
             BeginCascadedPass(pointLight->shadowID, CullMode::BACK);
@@ -338,6 +351,10 @@ class RenderSystem : public System
                 startIndex += pair.second;
             }
             EndPass();
+
+            pointLightData.push_back({pointTransform->position, pointLight->shadowID,
+                                      pointLight->ambient, pointLight->diffuse, pointLight->specular,
+                                      pointLight->constant, pointLight->linear, pointLight->quadratic});
         }
 
         BeginDepthPass(CullMode::BACK);
@@ -357,7 +374,9 @@ class RenderSystem : public System
 
         BeginColorPass(CullMode::BACK);
 
-        SetDirLight(cascades, lightDir, dirLight->shadowID);
+        SetLights(&dirLightData, cascades,
+                  spotLightData.size(), spotLightData.data(),
+                  pointLightData.size(), pointLightData.data());
 
         startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)

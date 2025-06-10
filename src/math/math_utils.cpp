@@ -35,42 +35,20 @@ glm::vec3 GetUpVector(Transform3D *transform)
 
 glm::mat4 GetViewMatrix(Transform3D *transform)
 {
-    glm::mat4 view = glm::mat4(0);
+    glm::mat4 view = {};
     glm::vec3 right = GetRightVector(transform);
     glm::vec3 up = GetUpVector(transform);
     glm::vec3 forward = GetForwardVector(transform);
-    view[0][0] = right.x;
-    view[0][1] = up.x;
-    view[0][2] = forward.x;
 
     view[0] = {right.x, up.x, forward.x, 0};
-
-    view[1][0] = right.y;
-    view[1][1] = up.y;
-    view[1][2] = forward.y;
-
-    view[2][0] = right.z;
-    view[2][1] = up.z;
-    view[2][2] = forward.z;
-
-    view[3][0] = -glm::dot(right, transform->position);
-    view[3][1] = -glm::dot(up, transform->position);
-    view[3][2] = -glm::dot(forward, transform->position);
-    view[3][3] = 1;
+    view[1] = {right.y, up.y, forward.y, 0};
+    view[2] = {right.z, up.z, forward.z, 0};
+    view[3] = {-glm::dot(right, transform->position),
+               -glm::dot(up, transform->position),
+               -glm::dot(forward, transform->position),
+               1};
 
     return view;
-}
-
-void GetPointViews(glm::vec3 position, glm::mat4 *views)
-{
-    glm::vec3 forward = {1, 0, 0};
-    glm::vec3 backward = {-1, 0, 0};
-    glm::vec3 right = {0, 1, 0};
-    glm::vec3 left = {0, -1, 0};
-    glm::vec3 up = {0, 0, 1};
-    glm::vec3 down = {0, 0, -1};
-
-
 }
 
 // Generates a random float in the inclusive range of the two given
