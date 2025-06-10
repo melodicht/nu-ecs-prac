@@ -44,10 +44,13 @@ struct VertPushConstants
 // Represents the direction of the skylight, and the descriptor id of the shadowmap (CPU->GPU)
 struct FragPushConstants
 {
-    glm::vec3 lightDir;
-    u32 shadowID;
-    VkDeviceAddress lightAddress;
-    u32 cascadeCount;
+    VkDeviceAddress dirLightAddress;
+    VkDeviceAddress spotLightAddress;
+    VkDeviceAddress pointLightAddress;
+    u32 dirLightCount;
+    u32 dirCascadeCount;
+    u32 spotLightCount;
+    u32 pointLightCount;
 };
 
 // Represents the data for a single frame in flight of rendering
@@ -61,5 +64,7 @@ struct FrameData
 
     std::vector<AllocatedBuffer> cameraBuffers;
     AllocatedBuffer objectBuffer;
-    AllocatedBuffer lightBuffer;
+    AllocatedBuffer dirLightBuffer;
+    AllocatedBuffer spotLightBuffer;
+    AllocatedBuffer pointLightBuffer;
 };

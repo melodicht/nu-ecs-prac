@@ -67,26 +67,32 @@ struct DirLight
     glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
+
+    TextureID shadowID;
 };
 
 struct SpotLight
 {
-    f32 innerCutoff;
-    f32 outerCutoff;
-
     glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
+
+    TextureID shadowID;
+
+    f32 innerCutoff;
+    f32 outerCutoff;
 };
 
 struct PointLight
 {
-    f32 constant;
-    f32 linear;
-    f32 quadratic;
-
     glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
+
+    TextureID shadowID;
+
+    f32 constant;
+    f32 linear;
+    f32 quadratic;
 };
 // Centered on the transform position
