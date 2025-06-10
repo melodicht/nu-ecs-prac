@@ -32,6 +32,9 @@ TextureID CreateDepthTexture(u32 width, u32 height);
 // Create a depth array texture with the given dimensions and number of layers
 TextureID CreateDepthArray(u32 width, u32 height, u32 layers);
 
+// Create a depth cubemap texture with the given dimensions for each side
+TextureID CreateDepthCubemap(u32 width, u32 height);
+
 // Destroy the texture at the given TextureID
 void DestroyTexture(TextureID textureID);
 
@@ -74,7 +77,9 @@ void SetCamera(CameraID id);
 void UpdateCamera(u32 viewCount, CameraData* views);
 
 // Set scene directional light information to use for rendering
-void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture);
+void SetLights(DirLightData* dirData, LightCascade* dirCascades,
+               u32 spotCount, SpotLightData* spotData,
+               u32 pointCount, PointLightData* pointData);
 
 // Set the mesh currently being rendered to
 void SetMesh(MeshID meshID);

@@ -68,7 +68,8 @@ struct DirLight
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    TextureID shadowID;
+    TextureID shadowID = -1;
+    CameraID cameraID = -1;
 };
 
 struct SpotLight
@@ -77,10 +78,12 @@ struct SpotLight
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    TextureID shadowID;
+    TextureID shadowID = -1;
+    CameraID cameraID = -1;
 
     f32 innerCutoff;
     f32 outerCutoff;
+    f32 range;
 };
 
 struct PointLight
@@ -89,10 +92,13 @@ struct PointLight
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    TextureID shadowID;
+    TextureID shadowID = -1;
+    CameraID cameraID = -1;
 
     f32 constant;
     f32 linear;
     f32 quadratic;
+
+    f32 maxRange;
 };
 // Centered on the transform position

@@ -56,6 +56,11 @@ glm::mat4 GetViewMatrix(Transform3D *transform)
     return view;
 }
 
+void GetPointViews(glm::vec3 position, glm::mat4 *views)
+{
+    
+}
+
 // Generates a random float in the inclusive range of the two given
 // floats.
 f32 RandInBetween(f32 LO, f32 HI)

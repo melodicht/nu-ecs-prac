@@ -6,9 +6,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-typedef uint32_t MeshID;
-typedef uint32_t TextureID;
-typedef uint32_t CameraID;
+typedef int32_t MeshID;
+typedef int32_t TextureID;
+typedef int32_t CameraID;
 
 // Represents a vertex of a mesh (CPU->GPU)
 struct Vertex

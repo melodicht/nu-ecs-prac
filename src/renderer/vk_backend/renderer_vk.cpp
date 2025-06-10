@@ -554,13 +554,27 @@ void InitPipelines(u32 cascades)
                                               | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
-        frames[i].lightBuffer = CreateBuffer(device, allocator,
-                                             sizeof(LightCascade) * numCascades,
-                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                             | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                             VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                             | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].dirLightBuffer = CreateBuffer(device, allocator,
+                                                sizeof(DirLightData) + (sizeof(LightCascade) * numCascades),
+                                                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].spotLightBuffer = CreateBuffer(device, allocator,
+                                                 sizeof(SpotLightData) * 32,
+                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                 | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                 | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].pointLightBuffer = CreateBuffer(device, allocator,
+                                                  sizeof(PointLightData) * 32,
+                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                  | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     }
 
     // Create shader stages
@@ -1097,13 +1111,26 @@ void UpdateCamera(u32 viewCount, CameraData* views)
     memcpy(cameraData, views, sizeof(CameraData) * viewCount);
 }
 
-void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture)
+void SetLights(DirLightData* dirData, LightCascade* dirCascades,
+               u32 spotCount, SpotLightData* spotData,
+               u32 pointCount, PointLightData* pointData)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    void* lightData = frames[frameNum].lightBuffer.allocation->GetMappedData();
-    memcpy(lightData, cascades, sizeof(LightCascade) * numCascades);
-    FragPushConstants pushConstants = {lightDir, textures[texture].descriptorIndex, frames[frameNum].lightBuffer.address, numCascades};
+    void* dirLightData = frames[frameNum].dirLightBuffer.allocation->GetMappedData();
+    memcpy(dirLightData, dirData, sizeof(DirLightData));
+    memcpy((char*)dirLightData + sizeof(DirLightData), dirCascades, sizeof(LightCascade) * numCascades);
+
+    void* spotLightData = frames[frameNum].spotLightBuffer.allocation->GetMappedData();
+    memcpy(spotLightData, spotData, sizeof(SpotLightData) * spotCount);
+
+    void* pointLightData = frames[frameNum].pointLightBuffer.allocation->GetMappedData();
+    memcpy(pointLightData, pointData, sizeof(PointLightData) * pointCount);
+
+    FragPushConstants pushConstants = {frames[frameNum].dirLightBuffer.address,
+                                       frames[frameNum].spotLightBuffer.address,
+                                       frames[frameNum].pointLightBuffer.address,
+                                       1, numCascades, spotCount, pointCount};
     vkCmdPushConstants(cmd, colorPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(FragPushConstants), &pushConstants);
 }

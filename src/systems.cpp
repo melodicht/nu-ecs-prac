@@ -103,25 +103,56 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
 
 class RenderSystem : public System
 {
-    TextureID dirShadowMap;
-    Transform3D lightTransform;
-
     CameraID mainCam;
-    CameraID dirLightCam;
 
     void OnStart(Scene *scene)
     {
         InitPipelines(NUM_CASCADES);
 
-        dirShadowMap = CreateDepthArray(2048, 2048, NUM_CASCADES);
-        lightTransform.rotation = {0, 30, 120};
-
-        mainCam = AddCamera(2);
-        dirLightCam = AddCamera(NUM_CASCADES);
+        mainCam = AddCamera(1);
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
     {
+        for (EntityID ent: SceneView<DirLight, Transform3D>(*scene))
+        {
+            DirLight *l = scene->Get<DirLight>(ent);
+            if (l->shadowID == -1)
+            {
+                l->shadowID = CreateDepthArray(2048, 2048, NUM_CASCADES);
+            }
+            if(l->cameraID == -1)
+            {
+                l->cameraID = AddCamera(NUM_CASCADES);
+            }
+        }
+
+        for (EntityID ent: SceneView<SpotLight, Transform3D>(*scene))
+        {
+            SpotLight *l = scene->Get<SpotLight>(ent);
+            if (l->shadowID == -1)
+            {
+                l->shadowID = CreateDepthTexture(2048, 2048);
+            }
+            if(l->cameraID == -1)
+            {
+                l->cameraID = AddCamera(1);
+            }
+        }
+
+        for (EntityID ent: SceneView<PointLight, Transform3D>(*scene))
+        {
+            PointLight *l = scene->Get<PointLight>(ent);
+            if (l->shadowID == -1)
+            {
+                l->shadowID = CreateDepthCubemap(2048, 2048);
+            }
+            if(l->cameraID == -1)
+            {
+                l->cameraID = AddCamera(6);
+            }
+        }
+
         if (!InitFrame())
         {
             return;
@@ -161,13 +192,12 @@ class RenderSystem : public System
 
         SendObjectData(objects);
 
-        lightTransform.rotation.z += deltaTime * 45.0f;
-
         // Get the main camera view
 
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
         {
+            EndFrame();
             return;
         }
 
@@ -181,13 +211,23 @@ class RenderSystem : public System
 
         // Calculate cascaded shadow views
 
-        std::vector<CameraData> lightViews;
+        CameraData dirViews[NUM_CASCADES];
 
         f32 subFrustumSize = (camera->far - camera->near) / NUM_CASCADES;
 
         f32 currentNear = camera->near;
 
-        glm::mat4 lightView = GetViewMatrix(&lightTransform);
+        SceneView<DirLight, Transform3D> dirLightView = SceneView<DirLight, Transform3D>(*scene);
+        if (dirLightView.begin() == dirLightView.end())
+        {
+            EndFrame();
+            return;
+        }
+
+        EntityID dirLightEnt = *dirLightView.begin();
+        Transform3D *dirTransform = scene->Get<Transform3D>(dirLightEnt);
+        DirLight *dirLight = scene->Get<DirLight>(dirLightEnt);
+        glm::mat4 dirView = GetViewMatrix(dirTransform);
 
         LightCascade cascades[NUM_CASCADES];
 
@@ -208,7 +248,7 @@ class RenderSystem : public System
 
             for (const glm::vec3& v : corners)
             {
-                const glm::vec4 trf = lightView * glm::vec4(v, 1.0);
+                const glm::vec4 trf = dirView * glm::vec4(v, 1.0);
                 minX = std::min(minX, trf.x);
                 maxX = std::max(maxX, trf.x);
                 minY = std::min(minY, trf.y);
@@ -217,19 +257,19 @@ class RenderSystem : public System
                 maxZ = std::max(maxZ, trf.z);
             }
 
-            glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+            glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
 
-            lightViews.push_back({lightView, lightProj, {}});
+            dirViews[i] = {dirView, dirProj, {}};
 
-            cascades[i] = {lightProj * lightView, currentNear};
+            cascades[i] = {dirProj * dirView, currentNear};
         }
 
-        glm::vec3 lightDir = GetForwardVector(&lightTransform);
+        glm::vec3 lightDir = GetForwardVector(dirTransform);
 
-        BeginCascadedPass(dirShadowMap, CullMode::BACK);
+        BeginCascadedPass(dirLight->shadowID, CullMode::BACK);
 
-        SetCamera(dirLightCam);
-        UpdateCamera(lightViews.size(), lightViews.data());
+        SetCamera(dirLight->cameraID);
+        UpdateCamera(NUM_CASCADES, dirViews);
 
         int startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
@@ -239,6 +279,66 @@ class RenderSystem : public System
             startIndex += pair.second;
         }
         EndPass();
+
+        u32 spotLightCount = 0;
+
+        for (EntityID spotEnt: SceneView<SpotLight, Transform3D>(*scene))
+        {
+            spotLightCount++;
+
+            Transform3D *spotTransform = scene->Get<Transform3D>(spotEnt);
+            SpotLight *spotLight = scene->Get<SpotLight>(spotEnt);
+
+            glm::mat4 spotView = GetViewMatrix(spotTransform);
+            glm::mat4 spotProj = glm::perspective(glm::radians(spotLight->outerCutoff), 1.0f, 0.01f, spotLight->range);
+            CameraData spotCamData = {spotView, spotProj, spotTransform->position};
+
+            BeginShadowPass(spotLight->shadowID, CullMode::BACK);
+
+            SetCamera(spotLight->cameraID);
+            UpdateCamera(1, &spotCamData);
+
+            startIndex = 0;
+            for (std::pair<MeshID, u32> pair: meshCounts)
+            {
+                SetMesh(pair.first);
+                DrawObjects(pair.second, startIndex);
+                startIndex += pair.second;
+            }
+            EndPass();
+        }
+
+        u32 pointLightCount = 0;
+
+        for (EntityID pointEnt: SceneView<PointLight, Transform3D>(*scene))
+        {
+            pointLightCount++;
+
+            Transform3D *pointTransform = scene->Get<Transform3D>(pointEnt);
+            PointLight *pointLight = scene->Get<PointLight>(pointEnt);
+
+            CameraData pointCamData[6];
+
+            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.01f, pointLight->maxRange);
+            for (int i = 0; i < 6; i++)
+            {
+                pointCamData[i] = {{}, pointProj, pointTransform->position};
+            }
+
+            BeginCascadedPass(pointLight->shadowID, CullMode::BACK);
+
+            SetCamera(pointLight->cameraID);
+            UpdateCamera(6, pointCamData);
+
+            startIndex = 0;
+            for (std::pair<MeshID, u32> pair: meshCounts)
+            {
+                SetMesh(pair.first);
+                DrawObjects(pair.second, startIndex);
+                startIndex += pair.second;
+            }
+            EndPass();
+        }
 
         BeginDepthPass(CullMode::BACK);
 
@@ -257,7 +357,7 @@ class RenderSystem : public System
 
         BeginColorPass(CullMode::BACK);
 
-        SetDirLight(cascades, lightDir, dirShadowMap);
+        SetDirLight(cascades, lightDir, dirLight->shadowID);
 
         startIndex = 0;
         for (std::pair<MeshID, u32> pair: meshCounts)
