@@ -638,14 +638,14 @@ void InitPipelines(u32 cascades)
                                                   | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         frames[i].spotLightBuffer = CreateBuffer(device, allocator,
-                                                 sizeof(SpotLightData) * 32,
+                                                 sizeof(SpotLightData) * 256,
                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                                  | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         frames[i].pointLightBuffer = CreateBuffer(device, allocator,
-                                                  sizeof(PointLightData) * 32,
+                                                  sizeof(PointLightData) * 256,
                                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                                   | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                   VMA_ALLOCATION_CREATE_MAPPED_BIT
@@ -711,7 +711,7 @@ void InitPipelines(u32 cascades)
     VkPipelineShaderStageCreateInfo cubemapShaderStages[] = {cubemapVertStageInfo, cubemapFragStageInfo};
 
     // Set up descriptor pool and set for textures
-    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 128}};
+    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 512}};
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo{};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -726,7 +726,7 @@ void InitPipelines(u32 cascades)
     VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
     VkDescriptorSetLayoutBinding texBinding{};
     texBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    texBinding.descriptorCount = 128;
+    texBinding.descriptorCount = 512;
     texBinding.binding = 0;
     texBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     texBinding.pImmutableSamplers = nullptr;

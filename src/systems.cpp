@@ -149,7 +149,7 @@ class RenderSystem : public System
             PointLight *l = scene->Get<PointLight>(ent);
             if (l->shadowID == -1)
             {
-                l->shadowID = CreateDepthCubemap(2048, 2048);
+                l->shadowID = CreateDepthCubemap(512, 512);
             }
             if(l->cameraID == -1)
             {
@@ -515,21 +515,23 @@ public:
                     BuildPart(scene, ent, t, cuboidMesh, {antennaWidth, antennaWidth, antennaHeight});
                     t->position.z -= antennaWidth / 2;
 
-                    if (pointLightCount < 16)
+                    if (pointLightCount < 256)
                     {
                         EntityID pointLight = scene->NewEntity();
                         Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
                         *pointTransform = *t;
                         pointTransform->position.z += antennaHeight / 2;
                         PointLight* pointLightComponent = scene->Assign<PointLight>(pointLight);
-                        pointLightComponent->diffuse = {1, 1, 1};
-                        pointLightComponent->specular = {1, 1, 1};
+                        pointLightComponent->diffuse = {1.0, 0.6, 0.25};
+                        pointLightComponent->specular = {1.0, 0.6, 0.25};
                         pointLightComponent->constant = 1;
                         pointLightComponent->linear = 0.0005;
                         pointLightComponent->quadratic = 0.00005;
                         pointLightComponent->maxRange = 1000;
 
                         pointLightCount++;
+
+                        std::cout << pointLightCount << "\n";
                     }
                 }
 
@@ -679,8 +681,9 @@ public:
         MeshComponent *m = scene->Assign<MeshComponent>(ent);
         m->mesh = mesh;
         ColorComponent *c = scene->Assign<ColorComponent>(ent);
-        c->r = RandInBetween(0.0f, 1.0f);
-        c->g = RandInBetween(0.0f, 1.0f);
-        c->b = RandInBetween(0.0f, 1.0f);
+        f32 shade = RandInBetween(0.25f, 0.75f);
+        c->r = shade;
+        c->g = shade;
+        c->b = shade;
     }
 };
