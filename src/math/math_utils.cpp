@@ -58,9 +58,9 @@ glm::mat4 GetViewMatrix(Transform3D *transform)
 
 void GetPointViews(Transform3D *transform, glm::mat4 *views)
 {
-    glm::vec3 forward = GetForwardVector(transform);
-    glm::vec3 right = GetRightVector(transform);
-    glm::vec3 up = GetUpVector(transform);
+    glm::vec3 forward = {1, 0, 0};
+    glm::vec3 right = {0, 1, 0};
+    glm::vec3 up = {0, 0, 1};
 
     views[0] = MakeViewMatrix(forward, -up, right, transform->position);
     views[1] = MakeViewMatrix(-forward, up, right, transform->position);

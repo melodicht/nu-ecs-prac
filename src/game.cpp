@@ -55,12 +55,12 @@ void GameInitialize(Scene &scene)
     startCubeColor->g = shade;
     startCubeColor->b = shade;
 
-//    EntityID directionalLight = scene.NewEntity();
-//    Transform3D* lightTransform = scene.Assign<Transform3D>(directionalLight);
-//    lightTransform->rotation = {0, 30, 120};
-//    DirLight* dirLight = scene.Assign<DirLight>(directionalLight);
-//    dirLight->diffuse = {1, 1, 1};
-//    dirLight->specular = {1, 1, 1};
+    EntityID directionalLight = scene.NewEntity();
+    Transform3D* lightTransform = scene.Assign<Transform3D>(directionalLight);
+    lightTransform->rotation = {0, 30, 120};
+    DirLight* dirLight = scene.Assign<DirLight>(directionalLight);
+    dirLight->diffuse = {0.2, 0.2, 0.6};
+    dirLight->specular = {0.4, 0.4, 0.5};
 
 
     scene.InitSystems();

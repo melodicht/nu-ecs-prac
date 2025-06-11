@@ -136,7 +136,7 @@ class RenderSystem : public System
             SpotLight *l = scene->Get<SpotLight>(ent);
             if (l->shadowID == -1)
             {
-                l->shadowID = CreateDepthTexture(2048, 2048);
+                l->shadowID = CreateDepthTexture(1024, 1024);
             }
             if(l->cameraID == -1)
             {
@@ -522,8 +522,9 @@ public:
                         *pointTransform = *t;
                         pointTransform->position.z += antennaHeight / 2;
                         PointLight* pointLightComponent = scene->Assign<PointLight>(pointLight);
-                        pointLightComponent->diffuse = {1.0, 0.6, 0.25};
-                        pointLightComponent->specular = {1.0, 0.6, 0.25};
+                        f32 red = RandInBetween(0.8, 1.0);
+                        pointLightComponent->diffuse = {red, 0.6, 0.25};
+                        pointLightComponent->specular = {red, 0.6, 0.25};
                         pointLightComponent->constant = 1;
                         pointLightComponent->linear = 0.0005;
                         pointLightComponent->quadratic = 0.00005;
