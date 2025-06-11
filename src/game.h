@@ -64,7 +64,6 @@ struct Plane
 
 struct DirLight
 {
-    glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
 
@@ -74,21 +73,19 @@ struct DirLight
 
 struct SpotLight
 {
-    glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
 
     TextureID shadowID = -1;
     CameraID cameraID = -1;
 
-    f32 innerCutoff;
-    f32 outerCutoff;
+    f32 innerCone;
+    f32 outerCone;
     f32 range;
 };
 
 struct PointLight
 {
-    glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
 

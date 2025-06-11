@@ -60,9 +60,11 @@ VkCommandPool mainCommandPool;
 FrameData frames[NUM_FRAMES];
 
 VkPipelineLayout depthPipelineLayout;
+VkPipelineLayout cubemapPipelineLayout;
 VkPipelineLayout colorPipelineLayout;
 VkPipeline shadowPipeline;
 VkPipeline cascadedPipeline;
+VkPipeline cubemapPipeline;
 VkPipeline depthPipeline;
 VkPipeline colorPipeline;
 
@@ -179,12 +181,11 @@ CameraID AddCamera(u32 viewCount)
 
 TextureID CreateDepthTexture(u32 width, u32 height)
 {
-    currentTexID++;
     auto iter = textures.emplace(currentTexID, Texture());
     Texture& texture = iter.first->second;
 
     AllocatedImage depthTexture = CreateImage(allocator,
-                             depthFormat,
+                             depthFormat, 0,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                              VK_IMAGE_USAGE_SAMPLED_BIT,
                              {width, height, 1}, 1,
@@ -223,7 +224,7 @@ TextureID CreateDepthTexture(u32 width, u32 height)
     VkWriteDescriptorSet descriptorWrite{};
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrite.descriptorCount = 1;
-    descriptorWrite.dstArrayElement = currentTexID - 1;
+    descriptorWrite.dstArrayElement = currentTexID;
     descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrite.dstSet = texDescriptorSet;
     descriptorWrite.dstBinding = 0;
@@ -235,19 +236,20 @@ TextureID CreateDepthTexture(u32 width, u32 height)
     texture.imageView = depthTexView;
     texture.sampler = sampler;
     texture.extent = {width, height};
-    texture.descriptorIndex = currentTexID - 1;
+    texture.descriptorIndex = currentTexID;
 
-    return currentTexID;
+    currentTexID++;
+
+    return currentTexID - 1;
 }
 
 TextureID CreateDepthArray(u32 width, u32 height, u32 layers)
 {
-    currentTexID++;
     auto iter = textures.emplace(currentTexID, Texture());
     Texture& texture = iter.first->second;
 
     AllocatedImage depthTexture = CreateImage(allocator,
-                                              depthFormat,
+                                              depthFormat, 0,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                               VK_IMAGE_USAGE_SAMPLED_BIT,
                                               {width, height, 1}, layers,
@@ -286,7 +288,7 @@ TextureID CreateDepthArray(u32 width, u32 height, u32 layers)
     VkWriteDescriptorSet descriptorWrite{};
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrite.descriptorCount = 1;
-    descriptorWrite.dstArrayElement = currentTexID - 1;
+    descriptorWrite.dstArrayElement = currentTexID;
     descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrite.dstSet = texDescriptorSet;
     descriptorWrite.dstBinding = 0;
@@ -298,9 +300,76 @@ TextureID CreateDepthArray(u32 width, u32 height, u32 layers)
     texture.imageView = depthTexView;
     texture.sampler = sampler;
     texture.extent = {width, height};
-    texture.descriptorIndex = currentTexID - 1;
+    texture.descriptorIndex = currentTexID;
 
-    return currentTexID;
+    currentTexID++;
+
+    return currentTexID - 1;
+}
+
+TextureID CreateDepthCubemap(u32 width, u32 height)
+{
+    auto iter = textures.emplace(currentTexID, Texture());
+    Texture& texture = iter.first->second;
+
+    AllocatedImage depthTexture = CreateImage(allocator,
+                                              depthFormat,
+                                              VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+                                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                                              VK_IMAGE_USAGE_SAMPLED_BIT,
+                                              {width, height, 1}, 6,
+                                              VMA_MEMORY_USAGE_GPU_ONLY,
+                                              VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+
+    VkImageView depthTexView;
+
+    VkImageViewCreateInfo depthViewInfo{};
+    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    depthViewInfo.format = depthFormat;
+    depthViewInfo.image = depthTexture.image;
+    depthViewInfo.subresourceRange.baseMipLevel = 0;
+    depthViewInfo.subresourceRange.levelCount = 1;
+    depthViewInfo.subresourceRange.baseArrayLayer = 0;
+    depthViewInfo.subresourceRange.layerCount = 6;
+    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
+
+    VkSampler sampler;
+
+    VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.compareEnable = VK_TRUE;
+    samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageView = depthTexView;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.sampler = sampler;
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.dstArrayElement = currentTexID;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.dstSet = texDescriptorSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+
+    texture.texture = depthTexture;
+    texture.imageView = depthTexView;
+    texture.sampler = sampler;
+    texture.extent = {width, height};
+    texture.descriptorIndex = currentTexID;
+
+    currentTexID++;
+
+    return currentTexID - 1;
 }
 
 void DestroyTexture(TextureID texID)
@@ -344,7 +413,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
             };
 
     depthImage = CreateImage(allocator,
-                             depthFormat,
+                             depthFormat, 0,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                              depthImageExtent, 1,
                              VMA_MEMORY_USAGE_GPU_ONLY,
@@ -555,12 +624,19 @@ void InitPipelines(u32 cascades)
                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
         frames[i].dirLightBuffer = CreateBuffer(device, allocator,
-                                                sizeof(DirLightData) + (sizeof(LightCascade) * numCascades),
+                                                sizeof(DirLightData) * 4,
                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                                 | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                 | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].dirCascadeBuffer = CreateBuffer(device, allocator,
+                                                  sizeof(LightCascade) * numCascades * 4,
+                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                  | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         frames[i].spotLightBuffer = CreateBuffer(device, allocator,
                                                  sizeof(SpotLightData) * 32,
                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
@@ -582,14 +658,22 @@ void InitPipelines(u32 cascades)
     depthShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     void *depthShaderFile = SDL_LoadFile("shaders/depth.spv", &depthShaderInfo.codeSize);
     
-    depthShaderInfo.pCode = reinterpret_cast<const uint32_t*>(depthShaderFile);
+    depthShaderInfo.pCode = reinterpret_cast<const u32*>(depthShaderFile);
     VkShaderModule depthShader;
     VK_CHECK(vkCreateShaderModule(device, &depthShaderInfo, nullptr, &depthShader));
+
+    VkShaderModuleCreateInfo cubemapShaderInfo{};
+    cubemapShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    void *cubemapShaderFile = SDL_LoadFile("shaders/cubemap.spv", &cubemapShaderInfo.codeSize);
+
+    cubemapShaderInfo.pCode = reinterpret_cast<const u32*>(cubemapShaderFile);
+    VkShaderModule cubemapShader;
+    VK_CHECK(vkCreateShaderModule(device, &cubemapShaderInfo, nullptr, &cubemapShader));
 
     VkShaderModuleCreateInfo colorShaderInfo{};
     colorShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     void *colorShaderFile = SDL_LoadFile("shaders/color.spv", &colorShaderInfo.codeSize);
-    colorShaderInfo.pCode = reinterpret_cast<const uint32_t*>(colorShaderFile);
+    colorShaderInfo.pCode = reinterpret_cast<const u32*>(colorShaderFile);
     VkShaderModule colorShader;
     VK_CHECK(vkCreateShaderModule(device, &colorShaderInfo, nullptr, &colorShader));
 
@@ -605,13 +689,26 @@ void InitPipelines(u32 cascades)
     depthVertStageInfo.module = depthShader;
     depthVertStageInfo.pName = "vertexMain";
 
-    VkPipelineShaderStageCreateInfo fragStageInfo{};
-    fragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragStageInfo.module = colorShader;
-    fragStageInfo.pName = "fragmentMain";
+    VkPipelineShaderStageCreateInfo cubemapVertStageInfo{};
+    cubemapVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    cubemapVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    cubemapVertStageInfo.module = cubemapShader;
+    cubemapVertStageInfo.pName = "vertexMain";
 
-    VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, fragStageInfo};
+    VkPipelineShaderStageCreateInfo colorFragStageInfo{};
+    colorFragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    colorFragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    colorFragStageInfo.module = colorShader;
+    colorFragStageInfo.pName = "fragmentMain";
+
+    VkPipelineShaderStageCreateInfo cubemapFragStageInfo{};
+    cubemapFragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    cubemapFragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    cubemapFragStageInfo.module = cubemapShader;
+    cubemapFragStageInfo.pName = "fragmentMain";
+
+    VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, colorFragStageInfo};
+    VkPipelineShaderStageCreateInfo cubemapShaderStages[] = {cubemapVertStageInfo, cubemapFragStageInfo};
 
     // Set up descriptor pool and set for textures
     VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 128}};
@@ -664,6 +761,11 @@ void InitPipelines(u32 cascades)
     pushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(FragPushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
+    VkPushConstantRange cubePushConstants;
+    cubePushConstants.offset = 0;
+    cubePushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(CubemapPushConstants);
+    cubePushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
     VkPipelineLayoutCreateInfo depthLayoutInfo{};
     depthLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     depthLayoutInfo.setLayoutCount = 0;
@@ -672,6 +774,15 @@ void InitPipelines(u32 cascades)
     depthLayoutInfo.pPushConstantRanges = &pushConstants;
 
     VK_CHECK(vkCreatePipelineLayout(device, &depthLayoutInfo, nullptr, &depthPipelineLayout));
+
+    VkPipelineLayoutCreateInfo cubemapLayoutInfo{};
+    cubemapLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    cubemapLayoutInfo.setLayoutCount = 0;
+    cubemapLayoutInfo.pSetLayouts = nullptr;
+    cubemapLayoutInfo.pushConstantRangeCount = 1;
+    cubemapLayoutInfo.pPushConstantRanges = &cubePushConstants;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &cubemapLayoutInfo, nullptr, &cubemapPipelineLayout));
 
     VkPipelineLayoutCreateInfo colorLayoutInfo{};
     colorLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -720,8 +831,10 @@ void InitPipelines(u32 cascades)
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
 
-    VkPipelineRasterizationStateCreateInfo shadowRasterizer = rasterizer;
-    shadowRasterizer.depthClampEnable = VK_TRUE;
+    VkPipelineRasterizationStateCreateInfo cubemapRasterizer = rasterizer;
+    cubemapRasterizer.depthClampEnable = VK_TRUE;
+
+    VkPipelineRasterizationStateCreateInfo shadowRasterizer = cubemapRasterizer;
     shadowRasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
@@ -790,6 +903,9 @@ void InitPipelines(u32 cascades)
     VkPipelineRenderingCreateInfo cascadedRenderInfo = depthRenderInfo;
     cascadedRenderInfo.viewMask = (1 << numCascades) - 1;
 
+    VkPipelineRenderingCreateInfo cubemapRenderInfo = depthRenderInfo;
+    cubemapRenderInfo.viewMask = 0x3F;
+
     // For color pass
     VkPipelineRenderingCreateInfo colorRenderInfo{};
     colorRenderInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
@@ -820,6 +936,12 @@ void InitPipelines(u32 cascades)
     VkGraphicsPipelineCreateInfo cascadedPipelineInfo = shadowPipelineInfo;
     cascadedPipelineInfo.pNext = &cascadedRenderInfo;
 
+    VkGraphicsPipelineCreateInfo cubemapPipelineInfo = shadowPipelineInfo;
+    cubemapPipelineInfo.stageCount = 2;
+    cubemapPipelineInfo.pStages = cubemapShaderStages;
+    cubemapPipelineInfo.pRasterizationState = &cubemapRasterizer;
+    cubemapPipelineInfo.pNext = &cubemapRenderInfo;
+
     VkGraphicsPipelineCreateInfo colorPipelineInfo{};
     colorPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     colorPipelineInfo.stageCount = 2;
@@ -839,6 +961,7 @@ void InitPipelines(u32 cascades)
 
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &shadowPipelineInfo, nullptr, &shadowPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &cascadedPipelineInfo, nullptr, &cascadedPipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &cubemapPipelineInfo, nullptr, &cubemapPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &depthPipelineInfo, nullptr, &depthPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &colorPipelineInfo, nullptr, &colorPipeline));
 
@@ -907,6 +1030,14 @@ void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode,
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = extent.width;
+    scissor.extent.height = extent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
     vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
 
     VkRenderingAttachmentInfo depthAttachment{};
@@ -929,8 +1060,6 @@ void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode,
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-
-    currentLayout = &depthPipelineLayout;
 }
 
 void BeginDepthPass(CullMode cullMode)
@@ -948,17 +1077,10 @@ void BeginDepthPass(CullMode cullMode)
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = swapExtent.width;
-    scissor.extent.height = swapExtent.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
     BeginDepthPass(depthImageView, swapExtent, cullMode, 1);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
+    currentLayout = &depthPipelineLayout;
 }
 
 void BeginShadowPass(TextureID target, CullMode cullMode)
@@ -978,17 +1100,10 @@ void BeginShadowPass(TextureID target, CullMode cullMode)
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = extent.width;
-    scissor.extent.height = extent.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
     BeginDepthPass(textures[target].imageView, extent, cullMode, 1);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline);
+    currentLayout = &depthPipelineLayout;
 }
 
 void BeginCascadedPass(TextureID target, CullMode cullMode)
@@ -1008,17 +1123,33 @@ void BeginCascadedPass(TextureID target, CullMode cullMode)
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = extent.width;
-    scissor.extent.height = extent.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
     BeginDepthPass(textures[target].imageView, extent, cullMode, numCascades);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cascadedPipeline);
+    currentLayout = &depthPipelineLayout;
+}
+
+void BeginCubemapShadowPass(TextureID target, CullMode cullMode)
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    VkExtent2D extent = textures[target].extent;
+
+    //set dynamic viewport and scissor
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = extent.height;
+    viewport.width = (float)extent.width;
+    viewport.height = -(float)extent.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    BeginDepthPass(textures[target].imageView, extent, cullMode, 6);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubemapPipeline);
+    currentLayout = &cubemapPipelineLayout;
 }
 
 void BeginColorPass(CullMode cullMode)
@@ -1079,9 +1210,7 @@ void BeginColorPass(CullMode cullMode)
     vkCmdBeginRendering(cmd, &renderInfo);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipeline);
-
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipelineLayout, 0, 1, &texDescriptorSet, 0, nullptr);
-
     currentLayout = &colorPipelineLayout;
 }
 
@@ -1097,7 +1226,7 @@ void DrawImGui()
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
-void SetCamera(u32 id)
+void SetCamera(CameraID id)
 {
     currentCamID = id;
     vkCmdPushConstants(frames[frameNum].commandBuffer, *currentLayout,
@@ -1111,26 +1240,49 @@ void UpdateCamera(u32 viewCount, CameraData* views)
     memcpy(cameraData, views, sizeof(CameraData) * viewCount);
 }
 
-void SetLights(DirLightData* dirData, LightCascade* dirCascades,
+void SetCubemapInfo(glm::vec3 lightPos, f32 farPlane)
+{
+    CubemapPushConstants pushConstants = {lightPos, farPlane};
+    vkCmdPushConstants(frames[frameNum].commandBuffer, cubemapPipelineLayout,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(CubemapPushConstants),
+                       &pushConstants);
+}
+
+void SetLights(glm::vec3 ambientLight,
+               u32 dirCount, DirLightData* dirData, LightCascade* dirCascades,
                u32 spotCount, SpotLightData* spotData,
                u32 pointCount, PointLightData* pointData)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    void* dirLightData = frames[frameNum].dirLightBuffer.allocation->GetMappedData();
-    memcpy(dirLightData, dirData, sizeof(DirLightData));
-    memcpy((char*)dirLightData + sizeof(DirLightData), dirCascades, sizeof(LightCascade) * numCascades);
+    if (dirCount > 0)
+    {
+        void* dirLightData = frames[frameNum].dirLightBuffer.allocation->GetMappedData();
+        memcpy(dirLightData, dirData, sizeof(DirLightData) * dirCount);
+        void* dirCascadeData = frames[frameNum].dirCascadeBuffer.allocation->GetMappedData();
+        memcpy(dirCascadeData, dirCascades, sizeof(LightCascade) * numCascades);
+    }
 
-    void* spotLightData = frames[frameNum].spotLightBuffer.allocation->GetMappedData();
-    memcpy(spotLightData, spotData, sizeof(SpotLightData) * spotCount);
+    if (spotCount > 0)
+    {
+        void* spotLightData = frames[frameNum].spotLightBuffer.allocation->GetMappedData();
+        memcpy(spotLightData, spotData, sizeof(SpotLightData) * spotCount);
+    }
 
-    void* pointLightData = frames[frameNum].pointLightBuffer.allocation->GetMappedData();
-    memcpy(pointLightData, pointData, sizeof(PointLightData) * pointCount);
+    if (pointCount > 0)
+    {
+        void* pointLightData = frames[frameNum].pointLightBuffer.allocation->GetMappedData();
+        memcpy(pointLightData, pointData, sizeof(PointLightData) * pointCount);
+    }
 
     FragPushConstants pushConstants = {frames[frameNum].dirLightBuffer.address,
+                                       frames[frameNum].dirCascadeBuffer.address,
                                        frames[frameNum].spotLightBuffer.address,
                                        frames[frameNum].pointLightBuffer.address,
-                                       1, numCascades, spotCount, pointCount};
+                                       dirCount, numCascades, spotCount, pointCount,
+                                       ambientLight};
+
     vkCmdPushConstants(cmd, colorPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(FragPushConstants), &pushConstants);
 }

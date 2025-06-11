@@ -105,11 +105,15 @@ class RenderSystem : public System
 {
     CameraID mainCam;
 
+    glm::vec3 ambientLight;
+
     void OnStart(Scene *scene)
     {
         InitPipelines(NUM_CASCADES);
 
         mainCam = AddCamera(1);
+
+        ambientLight = {0.1, 0.1, 0.1};
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
@@ -217,71 +221,71 @@ class RenderSystem : public System
 
         f32 currentNear = camera->near;
 
-        SceneView<DirLight, Transform3D> dirLightView = SceneView<DirLight, Transform3D>(*scene);
-        if (dirLightView.begin() == dirLightView.end())
+        std::vector<DirLightData> dirLightData;
+
+        std::vector<LightCascade> cascades;
+
+        u32 startIndex;
+
+        for (EntityID dirEnt: SceneView<DirLight, Transform3D>(*scene))
         {
-            EndFrame();
-            return;
-        }
+            Transform3D *dirTransform = scene->Get<Transform3D>(dirEnt);
+            DirLight *dirLight = scene->Get<DirLight>(dirEnt);
+            glm::mat4 dirView = GetViewMatrix(dirTransform);
 
-        EntityID dirLightEnt = *dirLightView.begin();
-        Transform3D *dirTransform = scene->Get<Transform3D>(dirLightEnt);
-        DirLight *dirLight = scene->Get<DirLight>(dirLightEnt);
-        glm::mat4 dirView = GetViewMatrix(dirTransform);
-
-        LightCascade cascades[NUM_CASCADES];
-
-        for (int i = 0; i < NUM_CASCADES; i++)
-        {
-            glm::mat4 subProj = glm::perspective(glm::radians(camera->fov), aspect,
-                                                 currentNear, currentNear + subFrustumSize);
-            currentNear += subFrustumSize;
-
-            f32 minX = std::numeric_limits<f32>::max();
-            f32 maxX = std::numeric_limits<f32>::lowest();
-            f32 minY = std::numeric_limits<f32>::max();
-            f32 maxY = std::numeric_limits<f32>::lowest();
-            f32 minZ = std::numeric_limits<f32>::max();
-            f32 maxZ = std::numeric_limits<f32>::lowest();
-
-            std::vector<glm::vec4> corners = getFrustumCorners(subProj, view);
-
-            for (const glm::vec3& v : corners)
+            for (int i = 0; i < NUM_CASCADES; i++)
             {
-                const glm::vec4 trf = dirView * glm::vec4(v, 1.0);
-                minX = std::min(minX, trf.x);
-                maxX = std::max(maxX, trf.x);
-                minY = std::min(minY, trf.y);
-                maxY = std::max(maxY, trf.y);
-                minZ = std::min(minZ, trf.z);
-                maxZ = std::max(maxZ, trf.z);
+                glm::mat4 subProj = glm::perspective(glm::radians(camera->fov), aspect,
+                                                     currentNear, currentNear + subFrustumSize);
+                currentNear += subFrustumSize;
+
+                f32 minX = std::numeric_limits<f32>::max();
+                f32 maxX = std::numeric_limits<f32>::lowest();
+                f32 minY = std::numeric_limits<f32>::max();
+                f32 maxY = std::numeric_limits<f32>::lowest();
+                f32 minZ = std::numeric_limits<f32>::max();
+                f32 maxZ = std::numeric_limits<f32>::lowest();
+
+                std::vector<glm::vec4> corners = getFrustumCorners(subProj, view);
+
+                for (const glm::vec3& v : corners)
+                {
+                    const glm::vec4 trf = dirView * glm::vec4(v, 1.0);
+                    minX = std::min(minX, trf.x);
+                    maxX = std::max(maxX, trf.x);
+                    minY = std::min(minY, trf.y);
+                    maxY = std::max(maxY, trf.y);
+                    minZ = std::min(minZ, trf.z);
+                    maxZ = std::max(maxZ, trf.z);
+                }
+
+                glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+
+                dirViews[i] = {dirView, dirProj, {}};
+
+                cascades.push_back({dirProj * dirView, currentNear});
             }
 
-            glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+            glm::vec3 lightDir = GetForwardVector(dirTransform);
 
-            dirViews[i] = {dirView, dirProj, {}};
+            BeginCascadedPass(dirLight->shadowID, CullMode::BACK);
 
-            cascades[i] = {dirProj * dirView, currentNear};
+            SetCamera(dirLight->cameraID);
+            UpdateCamera(NUM_CASCADES, dirViews);
+
+            startIndex = 0;
+            for (std::pair<MeshID, u32> pair: meshCounts)
+            {
+                SetMesh(pair.first);
+                DrawObjects(pair.second, startIndex);
+                startIndex += pair.second;
+            }
+            EndPass();
+
+            dirLightData.push_back({GetForwardVector(dirTransform), dirLight->shadowID,
+                                    dirLight->diffuse, dirLight->specular});
         }
 
-        glm::vec3 lightDir = GetForwardVector(dirTransform);
-
-        BeginCascadedPass(dirLight->shadowID, CullMode::BACK);
-
-        SetCamera(dirLight->cameraID);
-        UpdateCamera(NUM_CASCADES, dirViews);
-
-        int startIndex = 0;
-        for (std::pair<MeshID, u32> pair: meshCounts)
-        {
-            SetMesh(pair.first);
-            DrawObjects(pair.second, startIndex);
-            startIndex += pair.second;
-        }
-        EndPass();
-
-        DirLightData dirLightData = {GetForwardVector(dirTransform), dirLight->shadowID,
-                                     dirLight->ambient, dirLight->diffuse, dirLight->specular};
 
         std::vector<SpotLightData> spotLightData;
 
@@ -291,7 +295,7 @@ class RenderSystem : public System
             SpotLight *spotLight = scene->Get<SpotLight>(spotEnt);
 
             glm::mat4 spotView = GetViewMatrix(spotTransform);
-            glm::mat4 spotProj = glm::perspective(glm::radians(spotLight->outerCutoff), 1.0f, 0.01f, spotLight->range);
+            glm::mat4 spotProj = glm::perspective(glm::radians(spotLight->outerCone * 2), 1.0f, 0.01f, spotLight->range);
             CameraData spotCamData = {spotView, spotProj, spotTransform->position};
 
             BeginShadowPass(spotLight->shadowID, CullMode::BACK);
@@ -309,8 +313,9 @@ class RenderSystem : public System
             EndPass();
 
             spotLightData.push_back({spotProj * spotView, spotTransform->position, GetForwardVector(spotTransform),
-                                     spotLight->shadowID, spotLight->ambient, spotLight->diffuse, spotLight->specular,
-                                     spotLight->innerCutoff, spotLight->outerCutoff, spotLight->range});
+                                     spotLight->shadowID, spotLight->diffuse, spotLight->specular,
+                                     cos(glm::radians(spotLight->innerCone)), cos(glm::radians(spotLight->outerCone)),
+                                     spotLight->range});
         }
 
         std::vector<PointLightData> pointLightData;
@@ -326,22 +331,26 @@ class RenderSystem : public System
 
             glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.5f, pointLight->maxRange);
             glm::mat4 pointViews[6];
-            pointViews[0] = glm::lookAt(pointPos, pointPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
-            pointViews[1] = glm::lookAt(pointPos, pointPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
-            pointViews[2] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-            pointViews[3] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
-            pointViews[4] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0));
-            pointViews[5] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0));
+//            pointViews[0] = glm::lookAt(pointPos, pointPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+//            pointViews[1] = glm::lookAt(pointPos, pointPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
+//            pointViews[2] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
+//            pointViews[3] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
+//            pointViews[4] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0));
+//            pointViews[5] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0));
+
+            GetPointViews(pointTransform, pointViews);
 
             for (int i = 0; i < 6; i++)
             {
                 pointCamData[i] = {pointViews[i], pointProj, pointPos};
             }
 
-            BeginCascadedPass(pointLight->shadowID, CullMode::BACK);
+            BeginCubemapShadowPass(pointLight->shadowID, CullMode::BACK);
 
             SetCamera(pointLight->cameraID);
             UpdateCamera(6, pointCamData);
+
+            SetCubemapInfo(pointPos, pointLight->maxRange);
 
             startIndex = 0;
             for (std::pair<MeshID, u32> pair: meshCounts)
@@ -352,9 +361,10 @@ class RenderSystem : public System
             }
             EndPass();
 
-            pointLightData.push_back({pointTransform->position, pointLight->shadowID,
-                                      pointLight->ambient, pointLight->diffuse, pointLight->specular,
-                                      pointLight->constant, pointLight->linear, pointLight->quadratic});
+            pointLightData.push_back({pointPos, pointLight->shadowID,
+                                      pointLight->diffuse, pointLight->specular,
+                                      pointLight->constant, pointLight->linear, pointLight->quadratic,
+                                      pointLight->maxRange});
         }
 
         BeginDepthPass(CullMode::BACK);
@@ -374,7 +384,8 @@ class RenderSystem : public System
 
         BeginColorPass(CullMode::BACK);
 
-        SetLights(&dirLightData, cascades,
+        SetLights(ambientLight,
+                  dirLightData.size(), dirLightData.data(), cascades.data(),
                   spotLightData.size(), spotLightData.data(),
                   pointLightData.size(), pointLightData.data());
 

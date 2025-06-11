@@ -31,7 +31,6 @@ struct DirLightData
     glm::vec3 direction;
     TextureID shadowID;
 
-    glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
 };
@@ -44,7 +43,6 @@ struct SpotLightData
     glm::vec3 direction;
     TextureID shadowID;
 
-    glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
 
@@ -58,13 +56,14 @@ struct PointLightData
     glm::vec3 position;
     TextureID shadowID;
 
-    glm::vec3 ambient;
     glm::vec3 diffuse;
     glm::vec3 specular;
 
     f32 constant;
     f32 linear;
     f32 quadratic;
+
+    f32 maxRange;
 };
 
 // Represents one cascade of a cascaded directional light (CPU->GPU)

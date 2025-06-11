@@ -45,12 +45,20 @@ struct VertPushConstants
 struct FragPushConstants
 {
     VkDeviceAddress dirLightAddress;
+    VkDeviceAddress dirCascadeAddress;
     VkDeviceAddress spotLightAddress;
     VkDeviceAddress pointLightAddress;
     u32 dirLightCount;
     u32 dirCascadeCount;
     u32 spotLightCount;
     u32 pointLightCount;
+    glm::vec3 ambientLight;
+};
+
+struct CubemapPushConstants
+{
+    glm::vec3 lightPos;
+    float farPlane;
 };
 
 // Represents the data for a single frame in flight of rendering
@@ -65,6 +73,7 @@ struct FrameData
     std::vector<AllocatedBuffer> cameraBuffers;
     AllocatedBuffer objectBuffer;
     AllocatedBuffer dirLightBuffer;
+    AllocatedBuffer dirCascadeBuffer;
     AllocatedBuffer spotLightBuffer;
     AllocatedBuffer pointLightBuffer;
 };

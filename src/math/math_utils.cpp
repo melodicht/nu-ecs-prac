@@ -33,22 +33,41 @@ glm::vec3 GetUpVector(Transform3D *transform)
     return GetRotationMatrix(transform) * glm::vec4(0.0, 0.0, 1.0, 1.0);
 }
 
-glm::mat4 GetViewMatrix(Transform3D *transform)
+glm::mat4 MakeViewMatrix(glm::vec3 forward, glm::vec3 right, glm::vec3 up, glm::vec3 position)
 {
     glm::mat4 view = {};
-    glm::vec3 right = GetRightVector(transform);
-    glm::vec3 up = GetUpVector(transform);
-    glm::vec3 forward = GetForwardVector(transform);
-
     view[0] = {right.x, up.x, forward.x, 0};
     view[1] = {right.y, up.y, forward.y, 0};
     view[2] = {right.z, up.z, forward.z, 0};
-    view[3] = {-glm::dot(right, transform->position),
-               -glm::dot(up, transform->position),
-               -glm::dot(forward, transform->position),
+    view[3] = {-glm::dot(right, position),
+               -glm::dot(up, position),
+               -glm::dot(forward, position),
                1};
 
     return view;
+}
+
+glm::mat4 GetViewMatrix(Transform3D *transform)
+{
+    glm::vec3 forward = GetForwardVector(transform);
+    glm::vec3 right = GetRightVector(transform);
+    glm::vec3 up = GetUpVector(transform);
+
+    return MakeViewMatrix(forward, right, up, transform->position);
+}
+
+void GetPointViews(Transform3D *transform, glm::mat4 *views)
+{
+    glm::vec3 forward = GetForwardVector(transform);
+    glm::vec3 right = GetRightVector(transform);
+    glm::vec3 up = GetUpVector(transform);
+
+    views[0] = MakeViewMatrix(forward, -up, right, transform->position);
+    views[1] = MakeViewMatrix(-forward, up, right, transform->position);
+    views[2] = MakeViewMatrix(right, forward, -up, transform->position);
+    views[3] = MakeViewMatrix(-right, forward, up, transform->position);
+    views[4] = MakeViewMatrix(up, forward, right, transform->position);
+    views[5] = MakeViewMatrix(-up, -forward, right, transform->position);
 }
 
 // Generates a random float in the inclusive range of the two given

@@ -59,6 +59,9 @@ void BeginShadowPass(TextureID target, CullMode cullMode);
 // Begin a multiview shadow depth pass onto the given array texture
 void BeginCascadedPass(TextureID target, CullMode cullMode);
 
+// Begin a shadow depth pass onto the given cubemap texture
+void BeginCubemapShadowPass(TextureID target, CullMode cullMode);
+
 // Begin a color rendering pass
 // cullMode specifies the face culling mode to use for this pass
 // depthBias specifies whether to apply depth bias in this pass
@@ -76,8 +79,11 @@ void SetCamera(CameraID id);
 // Update the currently selected camera. viewCount must be equal to the number of views that the selected camera has.
 void UpdateCamera(u32 viewCount, CameraData* views);
 
+void SetCubemapInfo(glm::vec3 lightPos, f32 farPlane);
+
 // Set scene directional light information to use for rendering
-void SetLights(DirLightData* dirData, LightCascade* dirCascades,
+void SetLights(glm::vec3 ambientLight,
+               u32 dirCount, DirLightData* dirData, LightCascade* dirCascades,
                u32 spotCount, SpotLightData* spotData,
                u32 pointCount, PointLightData* pointData);
 
