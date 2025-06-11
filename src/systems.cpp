@@ -464,6 +464,8 @@ private:
     bool slowStep = false;
     f32 timer = 2.0f; // Seconds until next step
     f32 rate = 0.5f;   // Steps per second
+
+    u32 pointLightCount = 0;
 public:
     BuilderSystem(bool slowStep)
     {
@@ -512,6 +514,23 @@ public:
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
                     BuildPart(scene, ent, t, cuboidMesh, {antennaWidth, antennaWidth, antennaHeight});
                     t->position.z -= antennaWidth / 2;
+
+                    if (pointLightCount < 16)
+                    {
+                        EntityID pointLight = scene->NewEntity();
+                        Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
+                        *pointTransform = *t;
+                        pointTransform->position.z += antennaHeight / 2;
+                        PointLight* pointLightComponent = scene->Assign<PointLight>(pointLight);
+                        pointLightComponent->diffuse = {1, 1, 1};
+                        pointLightComponent->specular = {1, 1, 1};
+                        pointLightComponent->constant = 1;
+                        pointLightComponent->linear = 0.0005;
+                        pointLightComponent->quadratic = 0.00005;
+                        pointLightComponent->maxRange = 1000;
+
+                        pointLightCount++;
+                    }
                 }
 
                 scene->Remove<Plane>(ent);

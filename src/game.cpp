@@ -71,29 +71,29 @@ void GameInitialize(Scene &scene)
 //    pointLightComponent->linear = 0.0005;
 //    pointLightComponent->quadratic = 0.00005;
 //    pointLightComponent->maxRange = 1000;
-
-    EntityID spotLight = scene.NewEntity();
-    Transform3D* spotTransform = scene.Assign<Transform3D>(spotLight);
-    spotTransform->position = {0, -256, 640};
-    spotTransform->rotation = {0, 35, 50};
-    SpotLight* spotLightComponent = scene.Assign<SpotLight>(spotLight);
-    spotLightComponent->diffuse = {1, 1, 1};
-    spotLightComponent->specular = {1, 1, 1};
-    spotLightComponent->innerCone = 25;
-    spotLightComponent->outerCone = 35;
-    spotLightComponent->range = 1000;
-
-
-    EntityID pointLightMarker = scene.NewEntity();
-    MeshComponent* lightCube = scene.Assign<MeshComponent>(pointLightMarker);
-    lightCube->mesh = cuboidMesh;
-    ColorComponent* lightCubeColor = scene.Assign<ColorComponent>(pointLightMarker);
-    lightCubeColor->r = RandInBetween(0.0f, 1.0f);
-    lightCubeColor->g = RandInBetween(0.0f, 1.0f);
-    lightCubeColor->b = RandInBetween(0.0f, 1.0f);
-    Transform3D* pointCubeTransform = scene.Assign<Transform3D>(pointLightMarker);
-    pointCubeTransform->position = spotTransform->position;
-    pointCubeTransform->scale = {32, 32, 32};
+//
+//    EntityID spotLight = scene.NewEntity();
+//    Transform3D* spotTransform = scene.Assign<Transform3D>(spotLight);
+//    spotTransform->position = {0, -256, 640};
+//    spotTransform->rotation = {0, 35, 50};
+//    SpotLight* spotLightComponent = scene.Assign<SpotLight>(spotLight);
+//    spotLightComponent->diffuse = {1, 1, 1};
+//    spotLightComponent->specular = {1, 1, 1};
+//    spotLightComponent->innerCone = 25;
+//    spotLightComponent->outerCone = 35;
+//    spotLightComponent->range = 1000;
+//
+//
+//    EntityID pointLightMarker = scene.NewEntity();
+//    MeshComponent* lightCube = scene.Assign<MeshComponent>(pointLightMarker);
+//    lightCube->mesh = cuboidMesh;
+//    ColorComponent* lightCubeColor = scene.Assign<ColorComponent>(pointLightMarker);
+//    lightCubeColor->r = RandInBetween(0.0f, 1.0f);
+//    lightCubeColor->g = RandInBetween(0.0f, 1.0f);
+//    lightCubeColor->b = RandInBetween(0.0f, 1.0f);
+//    Transform3D* pointCubeTransform = scene.Assign<Transform3D>(pointLightMarker);
+//    pointCubeTransform->position = spotTransform->position;
+//    pointCubeTransform->scale = {32, 32, 32};
 
     scene.InitSystems();
 }
