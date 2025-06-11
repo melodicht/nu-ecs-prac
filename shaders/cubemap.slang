@@ -51,10 +51,10 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
     float4x4 model = object.model;
     Vertex vert = pcs.vertices[vertexID];
     float4 pos = float4(vert.pos, 1.0);
-    float4 worldPos = mul(model, pos);
+    float4 worldPos = mul(pos, model);
 
     VertexOutput output;
-    output.pos = mul(pcs.camera[viewID].proj, mul(pcs.camera[viewID].view, worldPos));
+    output.pos = mul(mul(worldPos, pcs.camera[viewID].view), pcs.camera[viewID].proj);
     output.worldPos = worldPos.xyz;
 
     return output;
