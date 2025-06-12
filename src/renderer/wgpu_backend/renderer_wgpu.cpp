@@ -166,6 +166,243 @@ void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType t
   LOG("Error happened: error " << type);
   if (message.data) LOG("(" << message.data << ")");
 }
+
+CameraID WGPURenderBackend::AddCamera() {
+  u32 retID = m_nextCameraID;
+  m_cameraStore.emplace(std::pair<u32, WGPUCameraData>(retID, WGPUCameraData()));
+  m_nextCameraID++;
+  return retID;
+}
+
+void WGPURenderBackend::SetCamera(CameraID camera) {
+  m_currentCameraID = camera;
+  WGPUCameraData& gotCamera = m_cameraStore[m_currentCameraID];
+  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(WGPUCameraData));
+}
+
+void WGPURenderBackend::UpdateCamera(u32 viewCount, WGPUCameraData* data) {
+  m_cameraStore[m_currentCameraID] = *data;
+  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, data, sizeof(WGPUCameraData));
+}
+
+TextureID WGPURenderBackend::CreateDepthTexture(u32 width, u32 height) {
+  // TODO: kinda unfinished
+  WGPUTextureDescriptor depthTextureDescriptor {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Stored texture view"),
+    .usage = WGPUTextureUsage_RenderAttachment,
+    .dimension = WGPUTextureDimension_2D,
+    .size = {width, height, 1},
+    .format = m_wgpuDepthTextureFormat,
+    .mipLevelCount = 1,
+    .sampleCount = 1,
+    .viewFormatCount = 1,
+    .viewFormats = &m_wgpuDepthTextureFormat,
+  };
+
+  TextureID retID = m_nextTextureID;
+  m_textureStore.emplace(std::pair<TextureID, WGPUTexture>(retID, wgpuDeviceCreateTexture(m_wgpuDevice, &depthTextureDescriptor)));
+  m_nextTextureID++;
+
+  return retID;
+}
+    
+void WGPURenderBackend::DestroyTexture(TextureID textureID) {
+  wgpuTextureDestroy(m_textureStore[textureID]);
+  m_textureStore.erase(textureID);
+}
+
+bool WGPURenderBackend::InitFrame() {
+  #if SKL_ENABLED_EDITOR
+  ImGui_ImplWGPU_NewFrame();
+  #endif
+
+  // Gets current color texture
+  wgpuSurfaceGetCurrentTexture(m_wgpuSurface, &m_surfaceTexture);
+
+  if (m_surfaceTexture.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal) {
+      return false;
+  }
+
+  WGPUTextureViewDescriptor viewDescriptor {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Initializing texture view"),
+    .format = wgpuTextureGetFormat(m_surfaceTexture.texture),
+    .dimension = WGPUTextureViewDimension_2D,
+    .baseMipLevel = 0,
+    .mipLevelCount = 1,
+    .baseArrayLayer = 0,
+    .arrayLayerCount = 1,
+    .aspect = WGPUTextureAspect_All,
+    .usage = WGPUTextureUsage_RenderAttachment
+  };
+
+  m_surfaceTextureView = wgpuTextureCreateView(m_surfaceTexture.texture, &viewDescriptor);
+
+  if(!m_surfaceTextureView)
+  {
+    return false;
+  }
+
+  return true;
+}
+
+void WGPURenderBackend::SetMesh(MeshID meshID) {
+  m_currentMeshID = meshID;
+}
+
+void WGPURenderBackend::EndFrame() {
+  if (m_surfaceTextureView) {
+    wgpuTextureViewRelease(m_surfaceTextureView);
+  }
+
+  #ifndef __EMSCRIPTEN__
+  wgpuSurfacePresent(m_wgpuSurface);
+  wgpuInstanceProcessEvents(m_wgpuInstance);  
+  #else
+    
+  emscripten_sleep(10);
+  #endif
+}
+
+void WGPURenderBackend::SendObjectData(std::vector<WGPUObjectData>& objects) {
+  wgpuQueueWriteBuffer(m_wgpuQueue, m_storageBuffer, 0, objects.data(), sizeof(ObjectData) * objects.size());
+}
+
+void WGPURenderBackend::DrawObjects(int count, int startIndex) {
+  if(m_renderPassActive)
+  {
+      WGPUMesh& gotMesh = m_meshStore[m_currentMeshID];
+      wgpuRenderPassEncoderDrawIndexed(m_renderPassEncoder, gotMesh.m_indexCount, count, gotMesh.m_baseIndex, gotMesh.m_baseVertex, startIndex);
+  }
+}
+
+void WGPURenderBackend::BeginColorPass() {
+  m_renderPassActive = true;
+
+  // Create a command encoder for the draw call
+  WGPUCommandEncoderDescriptor encoderDesc = {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Color Encoder Descriptor")
+  };
+  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+
+  WGPURenderPassColorAttachment startPass {
+    .view = m_surfaceTextureView,
+    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+    .resolveTarget = nullptr,
+    .loadOp = WGPULoadOp_Clear,
+    .storeOp = WGPUStoreOp_Store,
+    .clearValue = WGPUColor{ 0.9, 0.1, 0.2, 1.0 }
+  };
+
+  WGPURenderPassDepthStencilAttachment depthStencilAttachment {
+    .nextInChain = nullptr,
+    .view = m_depthTextureView,
+    .depthLoadOp = WGPULoadOp_Clear,
+    .depthStoreOp = WGPUStoreOp_Store,
+    .depthClearValue = 1.0f,
+    .depthReadOnly = false,
+    .stencilReadOnly = true,
+  };
+
+  WGPURenderPassDescriptor renderPassDescriptor {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Color Pass Descriptor"),
+    .colorAttachmentCount = 1,
+    .colorAttachments = &startPass,
+    .depthStencilAttachment = &depthStencilAttachment,
+    .timestampWrites = nullptr,
+  };
+    
+  m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &renderPassDescriptor);
+
+  wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_wgpuPipeline);
+  wgpuRenderPassEncoderSetBindGroup(m_renderPassEncoder, 0, m_bindGroup, 0, nullptr);
+
+  wgpuRenderPassEncoderSetVertexBuffer(m_renderPassEncoder, 0, m_meshVertexBuffer, 0, sizeof(Vertex) * m_meshTotalVertices);
+  wgpuRenderPassEncoderSetIndexBuffer(m_renderPassEncoder,  m_meshIndexBuffer, WGPUIndexFormat_Uint32, 0, sizeof(u32) * m_meshTotalIndices);
+}
+
+void WGPURenderBackend::EndPass() {
+  if(m_renderPassActive) {
+    m_renderPassActive = false;
+
+    WGPUCameraData& gotCamera = m_cameraStore[m_currentCameraID];
+    wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(WGPUCameraData));
+
+    wgpuRenderPassEncoderEnd(m_renderPassEncoder);
+    wgpuRenderPassEncoderRelease(m_renderPassEncoder);
+  
+    WGPUCommandBufferDescriptor cmdBufferDescriptor = {
+      .nextInChain = nullptr,
+      .label =  wgpuStr("Ending pass command buffer"),
+    };
+  
+    WGPUCommandBuffer passCommand = wgpuCommandEncoderFinish(m_passCommandEncoder, &cmdBufferDescriptor);
+    wgpuCommandEncoderRelease(m_passCommandEncoder);
+  
+    wgpuQueueSubmit(m_wgpuQueue, 1, &passCommand);
+    wgpuCommandBufferRelease(passCommand);
+  }
+}
+
+void WGPURenderBackend::DrawImGui() {
+  #if SKL_ENABLED_EDITOR
+
+  WGPUCommandEncoderDescriptor encoderDesc = {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Imgui Encoder Descriptor")
+  };
+  WGPUCommandEncoder imguiCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+
+  WGPURenderPassColorAttachment meshColorPass {
+    .view = m_surfaceTextureView,
+    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
+    .resolveTarget = nullptr,
+    .loadOp = WGPULoadOp_Load,
+    .storeOp = WGPUStoreOp_Store,
+  };
+
+  WGPURenderPassDepthStencilAttachment depthStencilAttachment {
+    .nextInChain = nullptr,
+    .view = m_depthTextureView,
+    .depthLoadOp = WGPULoadOp_Load,
+    .depthStoreOp = WGPUStoreOp_Store,
+    .depthClearValue = 1.0f,
+    .depthReadOnly = false,
+    .stencilReadOnly = true,
+  };
+
+  WGPURenderPassDescriptor meshPassDesc {
+    .nextInChain = nullptr,
+    .label = wgpuStr("Imgui render pass"),
+    .colorAttachmentCount = 1,
+    .colorAttachments = &meshColorPass,
+    .depthStencilAttachment = &depthStencilAttachment,
+    .timestampWrites = nullptr,
+  };
+
+  WGPURenderPassEncoder imguiPassEncoder = wgpuCommandEncoderBeginRenderPass(imguiCommandEncoder, &meshPassDesc);
+
+  ImGui::Render();
+  ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), imguiPassEncoder);
+
+  wgpuRenderPassEncoderEnd(imguiPassEncoder);
+  wgpuRenderPassEncoderRelease(imguiPassEncoder);
+
+  WGPUCommandBufferDescriptor cmdBufferDescriptor = {
+    .nextInChain = nullptr,
+    .label =  wgpuStr("Imgui Command Buffer"),
+  };
+
+  WGPUCommandBuffer imguiCommand = wgpuCommandEncoderFinish(imguiCommandEncoder, &cmdBufferDescriptor);
+  wgpuCommandEncoderRelease(imguiCommandEncoder);
+
+  wgpuQueueSubmit(m_wgpuQueue, 1, &imguiCommand);
+  wgpuCommandBufferRelease(imguiCommand);
+  #endif
+}
 #pragma endregion
 
 #pragma region Interface Impl
@@ -271,7 +508,7 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   // Creates vertex/index buffers
   WGPUBufferDescriptor vertexBufferDesc {
     .nextInChain = nullptr,
-    .label = wgpuStr("Mesh Vertex Buffer"),
+    .label = wgpuStr("WGPUMesh Vertex Buffer"),
     .usage = WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst | WGPUBufferUsage_CopySrc, // Todo: Check if Copysrc is needed to shift buffer 
     .size = sizeof(Vertex) * m_maxMeshVertSize, // For now we only store vec3 positions
     .mappedAtCreation = false,
@@ -281,7 +518,7 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
 
   WGPUBufferDescriptor indexBufferDesc {
     .nextInChain = nullptr,
-    .label = wgpuStr("Mesh Vertex Buffer"),
+    .label = wgpuStr("WGPUMesh Vertex Buffer"),
     .usage = WGPUBufferUsage_Index | WGPUBufferUsage_CopyDst | WGPUBufferUsage_CopySrc, // Todo: Check if Copysrc is needed to shift buffer 
     .size = sizeof(u32) * m_maxMeshIndexSize, // For now we only store vec3 positions
     .mappedAtCreation = false,
@@ -318,6 +555,9 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
 
   m_depthTextureView = wgpuTextureCreateView(m_depthTexture, &depthViewDescriptor);
 
+  // TEMPORARY
+  m_mainCamID = AddCamera();
+
   // Initializes imgui
   #if SKL_ENABLED_EDITOR
   ImGui_ImplWGPU_InitInfo imguiInit;
@@ -332,7 +572,7 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   #endif
 }
 
-void WGPURenderBackend::InitPipelines(u32 numCascades)
+void WGPURenderBackend::InitPipelines()
 {
   // Loads in shader module
   size_t loadedDatSize;
@@ -464,7 +704,7 @@ void WGPURenderBackend::InitPipelines(u32 numCascades)
   cameraBind.binding = 0;
   cameraBind.visibility = WGPUShaderStage_Vertex;
   cameraBind.buffer.type = WGPUBufferBindingType_Uniform;
-  cameraBind.buffer.minBindingSize = sizeof(CameraData) + 4; // Adjusts for padding of vec3
+  cameraBind.buffer.minBindingSize = sizeof(WGPUCameraData) + 4; // Adjusts for padding of vec3
   bindEntities.push_back( cameraBind );
 
   WGPUBindGroupLayoutEntry objDatBind = DefaultBindLayoutEntry();
@@ -525,7 +765,7 @@ void WGPURenderBackend::InitPipelines(u32 numCascades)
     .nextInChain = nullptr,
     .label = wgpuStr("Uniform Buffer Description"),
     .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform,
-    .size = sizeof(CameraData) + 4, // Adjusts for padding
+    .size = sizeof(WGPUCameraData) + 4, // Adjusts for padding
     .mappedAtCreation = false,
   };
 
@@ -548,7 +788,7 @@ void WGPURenderBackend::InitPipelines(u32 numCascades)
     .binding = 0,
     .buffer = m_cameraBuffer,
     .offset = 0,
-    .size = sizeof(CameraData) + 4, // Adjusts for padding
+    .size = sizeof(WGPUCameraData) + 4, // Adjusts for padding
   };
   bindGroupEntries.push_back(cameraBindEntry);
 
@@ -584,7 +824,7 @@ MeshID WGPURenderBackend::UploadMesh(MeshAsset &asset) {
 
 MeshID WGPURenderBackend::UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices) {
   u32 retInt = m_nextMeshID;
-  m_meshStore.emplace(std::pair<u32, Mesh>(retInt, Mesh(m_meshTotalIndices, m_meshTotalVertices, indexCount, vertCount)));
+  m_meshStore.emplace(std::pair<u32, WGPUMesh>(retInt, WGPUMesh(m_meshTotalIndices, m_meshTotalVertices, indexCount, vertCount)));
   
   wgpuQueueWriteBuffer(m_wgpuQueue, m_meshVertexBuffer, sizeof(Vertex) * m_meshTotalVertices, vertices, sizeof(Vertex) * vertCount);
   wgpuQueueWriteBuffer(m_wgpuQueue, m_meshIndexBuffer, sizeof(u32) * m_meshTotalIndices, indices, sizeof(u32) * indexCount);
@@ -596,246 +836,8 @@ MeshID WGPURenderBackend::UploadMesh(u32 vertCount, Vertex* vertices, u32 indexC
   return retInt;
 }
 
-bool WGPURenderBackend::InitFrame() {
-  #if SKL_ENABLED_EDITOR
-  ImGui_ImplWGPU_NewFrame();
-  #endif
-
-  // Gets current color texture
-  wgpuSurfaceGetCurrentTexture(m_wgpuSurface, &m_surfaceTexture);
-
-  if (m_surfaceTexture.status != WGPUSurfaceGetCurrentTextureStatus_SuccessOptimal) {
-      return false;
-  }
-
-  WGPUTextureViewDescriptor viewDescriptor {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Initializing texture view"),
-    .format = wgpuTextureGetFormat(m_surfaceTexture.texture),
-    .dimension = WGPUTextureViewDimension_2D,
-    .baseMipLevel = 0,
-    .mipLevelCount = 1,
-    .baseArrayLayer = 0,
-    .arrayLayerCount = 1,
-    .aspect = WGPUTextureAspect_All,
-    .usage = WGPUTextureUsage_RenderAttachment
-  };
-
-  m_surfaceTextureView = wgpuTextureCreateView(m_surfaceTexture.texture, &viewDescriptor);
-
-  if(!m_surfaceTextureView)
-  {
-    return false;
-  }
-
-  return true;
-}
-
-void WGPURenderBackend::SetMesh(MeshID meshID) {
-  m_currentMeshID = meshID;
-}
-
-void WGPURenderBackend::EndFrame() {
-  if (m_surfaceTextureView) {
-    wgpuTextureViewRelease(m_surfaceTextureView);
-  }
-
-  #ifndef __EMSCRIPTEN__
-  wgpuSurfacePresent(m_wgpuSurface);
-  wgpuInstanceProcessEvents(m_wgpuInstance);  
-  #else
-    
-  emscripten_sleep(10);
-  #endif
-}
-
-void WGPURenderBackend::SendObjectData(std::vector<ObjectData>& objects) {
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_storageBuffer, 0, objects.data(), sizeof(ObjectData) * objects.size());
-}
-
-void WGPURenderBackend::DrawObjects(int count, int startIndex) {
-  if(m_renderPassActive)
-  {
-      Mesh& gotMesh = m_meshStore[m_currentMeshID];
-      wgpuRenderPassEncoderDrawIndexed(m_renderPassEncoder, gotMesh.m_indexCount, count, gotMesh.m_baseIndex, gotMesh.m_baseVertex, startIndex);
-  }
-}
-
-void WGPURenderBackend::BeginColorPass(CullMode cullMode) {
-  m_renderPassActive = true;
-
-  // Create a command encoder for the draw call
-  WGPUCommandEncoderDescriptor encoderDesc = {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Color Encoder Descriptor")
-  };
-  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
-
-  WGPURenderPassColorAttachment startPass {
-    .view = m_surfaceTextureView,
-    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
-    .resolveTarget = nullptr,
-    .loadOp = WGPULoadOp_Clear,
-    .storeOp = WGPUStoreOp_Store,
-    .clearValue = WGPUColor{ 0.9, 0.1, 0.2, 1.0 }
-  };
-
-  WGPURenderPassDepthStencilAttachment depthStencilAttachment {
-    .nextInChain = nullptr,
-    .view = m_depthTextureView,
-    .depthLoadOp = WGPULoadOp_Clear,
-    .depthStoreOp = WGPUStoreOp_Store,
-    .depthClearValue = 1.0f,
-    .depthReadOnly = false,
-    .stencilReadOnly = true,
-  };
-
-  WGPURenderPassDescriptor renderPassDescriptor {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Color Pass Descriptor"),
-    .colorAttachmentCount = 1,
-    .colorAttachments = &startPass,
-    .depthStencilAttachment = &depthStencilAttachment,
-    .timestampWrites = nullptr,
-  };
-    
-  m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &renderPassDescriptor);
-
-  wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_wgpuPipeline);
-  wgpuRenderPassEncoderSetBindGroup(m_renderPassEncoder, 0, m_bindGroup, 0, nullptr);
-
-  wgpuRenderPassEncoderSetVertexBuffer(m_renderPassEncoder, 0, m_meshVertexBuffer, 0, sizeof(Vertex) * m_meshTotalVertices);
-  wgpuRenderPassEncoderSetIndexBuffer(m_renderPassEncoder,  m_meshIndexBuffer, WGPUIndexFormat_Uint32, 0, sizeof(u32) * m_meshTotalIndices);
-}
-
-void WGPURenderBackend::EndPass() {
-  if(m_renderPassActive) {
-    m_renderPassActive = false;
-
-    CameraData& gotCamera = m_cameraStore[m_currentCameraID];
-    wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
-
-    wgpuRenderPassEncoderEnd(m_renderPassEncoder);
-    wgpuRenderPassEncoderRelease(m_renderPassEncoder);
-  
-    WGPUCommandBufferDescriptor cmdBufferDescriptor = {
-      .nextInChain = nullptr,
-      .label =  wgpuStr("Ending pass command buffer"),
-    };
-  
-    WGPUCommandBuffer passCommand = wgpuCommandEncoderFinish(m_passCommandEncoder, &cmdBufferDescriptor);
-    wgpuCommandEncoderRelease(m_passCommandEncoder);
-  
-    wgpuQueueSubmit(m_wgpuQueue, 1, &passCommand);
-    wgpuCommandBufferRelease(passCommand);
-  }
-}
-
-CameraID WGPURenderBackend::AddCamera(u32 viewCount) {
-  u32 retID = m_nextCameraID;
-  m_cameraStore.emplace(std::pair<u32, CameraData>(retID, CameraData()));
-  m_nextCameraID++;
-  return retID;
-}
-
-void WGPURenderBackend::SetCamera(CameraID camera) {
-  m_currentCameraID = camera;
-  CameraData& gotCamera = m_cameraStore[m_currentCameraID];
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
-}
-
-void WGPURenderBackend::UpdateCamera(u32 viewCount, CameraData* data) {
-  m_cameraStore[m_currentCameraID] = *data;
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, data, sizeof(CameraData));
-}
-
-
-void WGPURenderBackend::DrawImGui() {
-  #if SKL_ENABLED_EDITOR
-
-  WGPUCommandEncoderDescriptor encoderDesc = {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Imgui Encoder Descriptor")
-  };
-  WGPUCommandEncoder imguiCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
-
-  WGPURenderPassColorAttachment meshColorPass {
-    .view = m_surfaceTextureView,
-    .depthSlice = WGPU_DEPTH_SLICE_UNDEFINED,
-    .resolveTarget = nullptr,
-    .loadOp = WGPULoadOp_Load,
-    .storeOp = WGPUStoreOp_Store,
-  };
-
-  WGPURenderPassDepthStencilAttachment depthStencilAttachment {
-    .nextInChain = nullptr,
-    .view = m_depthTextureView,
-    .depthLoadOp = WGPULoadOp_Load,
-    .depthStoreOp = WGPUStoreOp_Store,
-    .depthClearValue = 1.0f,
-    .depthReadOnly = false,
-    .stencilReadOnly = true,
-  };
-
-  WGPURenderPassDescriptor meshPassDesc {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Imgui render pass"),
-    .colorAttachmentCount = 1,
-    .colorAttachments = &meshColorPass,
-    .depthStencilAttachment = &depthStencilAttachment,
-    .timestampWrites = nullptr,
-  };
-
-  WGPURenderPassEncoder imguiPassEncoder = wgpuCommandEncoderBeginRenderPass(imguiCommandEncoder, &meshPassDesc);
-
-  ImGui::Render();
-  ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), imguiPassEncoder);
-
-  wgpuRenderPassEncoderEnd(imguiPassEncoder);
-  wgpuRenderPassEncoderRelease(imguiPassEncoder);
-
-  WGPUCommandBufferDescriptor cmdBufferDescriptor = {
-    .nextInChain = nullptr,
-    .label =  wgpuStr("Imgui Command Buffer"),
-  };
-
-  WGPUCommandBuffer imguiCommand = wgpuCommandEncoderFinish(imguiCommandEncoder, &cmdBufferDescriptor);
-  wgpuCommandEncoderRelease(imguiCommandEncoder);
-
-  wgpuQueueSubmit(m_wgpuQueue, 1, &imguiCommand);
-  wgpuCommandBufferRelease(imguiCommand);
-  #endif
-}
-
-TextureID WGPURenderBackend::CreateDepthTexture(u32 width, u32 height) {
-  // TODO: kinda unfinished
-  WGPUTextureDescriptor depthTextureDescriptor {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Stored texture view"),
-    .usage = WGPUTextureUsage_RenderAttachment,
-    .dimension = WGPUTextureDimension_2D,
-    .size = {width, height, 1},
-    .format = m_wgpuDepthTextureFormat,
-    .mipLevelCount = 1,
-    .sampleCount = 1,
-    .viewFormatCount = 1,
-    .viewFormats = &m_wgpuDepthTextureFormat,
-  };
-
-  TextureID retID = m_nextTextureID;
-  m_textureStore.emplace(std::pair<TextureID, WGPUTexture>(retID, wgpuDeviceCreateTexture(m_wgpuDevice, &depthTextureDescriptor)));
-  m_nextTextureID++;
-
-  return retID;
-}
-    
-void WGPURenderBackend::DestroyTexture(TextureID textureID) {
-  wgpuTextureDestroy(m_textureStore[textureID]);
-  m_textureStore.erase(textureID);
-}
-
 void WGPURenderBackend::DestroyMesh(MeshID meshID) {
-  Mesh& gotMesh = m_meshStore[meshID];
+  WGPUMesh& gotMesh = m_meshStore[meshID];
 
   // Wipes out mesh on buffer side
   WGPUCommandEncoderDescriptor destroyMeshDescriptor {
@@ -863,9 +865,9 @@ void WGPURenderBackend::DestroyMesh(MeshID meshID) {
   );
 
   // Readjusts mesh cpu side descriptors
-  for (std::pair<MeshID, Mesh> meshIter : m_meshStore) {
+  for (std::pair<MeshID, WGPUMesh> meshIter : m_meshStore) {
     if(meshIter.first > meshID) {
-      Mesh& editMesh = meshIter.second;
+      WGPUMesh& editMesh = meshIter.second;
       editMesh.m_baseIndex -= gotMesh.m_indexCount;
       editMesh.m_baseVertex -= gotMesh.m_vertexCount;
     }
@@ -876,5 +878,31 @@ void WGPURenderBackend::DestroyMesh(MeshID meshID) {
 
   // Removes mesh cpu side descriptors
   m_meshStore.erase(meshID);
+}
+
+void WGPURenderBackend::RenderUpdate(WGPURenderState& state) {
+  if (!InitFrame())
+  {
+      return;
+  }
+
+  SendObjectData(state.m_objData);
+
+  SetCamera(m_mainCamID);
+  UpdateCamera(1, &state.m_mainCam);
+
+  BeginColorPass();
+
+  u32 startIndex = 0;
+  for (std::pair<MeshID, u32> pair : state.m_meshCounts)
+  {
+      SetMesh(pair.first);
+      DrawObjects(pair.second, startIndex);
+      startIndex += pair.second;
+  }
+
+  DrawImGui();
+  EndPass();
+  EndFrame();
 }
 #pragma endregion

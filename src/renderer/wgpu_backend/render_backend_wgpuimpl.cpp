@@ -1,104 +1,89 @@
 #include "renderer/render_backend.h"
 
-#include "renderer/wgpu_backend/renderer_wgpu.h"
+#include <map>
+#include <random>
 
-// This is done to force encapsulation of the wgpu renderer
+#include "renderer/wgpu_backend/renderer_wgpu.h"
+#include "math/math_utils.cpp"
+
+
+// This is done to force encapsulation of the wgpu renderer and renderer types
 static WGPURenderBackend wgpuRenderer;
 
-// Uses composition to align more object oriented approach of web gpu backend to align with forward compilation 
-
 SDL_WindowFlags GetRenderWindowFlags() {
-    return wgpuRenderer.GetRenderWindowFlags();
+    return 0;
 }
 
-void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
-    wgpuRenderer.InitRenderer(window, startWidth, startHeight);
+void InitRenderer(RenderInitDescriptor& desc) {
+    wgpuRenderer.InitRenderer(desc.window, desc.startWidth, desc.startHeight);
 }
 
-void InitPipelines(u32 numCascades) {
-    wgpuRenderer.InitPipelines(numCascades);
+void InitPipelines(RenderPipelineInitDescriptor& desc) {
+    wgpuRenderer.InitPipelines();
 }
 
-u32 UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices) {
-    return wgpuRenderer.UploadMesh(vertCount, vertices, indexCount, indices);
+MeshID UploadMesh(RenderUploadMeshDescriptor& desc) {
+    return wgpuRenderer.UploadMesh(desc.meshAsset);
 }
 
-u32 UploadMesh(MeshAsset &asset) {
-    return wgpuRenderer.UploadMesh(asset);
+void DestroyMesh(RenderDestroyMeshDescriptor& desc) {
+    wgpuRenderer.DestroyMesh(desc.meshID);
 }
 
-CameraID AddCamera(u32 viewCount) { 
-    return wgpuRenderer.AddCamera(viewCount);
-}
+// This compiles information from scene to be plugged into renderer
+void RenderUpdate(RenderUpdateDescriptor& desc) {
+    WGPURenderState sendState;
+    Scene* scene = desc.scene;
 
-TextureID CreateDepthTexture(u32 width, u32 height) { 
-    return wgpuRenderer.CreateDepthTexture(width, height); 
-}
+    // 1. Gather counts of each unique mesh pointer.
+    sendState.m_meshCounts = std::map<MeshID, u32>();
+    for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
+    {
+        MeshComponent *m = scene->Get<MeshComponent>(ent);
+        ++sendState.m_meshCounts[m->mesh];
+    }
 
-void DestroyTexture(TextureID textureID) { 
-    wgpuRenderer.DestroyTexture(textureID);
-}
+    // 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
+    // 3. Get pointers to the start of each segment of unique mesh pointer.
+    u32 totalCount = 0;
+    std::unordered_map<MeshID, u32> offsets;
+    for (std::pair<MeshID, u32> pair: sendState.m_meshCounts)
+    {
+        offsets[pair.first] = totalCount;
+        totalCount += pair.second;
+    }
 
-void DestroyMesh(u32 meshID) {
-    wgpuRenderer.DestroyMesh(meshID);
-}
+    sendState.m_objData = std::vector<WGPUObjectData>(totalCount);
 
-bool InitFrame() {
-    return wgpuRenderer.InitFrame();
-}
+    // 4. Iterate through scene view once more and fill in the fixed size array.
+    for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
+    {
+        Transform3D *t = scene->Get<Transform3D>(ent);
+        glm::mat4 model = GetTransformMatrix(t);
+        MeshComponent *m = scene->Get<MeshComponent>(ent);
+        MeshID mesh = m->mesh;
+        ColorComponent *c = scene->Get<ColorComponent>(ent);
 
-void SetCamera(CameraID camera) {
-    wgpuRenderer.SetCamera(camera);
-}
+        sendState.m_objData[offsets[mesh]++] = {model, glm::vec4(c->r, c->g, c->b, 1.0f)};
+    }
 
-void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture) {
-    wgpuRenderer.SetDirLight(cascades, lightDir, texture);
-}
+    // Finds main camera view
+    SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
+    if (cameraView.begin() == cameraView.end())
+    {
+        return;
+    }
 
-void UpdateCamera(u32 viewCount, CameraData* views) {
-    wgpuRenderer.UpdateCamera(viewCount, views);
-}
+    EntityID cameraEnt = *cameraView.begin();
+    CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
+    Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
+    glm::mat4 view = GetViewMatrix(cameraTransform);
+    f32 aspect = (f32)desc.screenWidth / (f32)desc.screenHeight;
 
-void BeginDepthPass(CullMode cullMode) {
-    wgpuRenderer.BeginDepthPass(cullMode);
-}
+    glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 
-void BeginShadowPass(TextureID target, CullMode cullMode) {
-    wgpuRenderer.BeginShadowPass(target, cullMode);
-}
+    sendState.m_mainCam = {view, proj, cameraTransform->position};
 
-void BeginCascadedPass(TextureID target, CullMode cullMode) {
-    wgpuRenderer.BeginCascadedPass(target, cullMode);
-}
-
-void BeginColorPass(CullMode cullMode) {
-    wgpuRenderer.BeginColorPass(cullMode);
-}
-
-void EndPass() {
-    wgpuRenderer.EndPass();
-}
-
-void DrawImGui() {
-    wgpuRenderer.DrawImGui();
-}
-
-void SetMesh(MeshID meshID) {
-    wgpuRenderer.SetMesh(meshID);
-}
-
-void SendObjectData(std::vector<ObjectData>& objects) {
-    wgpuRenderer.SendObjectData(objects);
-}
-
-void EndFrame() {
-    wgpuRenderer.EndFrame();
-}
-
-void DrawObjects(int count, int startIndex) {
-    wgpuRenderer.DrawObjects(count, startIndex);
-}
-
-TextureID CreateDepthArray(u32 width, u32 height, u32 layers) {
-    return wgpuRenderer.CreateDepthArray(width, height, layers);
+    // Finally sends compiled scene information to be processed by renderer
+    wgpuRenderer.RenderUpdate(sendState);
 }

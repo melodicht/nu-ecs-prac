@@ -1,3 +1,7 @@
+#pragma once
+
+#include "math/math_consts.h"
+
 #include <vector>
 #include <bitset>
 

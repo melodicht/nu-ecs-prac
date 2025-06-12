@@ -111,164 +111,23 @@ class RenderSystem : public System
 
     void OnStart(Scene *scene)
     {
-        InitPipelines(NUM_CASCADES);
+        RenderPipelineInitDescriptor initDesc {
+            .numCascades = NUM_CASCADES
+        };
 
-        dirShadowMap = CreateDepthArray(2048, 2048, NUM_CASCADES);
-        lightTransform.rotation = {0, 30, 120};
-
-        mainCam = AddCamera(2);
-        dirLightCam = AddCamera(NUM_CASCADES);
+        InitPipelines(initDesc);
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
     {
-        if (!InitFrame())
-        {
-            return;
-        }
+        RenderUpdateDescriptor updateDesc {
+            .scene = scene,
+            .screenWidth = (u32)windowWidth,
+            .screenHeight = (u32)windowHeight,
+            .deltaTime = deltaTime
+        };
 
-        // 1. Gather counts of each unique mesh pointer.
-        std::map<MeshID, u32> meshCounts;
-        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
-        {
-            MeshComponent *m = scene->Get<MeshComponent>(ent);
-            ++meshCounts[m->mesh];  // TODO: Verify the legitness of this
-        }
-
-        // 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
-        // 3. Get pointers to the start of each segment of unique mesh pointer.
-        u32 totalCount = 0;
-        std::unordered_map<MeshID, u32> offsets;
-        for (std::pair<MeshID, u32> pair: meshCounts)
-        {
-            offsets[pair.first] = totalCount;
-            totalCount += pair.second;
-        }
-
-        std::vector<ObjectData> objects(totalCount);
-
-        // 4. Iterate through scene view once more and fill in the fixed size array.
-        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
-        {
-            Transform3D *t = scene->Get<Transform3D>(ent);
-            glm::mat4 model = GetTransformMatrix(t);
-            MeshComponent *m = scene->Get<MeshComponent>(ent);
-            MeshID mesh = m->mesh;
-            ColorComponent *c = scene->Get<ColorComponent>(ent);
-
-            objects[offsets[mesh]++] = {model, glm::vec4(c->r, c->g, c->b, 1.0f)};
-        }
-
-        SendObjectData(objects);
-
-        lightTransform.rotation.z += deltaTime * 45.0f;
-
-        // Get the main camera view
-
-        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
-        if (cameraView.begin() == cameraView.end())
-        {
-            return;
-        }
-
-        EntityID cameraEnt = *cameraView.begin();
-        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
-        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
-        glm::mat4 view = GetViewMatrix(cameraTransform);
-        f32 aspect = (f32)windowWidth / (f32)windowHeight;
-
-        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
-
-        // Calculate cascaded shadow views
-
-        std::vector<CameraData> lightViews;
-
-        f32 subFrustumSize = (camera->far - camera->near) / NUM_CASCADES;
-
-        f32 currentNear = camera->near;
-
-        glm::mat4 lightView = GetViewMatrix(&lightTransform);
-
-        LightCascade cascades[NUM_CASCADES];
-
-        for (int i = 0; i < NUM_CASCADES; i++)
-        {
-            glm::mat4 subProj = glm::perspective(glm::radians(camera->fov), aspect,
-                                                 currentNear, currentNear + subFrustumSize);
-            currentNear += subFrustumSize;
-
-            f32 minX = std::numeric_limits<f32>::max();
-            f32 maxX = std::numeric_limits<f32>::lowest();
-            f32 minY = std::numeric_limits<f32>::max();
-            f32 maxY = std::numeric_limits<f32>::lowest();
-            f32 minZ = std::numeric_limits<f32>::max();
-            f32 maxZ = std::numeric_limits<f32>::lowest();
-
-            std::vector<glm::vec4> corners = getFrustumCorners(subProj, view);
-
-            for (const glm::vec3& v : corners)
-            {
-                const glm::vec4 trf = lightView * glm::vec4(v, 1.0);
-                minX = std::min(minX, trf.x);
-                maxX = std::max(maxX, trf.x);
-                minY = std::min(minY, trf.y);
-                maxY = std::max(maxY, trf.y);
-                minZ = std::min(minZ, trf.z);
-                maxZ = std::max(maxZ, trf.z);
-            }
-
-            glm::mat4 lightProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-
-            lightViews.push_back({lightView, lightProj, {}});
-
-            cascades[i] = {lightProj * lightView, currentNear};
-        }
-
-        glm::vec3 lightDir = GetForwardVector(&lightTransform);
-
-        BeginCascadedPass(dirShadowMap, CullMode::BACK);
-
-        SetCamera(dirLightCam);
-        UpdateCamera(lightViews.size(), lightViews.data());
-
-        int startIndex = 0;
-        for (std::pair<MeshID, u32> pair: meshCounts)
-        {
-            SetMesh(pair.first);
-            DrawObjects(pair.second, startIndex);
-            startIndex += pair.second;
-        }
-        EndPass();
-
-        BeginDepthPass(CullMode::BACK);
-
-        SetCamera(mainCam);
-        CameraData mainCamData = {view, proj, cameraTransform->position};
-        UpdateCamera(1, &mainCamData);
-
-        startIndex = 0;
-        for (std::pair<MeshID, u32> pair: meshCounts)
-        {
-            SetMesh(pair.first);
-            DrawObjects(pair.second, startIndex);
-            startIndex += pair.second;
-        }
-        EndPass();
-
-        BeginColorPass(CullMode::BACK);
-
-        SetDirLight(cascades, lightDir, dirShadowMap);
-
-        startIndex = 0;
-        for (std::pair<MeshID, u32> pair: meshCounts)
-        {
-            SetMesh(pair.first);
-            DrawObjects(pair.second, startIndex);
-            startIndex += pair.second;
-        }
-        DrawImGui();
-        EndPass();
-        EndFrame();
+        RenderUpdate(updateDesc);
     }
 };
 

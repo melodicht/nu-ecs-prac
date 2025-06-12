@@ -1,10 +1,3 @@
-struct Transform3D
-{
-    glm::vec3 position;
-    glm::vec3 rotation;
-    glm::vec3 scale = glm::vec3(1);
-};
-
 glm::mat4 GetRotationMatrix(Transform3D *transform)
 {
     glm::quat aroundX = glm::angleAxis(glm::radians(transform->rotation.x), glm::vec3(1.0, 0.0, 0.0));

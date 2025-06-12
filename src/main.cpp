@@ -51,7 +51,7 @@ std::unordered_map<std::string, bool> keysDown;
 f32 mouseDeltaX = 0;
 f32 mouseDeltaY = 0;
 
-#include "ecs.cpp"
+#include "ecs.h"
 
 #include "game.h"
 #include "systems.cpp"
@@ -166,7 +166,12 @@ int main()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    InitRenderer(window, WINDOW_WIDTH, WINDOW_HEIGHT);
+    RenderInitDescriptor initDesc {
+        .window = window,
+        .startWidth = WINDOW_WIDTH,
+        .startHeight = WINDOW_HEIGHT
+    };
+    InitRenderer(initDesc);
 
     Scene scene;
     GameInitialize(scene);

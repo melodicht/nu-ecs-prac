@@ -3,16 +3,27 @@
 void GameInitialize(Scene &scene)
 {
     bool slowStep = false;
+    
+    RenderUploadMeshDescriptor cuboidAssetDesc {
+        .meshAsset = LoadMeshAsset("models/cube.glb")
+    };
 
-    MeshAsset cuboidAsset = LoadMeshAsset("models/cube.glb");
-    MeshAsset trapAsset = LoadMeshAsset("models/trap.glb");
-    MeshAsset pyraAsset = LoadMeshAsset("models/pyra.glb");
-    MeshAsset prismAsset = LoadMeshAsset("models/prism.glb");
+    RenderUploadMeshDescriptor trapAssetDesc {
+        .meshAsset = LoadMeshAsset("models/trap.glb")
+    };
 
-    cuboidMesh = UploadMesh(cuboidAsset);
-    trapMesh = UploadMesh(trapAsset);
-    pyraMesh = UploadMesh(pyraAsset);
-    prismMesh = UploadMesh(prismAsset);
+    RenderUploadMeshDescriptor pyraAssetDesc {
+        .meshAsset = LoadMeshAsset("models/pyra.glb")
+    };
+
+    RenderUploadMeshDescriptor prismAssetDesc {
+        .meshAsset =  LoadMeshAsset("models/prism.glb")
+    };
+
+    cuboidMesh = UploadMesh(cuboidAssetDesc);
+    trapMesh = UploadMesh(trapAssetDesc);
+    pyraMesh = UploadMesh(pyraAssetDesc);
+    prismMesh = UploadMesh(prismAssetDesc);
 
 
     RenderSystem *renderSys = new RenderSystem();

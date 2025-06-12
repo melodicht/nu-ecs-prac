@@ -1,5 +1,9 @@
 #pragma once
 
+#include "renderer/render_types.h"
+#include "ecs.h"
+#include "SDL3/SDL.h"
+
 void GameInitialize(Scene &scene);
 
 void GameUpdateAndRender(Scene &scene, SDL_Window *window, SDL_Renderer *renderer);
@@ -10,10 +14,10 @@ void GameUpdateAndRender(Scene &scene, SDL_Window *window, SDL_Renderer *rendere
 #define GRAVITY_MIN 0.25
 #define GRAVITY_MAX 0.5
 
-uint32_t cuboidMesh;
-uint32_t trapMesh;
-uint32_t pyraMesh;
-uint32_t prismMesh;
+u32 cuboidMesh;
+u32 trapMesh;
+u32 pyraMesh;
+u32 prismMesh;
 
 struct Rigidbody
 {
