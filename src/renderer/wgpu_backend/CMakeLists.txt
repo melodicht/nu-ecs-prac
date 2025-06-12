@@ -18,11 +18,8 @@ if(EMSCRIPTEN)
         CPMAddPackage(NAME emdawn URL "https://github.com/google/dawn/releases/download/v20250519.170457/emdawnwebgpu_pkg-v20250519.170457.zip")
         set(emdawn_ROOT "${emdawn_SOURCE_DIR}")
         target_link_options(webgpu INTERFACE 
-                -sASSERTIONS
                 -sUSE_SDL=3
                 -sASYNCIFY
-                -O0
-                -EMCC_DEBUG=1
                 -sALLOW_MEMORY_GROWTH
                 --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
                 --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
