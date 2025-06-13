@@ -166,7 +166,12 @@ int main()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    InitRenderer(window, WINDOW_WIDTH, WINDOW_HEIGHT);
+    RenderInitDescriptor initDesc {
+        .window = window,
+        .startWidth = WINDOW_WIDTH,
+        .startHeight = WINDOW_HEIGHT
+    };
+    InitRenderer(initDesc);
 
     Scene scene;
     GameInitialize(scene);
