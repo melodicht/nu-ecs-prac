@@ -20,9 +20,6 @@
 // Allows for encapsulation of WebGPU render capabilities
 class WGPURenderBackend {
 private:
-    u32 m_screenWidth{ 0 };
-    u32 m_screenHeight{ 0 };
-
     // WGPU objects that remains important throughout rendering 
     // from init to destruction
     WGPUInstance m_wgpuInstance{ };
@@ -38,19 +35,20 @@ private:
     // Represents limits of gpu storage
     u32 m_maxObjArraySize{ 4096 }; // TODO: Fill with number informed by limits
     u32 m_maxMeshVertSize{ 4096 }; // TODO: Fill with number informed by limits
+    u32 m_maxMeshIndexSize{ 4096 }; // TODO: Fill with number informed by limits
 
-    bool m_doingColorPass{ false }; // Currently does nothing happens whatsoever if it isn't a color pass
     // Depth stuff will come later
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
-    WGPUTextureView m_surfaceTextureView{ };
-    WGPUSurfaceTexture m_surfaceTexture{ };
+    WGPUTextureView m_surfaceTextureView{ }; 
     WGPUTextureView m_depthTextureView{ };
+    WGPUSurfaceTexture m_surfaceTexture{ };
     WGPUTexture m_depthTexture{ };
-    WGPUTextureView m_depthTextureFormat{ };
-    WGPUCommandEncoder m_meshCommandEncoder{ };
-    WGPURenderPassEncoder m_meshPassEncoder{ };
-    bool m_meshBufferActive{ }; // Determines whether current mesh commands needs to end for another to continue
+
+    // Represents the commands of a 
+    WGPUCommandEncoder m_passCommandEncoder{ };
+    WGPURenderPassEncoder m_renderPassEncoder{ };
+    bool m_renderPassActive{ false };
 
     // Defines part of default pipeline
     WGPUBindGroup m_bindGroup{ };
@@ -59,26 +57,30 @@ private:
     WGPUBuffer m_instanceIndexBuffer{ };
     WGPUBuffer m_storageBuffer{ };
 
-    // Stores mesh information
-    WGPUBuffer m_meshVertexBuffer;
-    WGPUBuffer m_meshIndexBuffer;
-    u32 m_meshTotalVertices;
-    u32 m_meshTotalIndices;
+    WGPUBuffer m_meshVertexBuffer{ };
+    WGPUBuffer m_meshIndexBuffer{ };
+    u32 m_meshTotalVertices{ 0 };
+    u32 m_meshTotalIndices{ 0 };
+    // Currently mesh deletion logic requires that meshes with greater MeshID's to correspond to older mesh stores
     std::unordered_map<MeshID, Mesh> m_meshStore{ };
 
     std::unordered_map<CameraID, CameraData> m_cameraStore{ };
-    MeshID m_nextMeshID{ 0 };        // The mesh ID of the next mesh that will be created
-    CameraID m_nextCameraID{ 0 };    // The camera ID of the next camera that will be created
+
+    std::unordered_map<TextureID, WGPUTexture> m_textureStore{ };
+
+    // The id of the next obj that will be created
+    MeshID m_nextMeshID{ 0 }; 
+    CameraID m_nextCameraID{ 0 };
+    TextureID m_nextTextureID{ 0 };
+
+    // The id currently being set at
     MeshID m_currentMeshID{ 0 };     // The mesh currently being drawn in frame loop
     CameraID m_currentCameraID{ 0 }; // The camera currently being viewed from
-
+    
     void printDeviceSpecs();
 
     // Translates a c_string to a wgpu string view
     static WGPUStringView wgpuStr(const char* str);
-
-    // Ends current mesh pass if exists
-    void EndMeshPass();
 
     // The following getters occur asynchronously in wgpu but is awaited for by these functions
     static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);
@@ -116,11 +118,11 @@ public:
     // Designates a camera as part of the render pass 
     CameraID AddCamera(u32 viewCount);
 
-    TextureID CreateDepthTexture(u32 width, u32 height) { return 0; }
+    TextureID CreateDepthTexture(u32 width, u32 height);
     
-    void DestroyTexture(TextureID textureID) { };
+    void DestroyTexture(TextureID textureID);
 
-    void DestroyMesh(MeshID meshID) { }
+    void DestroyMesh(MeshID meshID);
 
     // Establishes that the following commands apply to a new frame
     bool InitFrame();
