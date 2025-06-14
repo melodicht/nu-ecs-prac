@@ -20,13 +20,18 @@ target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
 target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
 
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
-add_library(imgui SHARED ${imgui_sources})
+add_library(imgui STATIC ${imgui_sources})
 target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 list(APPEND SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 
 target_link_libraries(DEPENDENCIES INTERFACE imgui)
 
 # Sets up compilation options
+
+# Determines whether to use default Slang build, or use the GLSL alternative
+if(NOT DEFINED DEFAULT_SLANG)
+       option(DEFAULT_SLANG "Use the default Slang build" ON)
+endif()
 
 # Determines which rendering backend is used
 if(NOT DEFINED SKL_RENDER_SYS)
@@ -113,7 +118,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         add_definitions(-DIMGUI_IMPL_VULKAN_USE_VOLK)
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
-        add_library(vulkan-backend SHARED
+        add_library(vulkan-backend STATIC
                 ${VULKAN_SRC_DIR}/renderer_vk.cpp
                 ${VULKAN_SRC_DIR}/VkBootstrap.cpp
                 ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
@@ -130,6 +135,10 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         target_compile_definitions(DEPENDENCIES INTERFACE
                 SKL_RENDERER=0
         )
+        target_compile_definitions(vulkan-backend PRIVATE
+                DEFAULT_SLANG=${DEFAULT_SLANG}
+        )
+        
 
         target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
 
@@ -182,7 +191,7 @@ if(NOT EMSCRIPTEN)
         endif()
 
         # Includes shaders in build
-        if(SKL_RENDER_SYS STREQUAL "Vulkan")
+        if(SKL_RENDER_SYS STREQUAL "Vulkan" AND DEFAULT_SLANG EQUAL ON)
                 set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
                 set(SHADERS_OUT_DIR "${BUILD_DIR}/shaders")
 

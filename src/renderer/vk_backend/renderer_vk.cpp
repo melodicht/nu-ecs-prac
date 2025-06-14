@@ -608,6 +608,28 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     }
 }
 
+// Also checks that the creation of the shader module is good.
+VkShaderModule CreateShaderModuleFromFile(const char *FilePath)
+{
+    VkShaderModuleCreateInfo shaderInfo{};
+    shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    void *shaderFile = SDL_LoadFile(FilePath, &shaderInfo.codeSize);
+    shaderInfo.pCode = reinterpret_cast<const u32*>(shaderFile);
+    VkShaderModule shaderModule;
+    VK_CHECK(vkCreateShaderModule(device, &shaderInfo, nullptr, &shaderModule));
+    return shaderModule;
+}
+
+VkPipelineShaderStageCreateInfo CreateStageInfo(VkShaderStageFlagBits shaderStage, VkShaderModule shaderModule, const char *entryPointName)
+{
+    VkPipelineShaderStageCreateInfo stageInfo{};
+    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageInfo.stage = shaderStage;
+    stageInfo.module = shaderModule;
+    stageInfo.pName = entryPointName;
+    return stageInfo;
+}
+
 void InitPipelines(u32 cascades)
 {
     numCascades = cascades;
@@ -654,59 +676,40 @@ void InitPipelines(u32 cascades)
     }
 
     // Create shader stages
-    VkShaderModuleCreateInfo depthShaderInfo{};
-    depthShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *depthShaderFile = SDL_LoadFile("shaders/depth.spv", &depthShaderInfo.codeSize);
+#if DEFAULT_SLANG
+    VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.spv");
     
-    depthShaderInfo.pCode = reinterpret_cast<const u32*>(depthShaderFile);
-    VkShaderModule depthShader;
-    VK_CHECK(vkCreateShaderModule(device, &depthShaderInfo, nullptr, &depthShader));
+    VkShaderModule cubemapShader = CreateShaderModuleFromFile("shaders/cubemap.spv");
+    VkShaderModule cubemapVertShader = cubemapShader;
+    VkShaderModule cubemapFragShader = cubemapShader;
 
-    VkShaderModuleCreateInfo cubemapShaderInfo{};
-    cubemapShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *cubemapShaderFile = SDL_LoadFile("shaders/cubemap.spv", &cubemapShaderInfo.codeSize);
+    VkShaderModule colorShader = CreateShaderModuleFromFile("shaders/color.spv");
+    VkShaderModule colorVertShader = colorShader;
+    VkShaderModule colorFragShader = colorShader;
+#else
+    VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.vert.spv");
+    
+    VkShaderModule cubemapVertShader = CreateShaderModuleFromFile("shaders/cubemap.vert.spv");
+    VkShaderModule cubemapFragShader = CreateShaderModuleFromFile("shaders/cubemap.frag.spv");
+    
+    VkShaderModule colorVertShader = CreateShaderModuleFromFile("shaders/color.vert.spv");
+    VkShaderModule colorFragShader = CreateShaderModuleFromFile("shaders/color.frag.spv");
+#endif
 
-    cubemapShaderInfo.pCode = reinterpret_cast<const u32*>(cubemapShaderFile);
-    VkShaderModule cubemapShader;
-    VK_CHECK(vkCreateShaderModule(device, &cubemapShaderInfo, nullptr, &cubemapShader));
-
-    VkShaderModuleCreateInfo colorShaderInfo{};
-    colorShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *colorShaderFile = SDL_LoadFile("shaders/color.spv", &colorShaderInfo.codeSize);
-    colorShaderInfo.pCode = reinterpret_cast<const u32*>(colorShaderFile);
-    VkShaderModule colorShader;
-    VK_CHECK(vkCreateShaderModule(device, &colorShaderInfo, nullptr, &colorShader));
-
-    VkPipelineShaderStageCreateInfo colorVertStageInfo{};
-    colorVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    colorVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    colorVertStageInfo.module = colorShader;
-    colorVertStageInfo.pName = "vertexMain";
-
-    VkPipelineShaderStageCreateInfo depthVertStageInfo{};
-    depthVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    depthVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    depthVertStageInfo.module = depthShader;
-    depthVertStageInfo.pName = "vertexMain";
-
-    VkPipelineShaderStageCreateInfo cubemapVertStageInfo{};
-    cubemapVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    cubemapVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    cubemapVertStageInfo.module = cubemapShader;
-    cubemapVertStageInfo.pName = "vertexMain";
-
-    VkPipelineShaderStageCreateInfo colorFragStageInfo{};
-    colorFragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    colorFragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    colorFragStageInfo.module = colorShader;
-    colorFragStageInfo.pName = "fragmentMain";
-
-    VkPipelineShaderStageCreateInfo cubemapFragStageInfo{};
-    cubemapFragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    cubemapFragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    cubemapFragStageInfo.module = cubemapShader;
-    cubemapFragStageInfo.pName = "fragmentMain";
-
+#if DEFAULT_SLANG
+    const char *vertEntryPointName = "vertexMain";
+    const char *fragEntryPointName = "fragmentMain";
+#else
+    const char *vertEntryPointName = "main";
+    const char *fragEntryPointName = "main";
+#endif
+    
+    VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader, vertEntryPointName);
+    VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader, vertEntryPointName);
+    VkPipelineShaderStageCreateInfo cubemapVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, cubemapVertShader, vertEntryPointName);
+    VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader, fragEntryPointName);
+    VkPipelineShaderStageCreateInfo cubemapFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, cubemapFragShader, fragEntryPointName);
+    
     VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, colorFragStageInfo};
     VkPipelineShaderStageCreateInfo cubemapShaderStages[] = {cubemapVertStageInfo, cubemapFragStageInfo};
 
@@ -966,7 +969,15 @@ void InitPipelines(u32 cascades)
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &colorPipelineInfo, nullptr, &colorPipeline));
 
     vkDestroyShaderModule(device, depthShader, nullptr);
+#if DEFAULT_SLANG
     vkDestroyShaderModule(device, colorShader, nullptr);
+    vkDestroyShaderModule(device, cubemapShader, nullptr);
+#else
+    vkDestroyShaderModule(device, colorVertShader, nullptr);
+    vkDestroyShaderModule(device, colorFragShader, nullptr);
+    vkDestroyShaderModule(device, cubemapVertShader, nullptr);
+    vkDestroyShaderModule(device, cubemapFragShader, nullptr);
+#endif
 
     // Initialize ImGui
     ImGui_ImplVulkan_InitInfo imGuiInfo{};
