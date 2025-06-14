@@ -75,17 +75,22 @@ struct RenderAddCameraInfo {
 };
 CameraID AddCamera(RenderAddCameraInfo& info);
 
+struct MeshRenderInfo {
+    MeshID mesh;
+    glm::mat4 matrix;
+};
+
 // Represents the information needed to render a single frame on any renderer
 struct RenderFrameInfo {
     // Shared
     CameraData mainCam;
-    std::vector<ObjectData> objData;
-    std::map<u32, u32> meshCounts;
+    std::vector<MeshRenderInfo> &meshes;
 
     // Vulkan Specific
 
     // WGPU Specific
 };
+
 // Renders a frame using the supplied render state
 // The driving function of the entire renderer.
 void RenderUpdate(RenderFrameInfo& info);
