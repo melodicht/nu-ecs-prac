@@ -13,23 +13,23 @@ SDL_WindowFlags GetRenderWindowFlags() {
     return 0;
 }
 
-void InitRenderer(RenderInitDescriptor& desc) {
+void InitRenderer(RenderInitInfo& desc) {
     wgpuRenderer.InitRenderer(desc.window, desc.startWidth, desc.startHeight);
 }
 
-void InitPipelines(RenderPipelineInitDescriptor& desc) {
+void InitPipelines(RenderPipelineInitInfo& desc) {
     wgpuRenderer.InitPipelines();
 }
 
-MeshID UploadMesh(RenderUploadMeshDescriptor& desc) {
+MeshID UploadMesh(RenderUploadMeshInfo& desc) {
     return wgpuRenderer.UploadMesh(desc.vertSize, desc.vertData, desc.idxSize, desc.idxData);
 }
 
-void DestroyMesh(RenderDestroyMeshDescriptor& desc) {
+void DestroyMesh(RenderDestroyMeshInfo& desc) {
     wgpuRenderer.DestroyMesh(desc.meshID);
 }
 
 // This compiles information from scene to be plugged into renderer
-void RenderUpdate(RenderFrameState& state) {
+void RenderUpdate(RenderFrameInfo& state) {
     wgpuRenderer.RenderUpdate(state);
 }

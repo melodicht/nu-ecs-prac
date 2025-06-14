@@ -5,7 +5,6 @@
 #include "renderer/render_backend.h"
 #include "renderer/wgpu_backend/render_types_wgpu.h"
 #include "math/math_consts.h"
-#include "asset_types.h"
 
 #include <SDL3/SDL.h>
 
@@ -20,7 +19,6 @@
 // Allows for encapsulation of WebGPU render capabilities
 class WGPURenderBackend {
 private:
-    u32 m_mainCamID { 0 };
     u32 m_screenWidth{ 0 };
     u32 m_screenHeight{ 0 };
 
@@ -59,7 +57,7 @@ private:
     WGPUBuffer m_cameraBuffer{ };
     WGPUBuffer m_baseIndexBuffer{ };
     WGPUBuffer m_instanceIndexBuffer{ };
-    WGPUBuffer m_storageBuffer{ };
+    WGPUBuffer m_instanceDatBuffer{ };
 
     WGPUBuffer m_meshVertexBuffer{ };
     WGPUBuffer m_meshIndexBuffer{ };
@@ -67,8 +65,6 @@ private:
     u32 m_meshTotalIndices{ 0 };
     // Currently mesh deletion logic requires that meshes with greater MeshID's to correspond to older mesh stores
     std::unordered_map<MeshID, WGPUMesh> m_meshStore{ };
-
-    std::unordered_map<CameraID, CameraData> m_cameraStore{ };
 
     std::unordered_map<TextureID, WGPUTexture> m_textureStore{ };
 
@@ -100,8 +96,6 @@ private:
     // What to call on WebGPU error
     static void ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
 
-    void BeginColorPass();
-
     TextureID CreateDepthTexture(u32 width, u32 height);
 
     void DestroyTexture(TextureID textureID);
@@ -109,33 +103,27 @@ private:
     // Establishes that the following commands apply to a new frame
     bool InitFrame();
 
-    void SetCamera(CameraID camera);
+    // Begins the final color pass that renders frame to color pass
+    void BeginColorPass();
 
+    // TODO: Actually implement
     void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture) { };
 
-    // Sets the view of a camera
-    void UpdateCamera(u32 viewCount, CameraData* data);
-
-    void BeginDepthPass(CullMode cullMode) { }
+    // TODO: Actually implement
+    void BeginDepthPass() { }
     
+    // Stops the current pass
     void EndPass();
     
+    // Draws engine interface for game if allowed
     void DrawImGui();
-    
-    // Sets the mesh currently being rendered to
-    void SetMesh(MeshID meshID);
 
-    // Send the matrices of the models to render (Must be called between InitFrame and EndFrame)
-    void SendObjectData(std::vector<ObjectData>& objects);
+    // Takes in mesh counts and renders to current command encoder using previously
+    // inserted object data in buffer.
+    void DrawObjects(std::map<u32, u32>& meshCounts);
 
-    // End the frame and present it to the screen
+    // Ends the current pass and present it to the screen
     void EndFrame();
-
-    // Draw multiple objects to the screen (Must be called between InitFrame and EndFrame and after SetMesh)
-    void DrawObjects(int count, int startIndex);
-
-    // Designates a camera as part of the render pass 
-    CameraID AddCamera();
 public:
     // No logic needed
     WGPURenderBackend() { }
@@ -152,12 +140,11 @@ public:
     void InitPipelines();
 
     // Renders and displays frame based on state
-    void RenderUpdate(RenderFrameState& state);
+    void RenderUpdate(RenderFrameInfo& state);
 
     // Moves mesh to the GPU, 
     // Returns a uint that represents the mesh's ID
     MeshID UploadMesh(uint32_t vertCount, Vertex* vertices, uint32_t indexCount, uint32_t* indices);
-    MeshID UploadMesh(MeshAsset &asset);
 
     // Removes mesh from GPU and render's mesh ID invalid
     void DestroyMesh(MeshID meshID);
