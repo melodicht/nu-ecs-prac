@@ -608,6 +608,20 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     }
 }
 
+// Also checks that the creation of the shader module is good.
+internal void CreateShaderModuleFromFile(char *FilePath)
+{
+    VkShaderModuleCreateInfo shaderInfo{};
+    shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    void *shaderFile = SDL_LoadFile(FilePath, &shaderInfo.codeSize);
+    shaderInfo.pCode = reinterpret_cast<const u32*>(shaderFile);
+    VkShaderModule shaderModule;
+    VK_CHECK(vkCreateShaderModule(device, &shaderInfo, nullptr, &shaderModule));
+    return shaderModule;
+}
+
+internal 
+
 void InitPipelines(u32 cascades)
 {
     numCascades = cascades;
@@ -654,28 +668,19 @@ void InitPipelines(u32 cascades)
     }
 
     // Create shader stages
-    VkShaderModuleCreateInfo depthShaderInfo{};
-    depthShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *depthShaderFile = SDL_LoadFile("shaders/depth.spv", &depthShaderInfo.codeSize);
-    
-    depthShaderInfo.pCode = reinterpret_cast<const u32*>(depthShaderFile);
-    VkShaderModule depthShader;
-    VK_CHECK(vkCreateShaderModule(device, &depthShaderInfo, nullptr, &depthShader));
+#if DEFAULT_SLANG
+    VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.spv");
+    VkShaderModule cubemapShader = CreateShaderModuleFromFile("shaders/cubemap.spv");
+    VkShaderModule colorShader = CreateShaderModuleFromFile("shaders/color.spv");
+#else
+    VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.vert.spv");
+    VkShaderModule cubemapVertShader = CreateShaderModuleFromFile("shaders/cubemap.vert.spv");
+    VkShaderModule cubemapFragShader = CreateShaderModuleFromFile("shaders/cubemap.frag.spv");
+    VkShaderModule colorVertShader = CreateShaderModuleFromFile("shaders/color.vert.spv");
+    VkShaderModule colorFragShader = CreateShaderModuleFromFile("shaders/color.frag.spv");
+#endif
 
-    VkShaderModuleCreateInfo cubemapShaderInfo{};
-    cubemapShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *cubemapShaderFile = SDL_LoadFile("shaders/cubemap.spv", &cubemapShaderInfo.codeSize);
-
-    cubemapShaderInfo.pCode = reinterpret_cast<const u32*>(cubemapShaderFile);
-    VkShaderModule cubemapShader;
-    VK_CHECK(vkCreateShaderModule(device, &cubemapShaderInfo, nullptr, &cubemapShader));
-
-    VkShaderModuleCreateInfo colorShaderInfo{};
-    colorShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *colorShaderFile = SDL_LoadFile("shaders/color.spv", &colorShaderInfo.codeSize);
-    colorShaderInfo.pCode = reinterpret_cast<const u32*>(colorShaderFile);
-    VkShaderModule colorShader;
-    VK_CHECK(vkCreateShaderModule(device, &colorShaderInfo, nullptr, &colorShader));
+    // IWASHERE
 
     VkPipelineShaderStageCreateInfo colorVertStageInfo{};
     colorVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -687,7 +692,7 @@ void InitPipelines(u32 cascades)
     depthVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     depthVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
     depthVertStageInfo.module = depthShader;
-    depthVertStageInfo.pName = "vertexMain";
+    depthVertStageInfo.pName = "vertexMain";  // main
 
     VkPipelineShaderStageCreateInfo cubemapVertStageInfo{};
     cubemapVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
