@@ -818,14 +818,18 @@ void WGPURenderBackend::DestroyMesh(MeshID meshID) {
 void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   // Begins processing frame information to be ran by renderer
 
-  u32 totalCount;
-  std::unordered_map<MeshID, u32> offsets;
   std::map<MeshID, u32> meshCounts;
   for (MeshRenderInfo meshInstance: state.meshes)
   {
-      offsets[meshInstance.mesh] += 1;
       meshCounts[meshInstance.mesh] += 1;
-      totalCount++;
+  }
+
+  u32 totalCount = 0;
+  std::unordered_map<MeshID, u32> offsets;
+  for (std::pair<MeshID,u32> meshType : meshCounts) 
+  {
+    offsets[meshType.first] = totalCount;
+    totalCount += meshType.second;
   }
 
   std::vector<ObjectData> objData(totalCount);
