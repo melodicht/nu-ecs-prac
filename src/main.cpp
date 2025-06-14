@@ -166,7 +166,7 @@ int main()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    RenderInitDescriptor initDesc {
+    RenderInitInfo initDesc {
         .window = window,
         .startWidth = WINDOW_WIDTH,
         .startHeight = WINDOW_HEIGHT

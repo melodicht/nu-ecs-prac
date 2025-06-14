@@ -167,51 +167,6 @@ void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType t
   if (message.data) LOG("(" << message.data << ")");
 }
 
-CameraID WGPURenderBackend::AddCamera() {
-  u32 retID = m_nextCameraID;
-  m_cameraStore.emplace(std::pair<u32, CameraData>(retID, CameraData()));
-  m_nextCameraID++;
-  return retID;
-}
-
-void WGPURenderBackend::SetCamera(CameraID camera) {
-  m_currentCameraID = camera;
-  CameraData& gotCamera = m_cameraStore[m_currentCameraID];
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
-}
-
-void WGPURenderBackend::UpdateCamera(u32 viewCount, CameraData* data) {
-  m_cameraStore[m_currentCameraID] = *data;
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, data, sizeof(CameraData));
-}
-
-TextureID WGPURenderBackend::CreateDepthTexture(u32 width, u32 height) {
-  // TODO: kinda unfinished
-  WGPUTextureDescriptor depthTextureDescriptor {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Stored texture view"),
-    .usage = WGPUTextureUsage_RenderAttachment,
-    .dimension = WGPUTextureDimension_2D,
-    .size = {width, height, 1},
-    .format = m_wgpuDepthTextureFormat,
-    .mipLevelCount = 1,
-    .sampleCount = 1,
-    .viewFormatCount = 1,
-    .viewFormats = &m_wgpuDepthTextureFormat,
-  };
-
-  TextureID retID = m_nextTextureID;
-  m_textureStore.emplace(std::pair<TextureID, WGPUTexture>(retID, wgpuDeviceCreateTexture(m_wgpuDevice, &depthTextureDescriptor)));
-  m_nextTextureID++;
-
-  return retID;
-}
-    
-void WGPURenderBackend::DestroyTexture(TextureID textureID) {
-  wgpuTextureDestroy(m_textureStore[textureID]);
-  m_textureStore.erase(textureID);
-}
-
 bool WGPURenderBackend::InitFrame() {
   #if SKL_ENABLED_EDITOR
   ImGui_ImplWGPU_NewFrame();
@@ -247,10 +202,6 @@ bool WGPURenderBackend::InitFrame() {
   return true;
 }
 
-void WGPURenderBackend::SetMesh(MeshID meshID) {
-  m_currentMeshID = meshID;
-}
-
 void WGPURenderBackend::EndFrame() {
   if (m_surfaceTextureView) {
     wgpuTextureViewRelease(m_surfaceTextureView);
@@ -265,15 +216,13 @@ void WGPURenderBackend::EndFrame() {
   #endif
 }
 
-void WGPURenderBackend::SendObjectData(std::vector<ObjectData>& objects) {
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_storageBuffer, 0, objects.data(), sizeof(ObjectData) * objects.size());
-}
-
-void WGPURenderBackend::DrawObjects(int count, int startIndex) {
-  if(m_renderPassActive)
+void WGPURenderBackend::DrawObjects(std::map<u32, u32>& meshCounts) {
+  u32 startIndex = 0;
+  for (std::pair<MeshID, u32> pair : meshCounts)
   {
-      WGPUMesh& gotMesh = m_meshStore[m_currentMeshID];
-      wgpuRenderPassEncoderDrawIndexed(m_renderPassEncoder, gotMesh.m_indexCount, count, gotMesh.m_baseIndex, gotMesh.m_baseVertex, startIndex);
+    WGPUMesh& gotMesh = m_meshStore[pair.first];
+    wgpuRenderPassEncoderDrawIndexed(m_renderPassEncoder, gotMesh.m_indexCount, pair.second, gotMesh.m_baseIndex, gotMesh.m_baseVertex, startIndex);
+    startIndex += pair.second;
   }
 }
 
@@ -325,26 +274,19 @@ void WGPURenderBackend::BeginColorPass() {
 }
 
 void WGPURenderBackend::EndPass() {
-  if(m_renderPassActive) {
-    m_renderPassActive = false;
+  wgpuRenderPassEncoderEnd(m_renderPassEncoder);
+  wgpuRenderPassEncoderRelease(m_renderPassEncoder);
 
-    CameraData& gotCamera = m_cameraStore[m_currentCameraID];
-    wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &gotCamera, sizeof(CameraData));
+  WGPUCommandBufferDescriptor cmdBufferDescriptor = {
+    .nextInChain = nullptr,
+    .label =  wgpuStr("Ending pass command buffer"),
+  };
 
-    wgpuRenderPassEncoderEnd(m_renderPassEncoder);
-    wgpuRenderPassEncoderRelease(m_renderPassEncoder);
-  
-    WGPUCommandBufferDescriptor cmdBufferDescriptor = {
-      .nextInChain = nullptr,
-      .label =  wgpuStr("Ending pass command buffer"),
-    };
-  
-    WGPUCommandBuffer passCommand = wgpuCommandEncoderFinish(m_passCommandEncoder, &cmdBufferDescriptor);
-    wgpuCommandEncoderRelease(m_passCommandEncoder);
-  
-    wgpuQueueSubmit(m_wgpuQueue, 1, &passCommand);
-    wgpuCommandBufferRelease(passCommand);
-  }
+  WGPUCommandBuffer passCommand = wgpuCommandEncoderFinish(m_passCommandEncoder, &cmdBufferDescriptor);
+  wgpuCommandEncoderRelease(m_passCommandEncoder);
+
+  wgpuQueueSubmit(m_wgpuQueue, 1, &passCommand);
+  wgpuCommandBufferRelease(passCommand);
 }
 
 void WGPURenderBackend::DrawImGui() {
@@ -554,9 +496,6 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   };
 
   m_depthTextureView = wgpuTextureCreateView(m_depthTexture, &depthViewDescriptor);
-
-  // TEMPORARY
-  m_mainCamID = AddCamera();
 
   // Initializes imgui
   #if SKL_ENABLED_EDITOR
@@ -779,7 +718,7 @@ void WGPURenderBackend::InitPipelines()
     .mappedAtCreation = false,
   };
 
-  m_storageBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &storageBufferDesc);
+  m_instanceDatBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &storageBufferDesc);
 
   std::vector<WGPUBindGroupEntry> bindGroupEntries;
 
@@ -796,7 +735,7 @@ void WGPURenderBackend::InitPipelines()
   WGPUBindGroupEntry objDataBindEntry {
     .nextInChain = nullptr,
     .binding = 1,
-    .buffer = m_storageBuffer,
+    .buffer = m_instanceDatBuffer,
     .offset = 0,
     .size = sizeof(ObjectData) * m_maxObjArraySize,
   };
@@ -816,10 +755,6 @@ void WGPURenderBackend::InitPipelines()
   wgpuPipelineLayoutRelease(pipelineLayout);
   wgpuShaderModuleRelease(shaderModule);
   wgpuBindGroupLayoutRelease(bindLayout);
-}
-
-MeshID WGPURenderBackend::UploadMesh(MeshAsset &asset) {
-  return UploadMesh(asset.vertices.size(), asset.vertices.data(), asset.indices.size(), asset.indices.data());
 }
 
 MeshID WGPURenderBackend::UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices) {
@@ -880,29 +815,44 @@ void WGPURenderBackend::DestroyMesh(MeshID meshID) {
   m_meshStore.erase(meshID);
 }
 
-void WGPURenderBackend::RenderUpdate(RenderFrameState& state) {
+void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
+  // Begins processing frame information to be ran by renderer
+
+  u32 totalCount;
+  std::unordered_map<MeshID, u32> offsets;
+  std::map<MeshID, u32> meshCounts;
+  for (MeshRenderInfo meshInstance: state.meshes)
+  {
+      offsets[meshInstance.mesh] += 1;
+      meshCounts[meshInstance.mesh] += 1;
+      totalCount++;
+  }
+
+  std::vector<ObjectData> objData(totalCount);
+
+  // 4. Iterate through scene view once more and fill in the fixed size array.
+  for (MeshRenderInfo meshInstance: state.meshes)
+  {
+      objData[offsets[meshInstance.mesh]++] = {meshInstance.matrix, glm::vec4(meshInstance.rgbColor, 1.0f)};
+  }
+
+  // Begins creating render frame
   if (!InitFrame())
   {
       return;
   }
 
-  SendObjectData(state.objData);
+  // Sends in the attributes of individual mesh instances
+  wgpuQueueWriteBuffer(m_wgpuQueue, m_instanceDatBuffer, 0, objData.data(), sizeof(ObjectData) * objData.size());
 
-  // SetCamera(m_mainCamID);
-  UpdateCamera(1, &state.mainCam);
+  // Sets the orientation of the view camera
+  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &state.mainCam, sizeof(CameraData));
 
   BeginColorPass();
-
-  u32 startIndex = 0;
-  for (std::pair<MeshID, u32> pair : state.meshCounts)
-  {
-      SetMesh(pair.first);
-      DrawObjects(pair.second, startIndex);
-      startIndex += pair.second;
-  }
+  DrawObjects(meshCounts);
+  EndPass();
 
   DrawImGui();
-  EndPass();
   EndFrame();
 }
 #pragma endregion

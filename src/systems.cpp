@@ -111,7 +111,7 @@ class RenderSystem : public System
 
     void OnStart(Scene *scene)
     {
-        RenderPipelineInitDescriptor initDesc {
+        RenderPipelineInitInfo initDesc {
             .numCascades = NUM_CASCADES
         };
 
@@ -119,41 +119,18 @@ class RenderSystem : public System
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
-    {
-        RenderFrameState sendState;
-    
-        // 1. Gather counts of each unique mesh pointer.
-        sendState.meshCounts = std::map<MeshID, u32>();
-        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
-        {
-            MeshComponent *m = scene->Get<MeshComponent>(ent);
-            ++sendState.meshCounts[m->mesh];
-        }
-    
-        // 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
-        // 3. Get pointers to the start of each segment of unique mesh pointer.
-        u32 totalCount = 0;
-        std::unordered_map<MeshID, u32> offsets;
-        for (std::pair<MeshID, u32> pair: sendState.meshCounts)
-        {
-            offsets[pair.first] = totalCount;
-            totalCount += pair.second;
-        }
-    
-        sendState.objData = std::vector<ObjectData>(totalCount);
-    
-        // 4. Iterate through scene view once more and fill in the fixed size array.
+    {    
+        std::vector<MeshRenderInfo> meshInstances;
         for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
         {
             Transform3D *t = scene->Get<Transform3D>(ent);
             glm::mat4 model = GetTransformMatrix(t);
+            ColorComponent *c = scene->Get<ColorComponent>(ent);
             MeshComponent *m = scene->Get<MeshComponent>(ent);
             MeshID mesh = m->mesh;
-            ColorComponent *c = scene->Get<ColorComponent>(ent);
-    
-            sendState.objData[offsets[mesh]++] = {model, glm::vec4(c->r, c->g, c->b, 1.0f)};
+            meshInstances.push_back({model, {c->r, c->g, c->b}, mesh});
         }
-    
+
         // Get the main camera view
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
@@ -169,8 +146,7 @@ class RenderSystem : public System
         
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
     
-        sendState.mainCam = {view, proj, cameraTransform->position};
-        
+        RenderFrameInfo sendState{ {view, proj, cameraTransform->position} , meshInstances };
         RenderUpdate(sendState);
     }
 };

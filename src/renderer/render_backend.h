@@ -76,8 +76,9 @@ struct RenderAddCameraInfo {
 CameraID AddCamera(RenderAddCameraInfo& info);
 
 struct MeshRenderInfo {
-    MeshID mesh;
     glm::mat4 matrix;
+    glm::vec3 rgbColor;
+    MeshID mesh;
 };
 
 // Represents the information needed to render a single frame on any renderer
