@@ -331,12 +331,6 @@ class RenderSystem : public System
 
             glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.5f, pointLight->maxRange);
             glm::mat4 pointViews[6];
-//            pointViews[0] = glm::lookAt(pointPos, pointPos + glm::vec3(1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
-//            pointViews[1] = glm::lookAt(pointPos, pointPos + glm::vec3(-1.0, 0.0, 0.0), glm::vec3(0.0, -1.0, 0.0));
-//            pointViews[2] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 1.0, 0.0), glm::vec3(0.0, 0.0, 1.0));
-//            pointViews[3] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, -1.0, 0.0), glm::vec3(0.0, 0.0, -1.0));
-//            pointViews[4] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0, -1.0, 0.0));
-//            pointViews[5] = glm::lookAt(pointPos, pointPos + glm::vec3(0.0, 0.0, -1.0), glm::vec3(0.0, -1.0, 0.0));
 
             GetPointViews(pointTransform, pointViews);
 
