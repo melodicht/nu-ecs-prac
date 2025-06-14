@@ -55,8 +55,6 @@ private:
     // Defines part of default pipeline
     WGPUBindGroup m_bindGroup{ };
     WGPUBuffer m_cameraBuffer{ };
-    WGPUBuffer m_baseIndexBuffer{ };
-    WGPUBuffer m_instanceIndexBuffer{ };
     WGPUBuffer m_instanceDatBuffer{ };
 
     WGPUBuffer m_meshVertexBuffer{ };
@@ -66,17 +64,10 @@ private:
     // Currently mesh deletion logic requires that meshes with greater MeshID's to correspond to older mesh stores
     std::unordered_map<MeshID, WGPUMesh> m_meshStore{ };
 
-    std::unordered_map<TextureID, WGPUTexture> m_textureStore{ };
-
     // The id of the next obj that will be created
     MeshID m_nextMeshID{ 0 }; 
-    CameraID m_nextCameraID{ 0 };
-    TextureID m_nextTextureID{ 0 };
 
-    // The id currently being set at
-    MeshID m_currentMeshID{ 0 };     // The mesh currently being drawn in frame loop
-    CameraID m_currentCameraID{ 0 }; // The camera currently being viewed from
-    
+
     void printDeviceSpecs();
 
     // Translates a c_string to a wgpu string view
@@ -95,10 +86,6 @@ private:
 
     // What to call on WebGPU error
     static void ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
-
-    TextureID CreateDepthTexture(u32 width, u32 height);
-
-    void DestroyTexture(TextureID textureID);
 
     // Establishes that the following commands apply to a new frame
     bool InitFrame();
@@ -130,7 +117,7 @@ public:
 
     ~WGPURenderBackend();
 
-    // Gets the SDL Flags eneded
+    // No SDL flags are needed with webgpu
     SDL_WindowFlags GetRenderWindowFlags() { return 0; }
 
     // Sets a SDL window to draw to and initializes the back end
