@@ -8,7 +8,7 @@
 #include <map>
 
 // Common interface between renderers for systems to call.
-// The interfaces take in descriptor objects in order to allow for 
+// The interfaces take in Info objects in order to allow for 
 // updates to the inputs of the interface without updates of everything that uses the interface .
 // Assumes that a SDL3 surface is being drawn upon.
 
@@ -16,7 +16,7 @@
 SDL_WindowFlags GetRenderWindowFlags();
 
 // Sets a SDL window to draw to and initializes the back end
-struct RenderInitDescriptor {
+struct RenderInitInfo {
     // Shared 
     SDL_Window *window;
     u32 startWidth;
@@ -26,10 +26,10 @@ struct RenderInitDescriptor {
 
     // WGPU Specific
 };
-void InitRenderer(RenderInitDescriptor& desc);
+void InitRenderer(RenderInitInfo& info);
 
 // Set up the render pipelines
-struct RenderPipelineInitDescriptor {
+struct RenderPipelineInitInfo {
     // Shared 
 
     // Vulkan Specific
@@ -37,11 +37,11 @@ struct RenderPipelineInitDescriptor {
 
     // WGPU Specific
 };
-void InitPipelines(RenderPipelineInitDescriptor& desc);
+void InitPipelines(RenderPipelineInitInfo& info);
 
 // Moves a mesh to the GPU,
 // Returns a uint that represents the mesh's ID
-struct RenderUploadMeshDescriptor {
+struct RenderUploadMeshInfo {
     // Shared 
     Vertex* vertData;
     u32* idxData;
@@ -52,10 +52,10 @@ struct RenderUploadMeshDescriptor {
 
     // WGPU Specific
 };
-u32 UploadMesh(RenderUploadMeshDescriptor& desc);
+u32 UploadMesh(RenderUploadMeshInfo& info);
 
 // Destroy the mesh at the given MeshID
-struct RenderDestroyMeshDescriptor {
+struct RenderDestroyMeshInfo {
     // Shared 
     u32 meshID;
 
@@ -63,9 +63,9 @@ struct RenderDestroyMeshDescriptor {
 
     // WGPU Specific
 };
-void DestroyMesh(RenderDestroyMeshDescriptor& desc);
+void DestroyMesh(RenderDestroyMeshInfo& info);
 
-struct RenderAddCameraDescriptor {
+struct RenderAddCameraInfo {
     // Shared
 
     // Vulkan Specific
@@ -73,10 +73,10 @@ struct RenderAddCameraDescriptor {
 
     // WGPU Specific
 };
-CameraID AddCamera(RenderAddCameraDescriptor& desc);
+CameraID AddCamera(RenderAddCameraInfo& info);
 
 // Represents the information needed to render a single frame on any renderer
-struct RenderFrameState {
+struct RenderFrameInfo {
     // Shared
     CameraData mainCam;
     std::vector<ObjectData> objData;
@@ -88,4 +88,4 @@ struct RenderFrameState {
 };
 // Renders a frame using the supplied render state
 // The driving function of the entire renderer.
-void RenderUpdate(RenderFrameState& state);
+void RenderUpdate(RenderFrameInfo& info);
