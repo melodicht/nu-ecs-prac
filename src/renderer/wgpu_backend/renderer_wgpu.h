@@ -28,18 +28,16 @@ private:
     WGPUDevice m_wgpuDevice{ };
     WGPUQueue m_wgpuQueue{ };
     WGPUSurface m_wgpuSurface{ };
-    WGPURenderPipeline m_wgpuPipeline{ };
 
     // Stores best supported format on current device
     WGPUTextureFormat m_wgpuTextureFormat{ };
     WGPUTextureFormat m_wgpuDepthTextureFormat{ WGPUTextureFormat_Depth24Plus };
 
     // Represents limits of gpu storage
-    u32 m_maxObjArraySize{ 4096 }; // TODO: Fill with number informed by limits
-    u32 m_maxMeshVertSize{ 4096 }; // TODO: Fill with number informed by limits
-    u32 m_maxMeshIndexSize{ 4096 }; // TODO: Fill with number informed by limits
+    u32 m_maxObjArraySize{ 4096 }; // TODO: Fill the following with number informed by limits
+    u32 m_maxMeshVertSize{ 4096 };
+    u32 m_maxMeshIndexSize{ 4096 };
 
-    // Depth stuff will come later
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
     WGPUTextureView m_surfaceTextureView{ }; 
@@ -47,13 +45,19 @@ private:
     WGPUSurfaceTexture m_surfaceTexture{ };
     WGPUTexture m_depthTexture{ };
 
-    // Represents the commands of a 
+    // Represents the current pass being drawn with
     WGPUCommandEncoder m_passCommandEncoder{ };
     WGPURenderPassEncoder m_renderPassEncoder{ };
     bool m_renderPassActive{ false };
 
-    // Defines part of default pipeline
+    // Defines default pipeline
+    WGPURenderPipeline m_defaultPipeline{ };
     WGPUBindGroup m_bindGroup{ };
+
+    // Defines depth pipeline
+    WGPURenderPipeline m_depthPipeline{ };
+    WGPUBindGroup m_depthBindGroup;
+
     WGPUBuffer m_cameraBuffer{ };
     WGPUBuffer m_instanceDatBuffer{ };
 
@@ -62,7 +66,7 @@ private:
     u32 m_meshTotalVertices{ 0 };
     u32 m_meshTotalIndices{ 0 };
     // Currently mesh deletion logic requires that meshes with greater MeshID's to correspond to older mesh stores
-    std::unordered_map<MeshID, WGPUMesh> m_meshStore{ };
+    std::unordered_map<MeshID, WGPUBackendMesh> m_meshStore{ };
 
     // The id of the next obj that will be created
     MeshID m_nextMeshID{ 0 }; 
@@ -93,11 +97,11 @@ private:
     // Begins the final color pass that renders frame to color pass
     void BeginColorPass();
 
-    // TODO: Actually implement
-    void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture) { };
+    // Populates depth buffer from view of camera buffer
+    void BeginDepthPass(WGPUTextureView depthTexture);
 
     // TODO: Actually implement
-    void BeginDepthPass() { }
+    void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture) { };
     
     // Stops the current pass
     void EndPass();
