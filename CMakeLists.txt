@@ -215,7 +215,7 @@ if(NOT EMSCRIPTEN)
                 add_custom_target(build_shaders DEPENDS ${SHADER_OUT_NAMES})
 
                 add_dependencies(${PROJECT_NAME} build_shaders)
-        else(SKL_RENDER_SYS STREQUAL "WebGPU")
+        elseif(SKL_RENDER_SYS STREQUAL "WebGPU")
                 add_custom_command(TARGET ${PROJECT_NAME} PRE_LINK
                         COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/shaders/webgpu" "${BUILD_DIR}/shaders"
                 )
