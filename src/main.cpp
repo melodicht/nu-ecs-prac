@@ -13,7 +13,7 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-#define static internal
+#define local static
 
 #include "math/math_consts.h"
 

@@ -135,6 +135,10 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         target_compile_definitions(DEPENDENCIES INTERFACE
                 SKL_RENDERER=0
         )
+        target_compile_definitions(vulkan-backend PRIVATE
+                DEFAULT_SLANG=${DEFAULT_SLANG}
+        )
+        
 
         target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
 
