@@ -209,7 +209,7 @@ class RenderSystem : public System
         CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
         Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
         glm::mat4 view = GetViewMatrix(cameraTransform);
-        f32 aspect = (f32)windowWidth / (f32)windowHeight;
+        f32 aspect = (f32)WINDOW_WIDTH / (f32)WINDOW_HEIGHT;
 
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
 

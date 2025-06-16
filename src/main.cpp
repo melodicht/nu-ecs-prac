@@ -8,9 +8,6 @@
 #include <vector>
 #include <random>
 
-#define WINDOW_WIDTH 1600
-#define WINDOW_HEIGHT 1200
-
 #define SDL_MAIN_HANDLED
 
 #include <SDL3/SDL.h>
@@ -39,9 +36,6 @@
 #include "asset_utils.cpp"
 
 #include "math/math_utils.cpp"
-
-int windowWidth = WINDOW_WIDTH;
-int windowHeight = WINDOW_HEIGHT;
 
 std::unordered_map<std::string, bool> keysDown;
 f32 mouseDeltaX = 0;
@@ -110,6 +104,8 @@ void updateLoop(void* appInfo) {
 
     SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
 
+    s32 windowWidth = WINDOW_WIDTH;
+    s32 windowHeight = WINDOW_HEIGHT;
     SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);
 
     // Cut off Imgui until we actually implement a base renderer for WGPU
