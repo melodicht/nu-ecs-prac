@@ -1,8 +1,6 @@
 #include "renderer/wgpu_backend/renderer_wgpu.h"
 #include "webgpu/sdl3webgpu-main/sdl3webgpu.h"
 
-#include "skl_logger.h"
-
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
 #endif

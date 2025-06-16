@@ -8,8 +8,6 @@
 #include <vector>
 #include <random>
 
-#include "skl_logger.h"
-
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
