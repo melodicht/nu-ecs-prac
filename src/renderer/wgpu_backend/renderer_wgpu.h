@@ -4,7 +4,7 @@
 
 #include "renderer/render_types.h"
 #include "renderer/wgpu_backend/render_types_wgpu.h"
-#include "math/math_consts.h"
+#include "meta_definitions.h"
 #include "asset_types.h"
 
 #include <SDL3/SDL.h>

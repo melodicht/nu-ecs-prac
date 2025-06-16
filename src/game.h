@@ -1,5 +1,7 @@
 #pragma once
 
+#include "meta_definitions.h"
+
 void GameInitialize(Scene &scene);
 
 void GameUpdateAndRender(Scene &scene, SDL_Window *window, SDL_Renderer *renderer);

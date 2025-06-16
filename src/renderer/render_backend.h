@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/math_consts.h"
+#include "meta_definitions.h"
 #include "render_types.h"
 #include "asset_types.h"
 

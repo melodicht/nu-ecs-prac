@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/math_consts.h"
+#include "meta_definitions.h"
 
 #include <webgpu/webgpu.h>
 
