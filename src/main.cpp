@@ -41,11 +41,8 @@ std::unordered_map<std::string, bool> keysDown;
 f32 mouseDeltaX = 0;
 f32 mouseDeltaY = 0;
 
-#include "ecs.cpp"
 
 #include "game.h"
-#include "systems.cpp"
-#include "game.cpp"
 
 #include "platform_metrics.cpp"
 

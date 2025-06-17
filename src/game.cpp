@@ -1,4 +1,10 @@
+#include "handmade.h"
+
 #include "asset_types.h"
+
+#include "ecs.cpp"
+#include "systems.cpp"
+#include "game.cpp"
 
 void GameInitialize(Scene &scene)
 {

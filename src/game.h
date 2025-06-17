@@ -2,12 +2,14 @@
 
 #include "meta_definitions.h"
 
+#include "ecs.h"
+
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
 void GameInitialize(Scene &scene);
 
-void GameUpdateAndRender(Scene &scene, SDL_Window *window, SDL_Renderer *renderer);
+void GameUpdateAndRender(Scene &scene, SDL_Window *window, f32 deltaTime);
 
 #define BALL_RADIUS 5
 #define NUM_BALLS 1000
