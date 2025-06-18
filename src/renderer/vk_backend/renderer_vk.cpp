@@ -10,6 +10,8 @@
 		}                                                           \
 	} while (0)
 
+#define DEFAULT_SLANG true
+
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
 
