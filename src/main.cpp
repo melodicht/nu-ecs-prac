@@ -13,7 +13,7 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-#include "math/math_consts.h"
+#include "math/skl_math_consts.h"
 
 #define SDL_MAIN_HANDLED
 
@@ -42,7 +42,7 @@
 
 #include "asset_utils.cpp"
 
-#include "math/math_utils.cpp"
+#include "math/skl_math_utils.h"
 
 int windowWidth = WINDOW_WIDTH;
 int windowHeight = WINDOW_HEIGHT;

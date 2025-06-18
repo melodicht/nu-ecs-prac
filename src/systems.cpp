@@ -111,6 +111,8 @@ class RenderSystem : public System
 
     void OnStart(Scene *scene)
     {
+        lightTransform.rotation = {0, 30, 120};
+
         RenderPipelineInitInfo initDesc {
             .numCascades = NUM_CASCADES
         };
@@ -146,7 +148,20 @@ class RenderSystem : public System
         
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
     
-        RenderFrameInfo sendState{ {view, proj, cameraTransform->position} , meshInstances };
+        // TODO: Remove later when lighting system gets more fully fleshed out
+        std::vector<DirLightRenderInfo> lights;
+        lightTransform.rotation.z += deltaTime * 45.0f;
+        lights.push_back({GetForwardVector(&lightTransform),0, {0.0,0.0,0.0}, 0.5});
+
+        RenderFrameInfo sendState{ 
+            .mainCam = {view, proj, cameraTransform->position},
+            .meshes = meshInstances, 
+            .dirLights = lights,
+            .cameraFov = camera->fov,
+            .cameraNear = camera->near,
+            .cameraFar = camera->far
+        };
+        
         RenderUpdate(sendState);
     }
 };

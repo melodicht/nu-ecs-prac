@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/math_consts.h"
+#include "math/skl_math_consts.h"
 #include "render_types.h"
 
 #include <SDL3/SDL.h>
@@ -76,9 +76,26 @@ struct RenderAddCameraInfo {
 CameraID AddCamera(RenderAddCameraInfo& info);
 
 struct MeshRenderInfo {
+    // Shared
     glm::mat4 matrix;
     glm::vec3 rgbColor;
     MeshID mesh;
+
+    // Vulkan Specific
+
+    // WGPU Specific
+};
+
+struct DirLightRenderInfo {
+    // Shared
+    glm::vec3 dir;
+    u32 shadowID; 
+    glm::vec3 color;
+    f32 intensity;
+
+    // Vulkan Specific 
+
+    // WGPU Specific
 };
 
 // Represents the information needed to render a single frame on any renderer
@@ -90,6 +107,11 @@ struct RenderFrameInfo {
     // Vulkan Specific
 
     // WGPU Specific
+    std::vector<DirLightRenderInfo>& dirLights; // Currently i'm making the assumption that all dir lights are dynamic.
+    // Additional camera data to avoid having some operations when recreating camera frustum.
+    float cameraFov;
+    float cameraNear;
+    float cameraFar;
 };
 
 // Renders a frame using the supplied render state

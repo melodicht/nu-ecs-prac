@@ -11,9 +11,21 @@ struct ObjData {
     color : vec4<f32>,
 }
 
+struct DynamicShadowedDirLight {
+    direction : vec3<f32>,
+    color : vec3<f32>,
+    intensity : f32,
+    lightSpaceIdxStart : u32, // Defines light space location in relation to lightSpacesStore
+    lightCascadeCount : u32
+}
+
 @binding(0) @group(0) var<uniform> camera : Camera;
 
 @binding(1) @group(0) var<storage> objStore : array<ObjData>; 
+
+@binding(2) @group(0) var<storage> lightSpacesStore : array<mat4x4<f32>>;
+
+@binding(3) @group(0) var<storage> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
 
 
 struct VertexIn {
@@ -27,14 +39,6 @@ struct VertexIn {
 // Collects translation from a mat4x4 
 fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
     return vec3<f32>(in[3][0], in[3][1], in[3][2]);
-}
-
-
-// Depth pass pipeline
-@vertex
-fn depthVtxMain(in : VertexIn) -> @builtin(position) vec4<f32> {
-  var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
-  return camera.projMat * camera.viewMat * worldPos;
 }
 
 // Default pipeline for color pass 

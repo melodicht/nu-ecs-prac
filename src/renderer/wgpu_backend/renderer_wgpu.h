@@ -4,16 +4,12 @@
 
 #include "renderer/render_backend.h"
 #include "renderer/wgpu_backend/render_types_wgpu.h"
-#include "math/math_consts.h"
+
+#include "math/skl_math_consts.h"
 
 #include <SDL3/SDL.h>
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-
 #include <cstdint>
-
 #include <unordered_map>
 
 // Allows for encapsulation of WebGPU render capabilities
@@ -35,15 +31,16 @@ private:
 
     // Represents limits of gpu storage
     u32 m_maxObjArraySize{ 4096 }; // TODO: Fill the following with number informed by limits
+    u32 m_maxLightSpaces{ 4096 };
+    u32 m_maxDynamicShadowedDirLights{ 4096 };
     u32 m_maxMeshVertSize{ 4096 };
     u32 m_maxMeshIndexSize{ 4096 };
 
 
     // Represents temporary variables that are inited/edited/and cleared over the course of frame
-    WGPUTextureView m_surfaceTextureView{ }; 
-    WGPUTextureView m_depthTextureView{ };
     WGPUSurfaceTexture m_surfaceTexture{ };
-    WGPUTexture m_depthTexture{ };
+    WGPUTextureView m_surfaceTextureView{ }; 
+    WGPUBackendTexture m_depthTexture{ };
 
     // Represents the current pass being drawn with
     WGPUCommandEncoder m_passCommandEncoder{ };
@@ -58,15 +55,24 @@ private:
     WGPURenderPipeline m_depthPipeline{ };
     WGPUBindGroup m_depthBindGroup;
 
+    // Defines general light vars
+    std::unordered_map<u32, std::vector<glm::mat4x4>> m_lightSpaces; 
+    std::unordered_map<u32, std::vector<WGPUBackendTexture>> m_dirShadows; // Stores depth textures to prevent constant recreation of such textures
+
+    // Defines dir light vars 
+
+
     WGPUBuffer m_cameraBuffer{ };
     WGPUBuffer m_instanceDatBuffer{ };
+    WGPUBuffer m_lightSpacesStoreBuffer{ };
+    WGPUBuffer m_dynamicShadowedDirLightBuffer{ };
 
     WGPUBuffer m_meshVertexBuffer{ };
     WGPUBuffer m_meshIndexBuffer{ };
     u32 m_meshTotalVertices{ 0 };
     u32 m_meshTotalIndices{ 0 };
     // Currently mesh deletion logic requires that meshes with greater MeshID's to correspond to older mesh stores
-    std::unordered_map<MeshID, WGPUBackendMesh> m_meshStore{ };
+    std::unordered_map<MeshID, WGPUBackendMeshIdx> m_meshStore{ };
 
     // The id of the next obj that will be created
     MeshID m_nextMeshID{ 0 }; 
@@ -90,6 +96,14 @@ private:
 
     // What to call on WebGPU error
     static void ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
+
+    // Fills in related directional light
+    void PrepareDynamicShadowedDirLights(
+        const glm::mat4x4& camMat, 
+        const float camFov, 
+        const float camNear, 
+        const float camFar, 
+        const std::vector<DirLightRenderInfo>& gotDirLightRenderInfo);
 
     // Establishes that the following commands apply to a new frame
     bool InitFrame();
