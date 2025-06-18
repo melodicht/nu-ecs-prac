@@ -8,7 +8,7 @@ project("untitled-engine")
 include(cmake/CPM.cmake)
 
 add_library(DEPENDENCIES INTERFACE)
-set(SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+set(PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 
 # Resolves dependencies that always are needed
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
@@ -22,7 +22,7 @@ target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
 add_library(imgui STATIC ${imgui_sources})
 target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
-list(APPEND SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
+list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 
 target_link_libraries(DEPENDENCIES INTERFACE imgui)
 
@@ -149,7 +149,7 @@ elseif(${SKL_RENDER_SYS} STREQUAL "WebGPU")
 endif()
 
 # Puts together target
-add_executable(${PROJECT_NAME} ${SRC})
+add_executable(${PROJECT_NAME} ${PLATFORM_SRC})
 target_include_directories(${PROJECT_NAME} PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
