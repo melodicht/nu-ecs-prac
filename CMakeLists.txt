@@ -29,7 +29,7 @@ target_link_libraries(DEPENDENCIES INTERFACE imgui)
 # Sets up compilation options
 
 # Determines whether to use default Slang build, or use the GLSL alternative
-option(DEFAULT_SLANG "Use the default Slang build" ON)
+option(USE_SLANG_TO_SPV "Use the default Slang build" ON)
 
 # Determines which rendering backend is used
 if(NOT DEFINED SKL_RENDER_SYS)
@@ -134,7 +134,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
                 SKL_RENDERER=0
         )
         target_compile_definitions(vulkan-backend PRIVATE
-                DEFAULT_SLANG=${DEFAULT_SLANG}
+                USE_SLANG_TO_SPV=${USE_SLANG_TO_SPV}
         )
         
 
@@ -189,7 +189,7 @@ if(NOT EMSCRIPTEN)
         endif()
 
         # Includes shaders in build
-        if(SKL_RENDER_SYS STREQUAL "Vulkan")
+        if(SKL_RENDER_SYS STREQUAL "Vulkan" AND USE_SLANG_TO_SPV)
                 set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
                 set(SHADERS_OUT_DIR "${BUILD_DIR}/shaders")
 
