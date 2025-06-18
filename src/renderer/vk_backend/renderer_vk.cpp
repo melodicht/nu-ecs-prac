@@ -30,6 +30,7 @@
 #include <vulkan/VkBootstrap.h>
 
 #include <unordered_map>
+#include "skl_logger.h"
 
 // Vulkan structures
 VkInstance instance;
@@ -616,6 +617,11 @@ VkShaderModule CreateShaderModuleFromFile(const char *FilePath)
     VkShaderModuleCreateInfo shaderInfo{};
     shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     void *shaderFile = SDL_LoadFile(FilePath, &shaderInfo.codeSize);
+    if (!shaderFile)
+    {
+        std::cerr << "Failed to load shader file: " << SDL_GetError() << std::endl;
+        return VK_NULL_HANDLE;
+    }
     shaderInfo.pCode = reinterpret_cast<const u32*>(shaderFile);
     VkShaderModule shaderModule;
     VK_CHECK(vkCreateShaderModule(device, &shaderInfo, nullptr, &shaderModule));
