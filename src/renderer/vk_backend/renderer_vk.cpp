@@ -987,6 +987,7 @@ void InitPipelines(u32 cascades)
     vkDestroyShaderModule(device, cubemapFragShader, nullptr);
 #endif
 
+#if SKL_ENABLED_EDITOR
     // Initialize ImGui
     ImGui_ImplVulkan_InitInfo imGuiInfo{};
     imGuiInfo.ApiVersion = VK_API_VERSION_1_3;
@@ -1004,12 +1005,15 @@ void InitPipelines(u32 cascades)
     ImGui_ImplVulkan_Init(&imGuiInfo);
 
     ImGui_ImplVulkan_CreateFontsTexture();
+#endif
 }
 
 // Set up frame and begin capturing draw calls
 bool InitFrame()
 {
+#if SKL_ENABLED_EDITOR
     ImGui_ImplVulkan_NewFrame();
+#endif
     //Set up commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 

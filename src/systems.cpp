@@ -390,7 +390,9 @@ class RenderSystem : public System
             DrawObjects(pair.second, startIndex);
             startIndex += pair.second;
         }
+    #if SKL_ENABLED_EDITOR
         DrawImGui();
+    #endif
         EndPass();
         EndFrame();
     }
