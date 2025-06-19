@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <bitset>
 
 /*
  * TYPE DEFINITIONS AND CONSTANTS
@@ -89,7 +88,7 @@ class System
 {
 public:
     virtual void OnStart(Scene *scene) {};
-    virtual void OnUpdate(Scene *scene, f32 deltaTime) {};
+    virtual void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime) {};
     virtual ~System() = default;
 };
 
@@ -118,7 +117,7 @@ struct Scene
       
     void InitSystems();
 
-    void UpdateSystems(f32 deltaTime);
+    void UpdateSystems(GameInput *input, f32 deltaTime);
 
     // Adds a new entity to this vector of entities, and returns its
     // ID. Can only support 2^64 entities without ID conflicts.

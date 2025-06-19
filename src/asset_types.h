@@ -1,6 +1,5 @@
 #pragma once
 
-#include "meta_definitions.h"
 #include "renderer/render_types.h"
 
 #include <vector>

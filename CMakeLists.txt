@@ -8,7 +8,9 @@ project("untitled-engine")
 include(cmake/CPM.cmake)
 
 add_library(DEPENDENCIES INTERFACE)
+add_library(RENDERING_BACKEND INTERFACE)
 set(PLATFORM_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
+set(GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game.cpp)
 
 # Resolves dependencies that always are needed
 CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
@@ -17,7 +19,6 @@ CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
 CPMAddPackage("gh:ocornut/imgui#v1.91.9b")
 target_link_libraries(DEPENDENCIES INTERFACE SDL3::SDL3)
 target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
-target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
 
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
 add_library(imgui STATIC ${imgui_sources})
@@ -133,12 +134,16 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         target_compile_definitions(vulkan-backend PRIVATE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE})
 
         target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
+        target_link_libraries(RENDERING_BACKEND INTERFACE vulkan-backend)
 
 elseif(${SKL_RENDER_SYS} STREQUAL "WebGPU")
 
         # Includes backend dll as part of projects
         add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/wgpu_backend wgpu-backend)
         target_link_libraries(DEPENDENCIES INTERFACE
+                wgpu-backend
+              )
+        target_link_libraries(RENDERING_BACKEND INTERFACE
                 wgpu-backend
         )
 
@@ -148,6 +153,15 @@ elseif(${SKL_RENDER_SYS} STREQUAL "WebGPU")
         )
 endif()
 
+# Compile game code as a library
+add_library(game-module MODULE ${GAME_SRC})
+target_link_libraries(game-module PRIVATE glm::glm)
+target_link_libraries(game-module PRIVATE SDL3::SDL3)
+target_link_libraries(game-module PRIVATE fastgltf::fastgltf)
+target_include_directories(game-module PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(game-module PRIVATE RENDERING_BACKEND)
+      
 # Puts together target
 add_executable(${PROJECT_NAME} ${PLATFORM_SRC})
 target_include_directories(${PROJECT_NAME} PUBLIC

@@ -1,6 +1,6 @@
 class GravitySystem : public System
 {
-    void OnUpdate(Scene *scene, f32 deltaTime)
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
         for (EntityID ent: SceneView<Rigidbody, GravityComponent>(*scene))
         {
@@ -43,7 +43,7 @@ void scanCollision(CircleCollider *checkCollider, Rigidbody *accessRigid, Transf
 
 class CollisionSystem : public System
 {
-    void OnUpdate(Scene *scene, f32 deltaTime)
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
         // Forward movement, collision, rendering
         for (EntityID ent: SceneView<Transform3D, Rigidbody, CircleCollider>(*scene))
@@ -116,7 +116,7 @@ class RenderSystem : public System
         ambientLight = {0.1, 0.1, 0.1};
     }
 
-    void OnUpdate(Scene *scene, f32 deltaTime)
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
         for (EntityID ent: SceneView<DirLight, Transform3D>(*scene))
         {
@@ -211,15 +211,15 @@ class RenderSystem : public System
         glm::mat4 view = GetViewMatrix(cameraTransform);
         f32 aspect = (f32)WINDOW_WIDTH / (f32)WINDOW_HEIGHT;
 
-        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
+        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->nearxx, camera->farxx);
 
         // Calculate cascaded shadow views
 
         CameraData dirViews[NUM_CASCADES];
 
-        f32 subFrustumSize = (camera->far - camera->near) / NUM_CASCADES;
+        f32 subFrustumSize = (camera->farxx - camera->nearxx) / NUM_CASCADES;
 
-        f32 currentNear = camera->near;
+        f32 currentNear = camera->nearxx;
 
         std::vector<DirLightData> dirLightData;
 
@@ -400,33 +400,33 @@ class RenderSystem : public System
 
 class MovementSystem : public System
 {
-    void OnUpdate(Scene *scene, f32 deltaTime)
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
         for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
             Transform3D *t = scene->Get<Transform3D>(ent);
 
-            t->rotation.z += mouseDeltaX * f->turnSpeed;
-            t->rotation.y += mouseDeltaY * f->turnSpeed;
+            t->rotation.z += input->mouseDeltaX * f->turnSpeed;
+            t->rotation.y += input->mouseDeltaY * f->turnSpeed;
             t->rotation.y = std::min(std::max(t->rotation.y, -90.0f), 90.0f);
 
-            if (keysDown["W"])
+            if (input->keysDown["W"])
             {
                 t->position += GetForwardVector(t) * f->moveSpeed * deltaTime;
             }
 
-            if (keysDown["S"])
+            if (input->keysDown["S"])
             {
                 t->position -= GetForwardVector(t) * f->moveSpeed * deltaTime;
             }
 
-            if (keysDown["D"])
+            if (input->keysDown["D"])
             {
                 t->position += GetRightVector(t) * f->moveSpeed * deltaTime;
             }
 
-            if (keysDown["A"])
+            if (input->keysDown["A"])
             {
                 t->position -= GetRightVector(t) * f->moveSpeed * deltaTime;
             }
@@ -468,7 +468,7 @@ public:
         this->slowStep = slowStep;
     }
 
-    void OnUpdate(Scene *scene, f32 deltaTime)
+    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
         if (slowStep && timer > 0.0f)
         {
@@ -528,7 +528,7 @@ public:
 
                         pointLightCount++;
 
-                        std::cout << pointLightCount << "\n";
+                        LOG(pointLightcount);
                     }
                 }
 

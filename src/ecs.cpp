@@ -68,11 +68,11 @@ void Scene::InitSystems()
     }
 }
 
-void Scene::UpdateSystems(f32 deltaTime)
+void Scene::UpdateSystems(GameInput *input, f32 deltaTime)
 {
     for (System *sys: systems)
     {
-        sys->OnUpdate(this, deltaTime);
+        sys->OnUpdate(this, input, deltaTime);
     }
 }
 

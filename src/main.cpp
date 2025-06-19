@@ -28,30 +28,17 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <fastgltf/core.hpp>
-#include <fastgltf/types.hpp>
-#include <fastgltf/tools.hpp>
-
 #if SKL_ENABLED_EDITOR
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
 #endif
 
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "game.h"
 
+#include "asset_types.h"
 #include "renderer/render_backend.h"
-
-#include "asset_utils.cpp"
-
 #include "math/math_utils.cpp"
 
-std::unordered_map<std::string, bool> keysDown;
-f32 mouseDeltaX = 0;
-f32 mouseDeltaY = 0;
-
-
-#include "game.h"
 #include "main.h"
 
 #include "platform_metrics.cpp"
@@ -61,6 +48,10 @@ f32 mouseDeltaY = 0;
 #endif
 
 #define GAME_CODE_FILE_NAME "skl_game"
+
+global_variable std::unordered_map<std::string, bool> keysDown;
+global_variable f32 mouseDeltaX = 0;
+global_variable f32 mouseDeltaY = 0;
 
 #ifdef PLATFORM_UNIX
 local void *UnixLoadSymbol(void *handle, const char *symbol, b32 *failed)
@@ -164,7 +155,11 @@ void updateLoop(void* appInfo) {
     #endif
 
     SDLGameCode gameCode = info->gameCode;
-    gameCode.gameUpdateAndRender(info->scene, info->window, deltaTime);
+    GameInput gameInput;
+    gameInput.mouseDeltaX = mouseDeltaX;
+    gameInput.mouseDeltaY = mouseDeltaY;
+    gameInput.keysDown = keysDown;
+    gameCode.gameUpdateAndRender(info->scene, gameInput, deltaTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;

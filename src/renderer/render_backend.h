@@ -1,8 +1,6 @@
 #pragma once
 
-#include "meta_definitions.h"
 #include "render_types.h"
-#include "asset_types.h"
 
 #include <SDL3/SDL.h>
 

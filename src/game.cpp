@@ -1,6 +1,16 @@
 #include "game.h"
 
+#include <map>
+#include <random>
+#include <unordered_map>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #include "asset_types.h"
+#include "asset_utils.cpp"
+#include "renderer/render_backend.h"
+
+#include "math/math_utils.cpp"
 
 #include "ecs.cpp"
 #include "systems.cpp"
@@ -33,8 +43,8 @@ GAME_INITIALIZE(GameInitialize)
     CameraComponent *playerCamera = scene.Assign<CameraComponent>(player);
     FlyingMovement *playerMovement = scene.Assign<FlyingMovement>(player);
     playerCamera->fov = 90.0f;
-    playerCamera->far = 5000.0f;
-    playerCamera->near = 0.2f;
+    playerCamera->farxx = 5000.0f;
+    playerCamera->nearxx = 0.2f;
     playerMovement->moveSpeed = 200.0f;
     playerMovement->turnSpeed = 0.1f;
     playerTransform->position.x = -2560.0f;
@@ -75,5 +85,5 @@ GAME_INITIALIZE(GameInitialize)
 extern "C"
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
-    scene.UpdateSystems(deltaTime);
+    scene.UpdateSystems(&input, deltaTime);
 }
