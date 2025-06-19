@@ -47,7 +47,7 @@
 #include <emscripten/html5.h>
 #endif
 
-#define GAME_CODE_FILE_NAME "skl_game"
+#define GAME_CODE_FILE_NAME "game-module"
 
 global_variable std::unordered_map<std::string, bool> keysDown;
 global_variable f32 mouseDeltaX = 0;

@@ -16,6 +16,9 @@
 #include "systems.cpp"
 
 extern "C"
+#if defined(_WIN32) || defined(_WIN64)
+__declspec(dllexport)
+#endif
 GAME_INITIALIZE(GameInitialize)
 {
     bool slowStep = false;
@@ -83,6 +86,9 @@ GAME_INITIALIZE(GameInitialize)
 }
 
 extern "C"
+#if defined(_WIN32) || defined(_WIN64)
+__declspec(dllexport)
+#endif
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     scene.UpdateSystems(&input, deltaTime);

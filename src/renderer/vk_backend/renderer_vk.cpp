@@ -12,6 +12,8 @@
 
 #define DEFAULT_SLANG true
 
+#include "meta_definitions.h"
+
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
 
@@ -23,6 +25,7 @@
 
 #include <backends/imgui_impl_vulkan.h>
 
+#include "asset_types.h"
 #include "renderer/render_backend.h"
 #include "renderer/vk_backend/vk_render_types.h"
 #include "renderer/vk_backend/vk_render_utils.cpp"
@@ -30,8 +33,6 @@
 #include <vulkan/VkBootstrap.h>
 
 #include <unordered_map>
-
-#include "meta_definitions.h"
 
 // Vulkan structures
 VkInstance instance;

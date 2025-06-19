@@ -161,6 +161,7 @@ target_link_libraries(game-module PRIVATE fastgltf::fastgltf)
 target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(game-module PRIVATE RENDERING_BACKEND)
+target_link_libraries(game-module PRIVATE imgui)
       
 # Puts together target
 add_executable(${PROJECT_NAME} ${PLATFORM_SRC})
@@ -197,7 +198,7 @@ if(NOT EMSCRIPTEN)
         endif()
 
         # Includes shaders in build
-        if(SKL_RENDER_SYS STREQUAL "Vulkan")
+        if(SKL_RENDER_SYS STREQUAL "Vulkan" AND OFF)
                 set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
                 set(SHADERS_OUT_DIR "${BUILD_DIR}/shaders")
 
