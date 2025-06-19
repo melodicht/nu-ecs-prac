@@ -75,7 +75,35 @@ local void *UnixLoadSymbol(void *handle, const char *symbol, b32 *failed)
 
 local void SDLLoadGameCode(SDLGameCode *gameCode)
 {
-#ifdef PLATFORM_UNIX
+
+    const char *gameCodeFilePath;
+#ifdef PLATFORM_WINDOWS
+    gameCodeFilePath = GAME_CODE_FILE_NAME ".dll";
+#else
+    gameCodeFilePath = GAME_CODE_FILE_NAME ".so";
+#endif
+    SDL_SharedObject *sharedObjectHandle = SDL_LoadObject(gameCodeFilePath);
+    if (!sharedObjectHandle)
+    {
+        LOG_ERROR("Game code loading failed.");
+    }
+
+    gameCode->gameInitialize = (game_initialize_t *)SDL_LoadFunction(sharedObjectHandle, "GameInitialize");
+    gameCode->gameUpdateAndRender = (game_update_and_render_t *)SDL_LoadFunction(sharedObjectHandle, "GameUpdateAndRender");
+    if (!gameCode->gameInitialize || !gameCode->gameUpdateAndRender)
+    {
+        LOG_ERROR("Unable to load symbols from game shared object.");
+        gameCode->gameInitialize = 0;
+        gameCode->gameUpdateAndRender = 0;
+    }
+
+    // NOTE(marvin):
+    // These are platform specific implementations because I didn't know SDL provided
+    // a cross-platform one. Just keeping this here just in case we end up making our
+    // own platform layer.
+    #if 0
+    return;
+    //if PLATFORM_UNIX
     // TODO(marvin): Test this shit.
     void *mainProgramHandle = dlopen(GAME_CODE_FILE_NAME ".so", RTLD_NOW);
     if (!mainProgramHandle)
@@ -92,7 +120,7 @@ local void SDLLoadGameCode(SDLGameCode *gameCode)
         gameCode->gameInitialize = 0;
         gameCode->gameUpdateAndRender = 0;
     }
-#elif defined PLATFORM_WINDOWS
+    //elif defined PLATFORM_WINDOWS
     HMODULE moduleHandle = LoadLibraryA(GAME_CODE_FILE_NAME ".dll");
     if (!moduleHandle)
     {
@@ -106,9 +134,10 @@ local void SDLLoadGameCode(SDLGameCode *gameCode)
         gameCode->gameInitialize = 0;
         gameCode->gameUpdateAndRender = 0;
     }
-#else
+    //else
     LOG_ERROR("Unrecognized platform. Unable to load game code.");
-#endif
+    //endif
+    #endif
 }
 
 void updateLoop(void* appInfo) {
