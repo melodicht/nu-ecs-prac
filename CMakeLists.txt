@@ -25,6 +25,7 @@ add_library(SHARED_DEPENDENCIES INTERFACE)
 target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         SDL3::SDL3
         glm::glm
+        imgui
 )
 
 add_library(RENDERING_BACKEND INTERFACE)
@@ -140,8 +141,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
                 ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
         target_link_libraries(vulkan-backend PRIVATE
                 SHARED_DEPENDENCIES
-                Vulkan::Vulkan
-                imgui)
+                Vulkan::Vulkan)
         target_include_directories(vulkan-backend PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/include
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
@@ -168,8 +168,7 @@ add_library(game-module MODULE ${GAME_SRC})
 target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
-        fastgltf::fastgltf
-        imgui)
+        fastgltf::fastgltf)
 target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -186,8 +185,7 @@ target_include_directories(platform PUBLIC
         $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 target_link_libraries(platform PRIVATE
         SHARED_DEPENDENCIES
-        RENDERING_BACKEND
-        imgui)
+        RENDERING_BACKEND)
 
 if (EMSCRIPTEN)
         set_target_properties(platform PROPERTIES SUFFIX ".html")
