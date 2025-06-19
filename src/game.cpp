@@ -1,12 +1,12 @@
-#include "handmade.h"
+#include "game.h"
 
 #include "asset_types.h"
 
 #include "ecs.cpp"
 #include "systems.cpp"
-#include "game.cpp"
 
-void GameInitialize(Scene &scene)
+extern "C"
+GAME_INITIALIZE(GameInitialize)
 {
     bool slowStep = false;
 
@@ -72,7 +72,8 @@ void GameInitialize(Scene &scene)
     scene.InitSystems();
 }
 
-void GameUpdateAndRender(Scene &scene, SDL_Window *window, f32 deltaTime)
+extern "C"
+GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     scene.UpdateSystems(deltaTime);
 }

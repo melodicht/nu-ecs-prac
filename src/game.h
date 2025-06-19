@@ -7,15 +7,11 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-void GameInitialize(Scene &scene);
+#define GAME_INITIALIZE(name) void name(Scene &scene)
+typedef GAME_INITIALIZE(game_initialize_t);
 
-void GameUpdateAndRender(Scene &scene, SDL_Window *window, f32 deltaTime);
-
-#define BALL_RADIUS 5
-#define NUM_BALLS 1000
-
-#define GRAVITY_MIN 0.25
-#define GRAVITY_MAX 0.5
+#define GAME_UPDATE_AND_RENDER(name) void name(Scene &scene, SDL_Window *window, f32 deltaTime)
+typedef GAME_UPDATE_AND_RENDER(game_update_and_render_t);
 
 uint32_t cuboidMesh;
 uint32_t trapMesh;

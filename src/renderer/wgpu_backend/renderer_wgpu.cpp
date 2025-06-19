@@ -1,6 +1,3 @@
-#include "renderer/wgpu_backend/renderer_wgpu.h"
-#include "webgpu/sdl3webgpu-main/sdl3webgpu.h"
-
 #ifdef __EMSCRIPTEN__
 #  include <emscripten.h>
 #endif
@@ -12,6 +9,11 @@
 #if SKL_ENABLED_EDITOR
 #include <backends/imgui_impl_wgpu.h>
 #endif
+
+#include "meta_definitions.h"
+
+#include "renderer/wgpu_backend/renderer_wgpu.h"
+#include "webgpu/sdl3webgpu-main/sdl3webgpu.h"
 
 // Much of this was taken from https://eliemichel.github.io/LearnWebGPU
 

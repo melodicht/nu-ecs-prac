@@ -1,3 +1,12 @@
+#if defined(__unix__) || defined(__unix) || defined(unix) ||    \
+    (defined(__APPLE__) && defined(__MACH__))
+    #define PLATFORM_UNIX
+    #include <dlfcn.h>
+#elif defined(_WIN32) || defined(_WIN64)
+    #define PLATFORM_WINDOWS
+    #include <windows.h>
+#endif
+
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -43,30 +52,73 @@ f32 mouseDeltaY = 0;
 
 
 #include "game.h"
+#include "main.h"
 
 #include "platform_metrics.cpp"
 
 #if EMSCRIPTEN
 #include <emscripten/html5.h>
 #endif
-struct AppInformation
-{
-    SDL_Window *window;
-    Scene& scene;
-    SDL_Event& e;
-    bool playing;
-    u64 now;
-    u64 last;
 
-    AppInformation(SDL_Window *setWindow, Scene& setScene, SDL_Event& setE, bool setPlaying, u64 setNow, u64 setLast) :
-        window(setWindow),
-        scene(setScene),
-        e(setE),
-        playing(setPlaying),
-        now(setNow),
-        last(setLast)
-    { }
-};
+#define GAME_CODE_FILE_NAME "skl_game"
+
+#ifdef PLATFORM_UNIX
+local void *UnixLoadSymbol(void *handle, const char *symbol, b32 *failed)
+{
+    dlerror();
+    void *symbolAddress = dlsym(handle, symbol);
+    char *error = dlerror();
+    if (error)
+    {
+        LOG_ERROR("Unable to find symbol in loaded game code:");
+        LOG_ERROR(symbol);
+        *failed = true;
+    }
+    else
+    {
+        *failed = false;
+    }
+    return symbolAddress;
+}
+#endif
+
+local void SDLLoadGameCode(SDLGameCode *gameCode)
+{
+#ifdef PLATFORM_UNIX
+    // TODO(marvin): Test this shit.
+    void *mainProgramHandle = dlopen(GAME_CODE_FILE_NAME ".so", RTLD_NOW);
+    if (!mainProgramHandle)
+    {
+        LOG_ERROR("Game code loading failed.");
+    }
+
+    b32 gameInitializeLoadFailed;
+    b32 gameUpdateAndRenderLoadFailed;
+    gameCode->gameInitialize = (game_initialize_t *) UnixLoadSymbol(mainProgramHandle, "GameInitialize", &gameInitializeLoadFailed);
+    gameCode->gameUpdateAndRender = (game_update_and_render_t *) UnixLoadSymbol(mainProgramHandle, "GameUpdateAndRender", &gameUpdateAndRenderLoadFailed);
+    if (gameInitializeLoadFailed || gameUpdateAndRenderLoadFailed)
+    {
+        gameCode->gameInitialize = 0;
+        gameCode->gameUpdateAndRender = 0;
+    }
+#elif defined PLATFORM_WINDOWS
+    HMODULE moduleHandle = LoadLibraryA(GAME_CODE_FILE_NAME ".dll");
+    if (!moduleHandle)
+    {
+        LOG_ERROR("Game code loading failed.");
+    }
+    gameCode->gameInitialize = (game_initialize_t *) GetProcAddress(moduleHandle, "GameInitialize");
+    gameCode->gameUpdateAndRender = (game_update_and_render_t *) GetProcAddress(moduleHandle, "GameUpdateAndRender");
+    if (!gameCode->gameInitialize || !gameCode->gameUpdateAndRender)
+    {
+        LOG_ERROR("Unable to load symbol(s) of game code.");
+        gameCode->gameInitialize = 0;
+        gameCode->gameUpdateAndRender = 0;
+    }
+#else
+    LOG_ERROR("Unrecognized platform. Unable to load game code.");
+#endif
+}
 
 void updateLoop(void* appInfo) {
     AppInformation* info = (AppInformation* )appInfo;
@@ -111,7 +163,8 @@ void updateLoop(void* appInfo) {
     ImGui::NewFrame();
     #endif
 
-    GameUpdateAndRender(info->scene, info->window, deltaTime);
+    SDLGameCode gameCode = info->gameCode;
+    gameCode.gameUpdateAndRender(info->scene, info->window, deltaTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;
@@ -155,15 +208,18 @@ int main()
 
     InitRenderer(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 
+    SDLGameCode gameCode = {};
+    SDLLoadGameCode(&gameCode);
+
     Scene scene;
-    GameInitialize(scene);
+    gameCode.gameInitialize(scene);
 
     SDL_Event e;
     bool playing = true;
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    AppInformation app = AppInformation(window, scene, e, playing, now, last);
+    AppInformation app = AppInformation(window, gameCode, scene, e, playing, now, last);
     #if EMSCRIPTEN
     emscripten_set_main_loop_arg(
         [](void* userData) {

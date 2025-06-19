@@ -1,7 +1,5 @@
 #pragma once
 
-#include "meta_definitions.h"
-
 #include <webgpu/webgpu.h>
 
 // Represents the gpu side buffers representing a mesh within the WebGPU renderer

@@ -30,7 +30,8 @@
 #include <vulkan/VkBootstrap.h>
 
 #include <unordered_map>
-#include "skl_logger.h"
+
+#include "meta_definitions.h"
 
 // Vulkan structures
 VkInstance instance;
