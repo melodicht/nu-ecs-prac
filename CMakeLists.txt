@@ -19,6 +19,11 @@ target_link_libraries(DEPENDENCIES INTERFACE SDL3::SDL3)
 target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
 target_link_libraries(DEPENDENCIES INTERFACE fastgltf::fastgltf)
 
+# Includes skl math library
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/math skl-math)
+target_link_libraries(DEPENDENCIES INTERFACE skl-math)
+
+# Includes imgui
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
 add_library(imgui STATIC ${imgui_sources})
 target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)

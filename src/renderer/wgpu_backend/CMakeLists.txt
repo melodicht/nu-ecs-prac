@@ -18,11 +18,8 @@ if(EMSCRIPTEN)
         CPMAddPackage(NAME emdawn URL "https://github.com/google/dawn/releases/download/v20250519.170457/emdawnwebgpu_pkg-v20250519.170457.zip")
         set(emdawn_ROOT "${emdawn_SOURCE_DIR}")
         target_link_options(webgpu INTERFACE 
-                -sASSERTIONS
                 -sUSE_SDL=3
                 -sASYNCIFY
-                -O0
-                -EMCC_DEBUG=1
                 -sALLOW_MEMORY_GROWTH
                 --use-port=${emdawn_ROOT}/emdawnwebgpu.port.py
                 --closure-args=--externs=${emdawn_ROOT}/webgpu/src/webgpu-externs.js)
@@ -57,4 +54,4 @@ target_compile_definitions(wgpu-backend PRIVATE SKL_LOGGING_ENABLED=${SKL_ENABLE
 # Includes ported SDL3-webgpu conduit
 add_subdirectory(${CMAKE_SOURCE_DIR}/include/webgpu/sdl3webgpu-main sdl3webgpu)
 
-target_link_libraries(wgpu-backend PRIVATE glm::glm sdl3webgpu imgui)
+target_link_libraries(wgpu-backend PRIVATE glm::glm sdl3webgpu imgui skl-math)

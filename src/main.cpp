@@ -13,9 +13,7 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-#define local static
-
-#include "math/math_consts.h"
+#include "math/skl_math_consts.h"
 
 #define SDL_MAIN_HANDLED
 
@@ -44,7 +42,7 @@
 
 #include "asset_utils.cpp"
 
-#include "math/math_utils.cpp"
+#include "math/skl_math_utils.h"
 
 int windowWidth = WINDOW_WIDTH;
 int windowHeight = WINDOW_HEIGHT;
@@ -122,6 +120,8 @@ void updateLoop(void* appInfo) {
     #if SKL_ENABLED_EDITOR
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
+
+    ImGui::ShowDemoWindow();
     #endif
 
     GameUpdateAndRender(info->scene, info->window, deltaTime);
@@ -166,7 +166,12 @@ int main()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    InitRenderer(window, WINDOW_WIDTH, WINDOW_HEIGHT);
+    RenderInitInfo initDesc {
+        .window = window,
+        .startWidth = WINDOW_WIDTH,
+        .startHeight = WINDOW_HEIGHT
+    };
+    InitRenderer(initDesc);
 
     Scene scene;
     GameInitialize(scene);

@@ -1,9 +1,6 @@
-struct Transform3D
-{
-    glm::vec3 position;
-    glm::vec3 rotation;
-    glm::vec3 scale = glm::vec3(1);
-};
+#include "skl_math_utils.h"
+
+#include <random>
 
 glm::mat4 GetRotationMatrix(Transform3D *transform)
 {
@@ -84,4 +81,23 @@ u32 RandInt(u32 min, u32 max)
     std::mt19937 gen(rd());
     std::uniform_int_distribution<u32> distribution(min, max);
     return distribution(gen);
+}
+
+glm::vec3 GetArbitraryOrthogonal(const glm::vec3& vec) {
+  if (std::abs(vec.x) < std::abs(vec.y) && std::abs(vec.x) < std::abs(vec.z)) {
+    return glm::normalize(glm::cross(vec, glm::vec3(1, 0, 0)));
+  } else if (abs(vec.y) < abs(vec.z)) {
+    return glm::normalize(glm::cross(vec, glm::vec3(0, 1, 0)));
+  } else {
+    return glm::normalize(glm::cross(vec, glm::vec3(0, 0, 1)));
+  }
+}
+
+glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& left) {
+  return glm::mat4x4(
+    glm::vec4(left, 0.0f),
+    glm::vec4(up, 0.0f),
+    glm::vec4(forward, 0.0f),
+    glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
+  );
 }
