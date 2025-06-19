@@ -20,7 +20,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
 
-#include "game.h"
+#include "game_platform.h"
 
 #if SKL_ENABLED_EDITOR
 #include <imgui.h>
