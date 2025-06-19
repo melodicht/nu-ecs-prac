@@ -45,26 +45,6 @@ global_variable std::unordered_map<std::string, bool> keysDown;
 global_variable f32 mouseDeltaX = 0;
 global_variable f32 mouseDeltaY = 0;
 
-#ifdef PLATFORM_UNIX
-local void *UnixLoadSymbol(void *handle, const char *symbol, b32 *failed)
-{
-    dlerror();
-    void *symbolAddress = dlsym(handle, symbol);
-    char *error = dlerror();
-    if (error)
-    {
-        LOG_ERROR("Unable to find symbol in loaded game code:");
-        LOG_ERROR(symbol);
-        *failed = true;
-    }
-    else
-    {
-        *failed = false;
-    }
-    return symbolAddress;
-}
-#endif
-
 local void SDLLoadGameCode(SDLGameCode *gameCode)
 {
 
@@ -88,48 +68,6 @@ local void SDLLoadGameCode(SDLGameCode *gameCode)
         gameCode->gameInitialize = 0;
         gameCode->gameUpdateAndRender = 0;
     }
-
-    // NOTE(marvin):
-    // These are platform specific implementations because I didn't know SDL provided
-    // a cross-platform one. Just keeping this here just in case we end up making our
-    // own platform layer.
-    #if 0
-    return;
-    //if PLATFORM_UNIX
-    // TODO(marvin): Test this shit.
-    void *mainProgramHandle = dlopen(GAME_CODE_FILE_NAME ".so", RTLD_NOW);
-    if (!mainProgramHandle)
-    {
-        LOG_ERROR("Game code loading failed.");
-    }
-
-    b32 gameInitializeLoadFailed;
-    b32 gameUpdateAndRenderLoadFailed;
-    gameCode->gameInitialize = (game_initialize_t *) UnixLoadSymbol(mainProgramHandle, "GameInitialize", &gameInitializeLoadFailed);
-    gameCode->gameUpdateAndRender = (game_update_and_render_t *) UnixLoadSymbol(mainProgramHandle, "GameUpdateAndRender", &gameUpdateAndRenderLoadFailed);
-    if (gameInitializeLoadFailed || gameUpdateAndRenderLoadFailed)
-    {
-        gameCode->gameInitialize = 0;
-        gameCode->gameUpdateAndRender = 0;
-    }
-    //elif defined PLATFORM_WINDOWS
-    HMODULE moduleHandle = LoadLibraryA(GAME_CODE_FILE_NAME ".dll");
-    if (!moduleHandle)
-    {
-        LOG_ERROR("Game code loading failed.");
-    }
-    gameCode->gameInitialize = (game_initialize_t *) GetProcAddress(moduleHandle, "GameInitialize");
-    gameCode->gameUpdateAndRender = (game_update_and_render_t *) GetProcAddress(moduleHandle, "GameUpdateAndRender");
-    if (!gameCode->gameInitialize || !gameCode->gameUpdateAndRender)
-    {
-        LOG_ERROR("Unable to load symbol(s) of game code.");
-        gameCode->gameInitialize = 0;
-        gameCode->gameUpdateAndRender = 0;
-    }
-    //else
-    LOG_ERROR("Unrecognized platform. Unable to load game code.");
-    //endif
-    #endif
 }
 
 void updateLoop(void* appInfo) {
