@@ -165,6 +165,7 @@ target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(game-module PRIVATE RENDERING_BACKEND)
 target_link_libraries(game-module PRIVATE imgui)
+target_compile_definitions(game-module PRIVATE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE})
       
 # Puts together target
 add_executable(${PROJECT_NAME} ${PLATFORM_SRC})
@@ -205,7 +206,7 @@ if(NOT EMSCRIPTEN)
         file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
 
         # Includes shaders in build
-        if(SKL_RENDER_SYS STREQUAL "Vulkan")
+        if(SKL_RENDER_SYS STREQUAL "Vulkan" AND OFF)
                 file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
 
                 set(SLANGC "slangc")
