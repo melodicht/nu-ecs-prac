@@ -130,6 +130,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         target_compile_definitions(DEPENDENCIES INTERFACE
                 SKL_RENDERER=0
         )
+        target_compile_definitions(vulkan-backend PRIVATE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE})
 
         target_link_libraries(DEPENDENCIES INTERFACE vulkan-backend)
 
