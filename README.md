@@ -10,4 +10,4 @@ Make sure you have CMAKE and some C++ Compiler installed
 3. Open a terminal in that `/build/` directory
 4. Run `cmake ../`
 5. Run `make `
-6. Fix the issues that will inevitably ensue.
+6. Fix the issues that will inevitably ensue from steps 4 and or 5.
