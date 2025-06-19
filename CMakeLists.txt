@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.17)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# TODO(marvin): Work towards getting this out by doing things properly
+set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON) 
+
 project("untitled-engine")
 
 # Resolves dependencies
@@ -21,7 +24,7 @@ target_link_libraries(DEPENDENCIES INTERFACE SDL3::SDL3)
 target_link_libraries(DEPENDENCIES INTERFACE glm::glm)
 
 file(GLOB imgui_sources ${imgui_SOURCE_DIR}/*.cpp)
-add_library(imgui STATIC ${imgui_sources})
+add_library(imgui SHARED ${imgui_sources})
 target_include_directories(imgui PRIVATE $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
 list(APPEND PLATFORM_SRC ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp)
 
@@ -114,7 +117,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         add_definitions(-DIMGUI_IMPL_VULKAN_USE_VOLK)
         find_package(Vulkan REQUIRED)
         set(VULKAN_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/vk_backend)
-        add_library(vulkan-backend STATIC
+        add_library(vulkan-backend SHARED
                 ${VULKAN_SRC_DIR}/renderer_vk.cpp
                 ${VULKAN_SRC_DIR}/VkBootstrap.cpp
                 ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
@@ -202,7 +205,7 @@ if(NOT EMSCRIPTEN)
         file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
 
         # Includes shaders in build
-        if(SKL_RENDER_SYS STREQUAL "Vulkan" AND OFF)
+        if(SKL_RENDER_SYS STREQUAL "Vulkan")
                 file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
 
                 set(SLANGC "slangc")
