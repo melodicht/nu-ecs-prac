@@ -10,7 +10,7 @@
 		}                                                           \
 	} while (0)
 
-#define DEFAULT_SLANG false
+#define DEFAULT_SLANG true
 
 #include "meta_definitions.h"
 

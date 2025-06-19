@@ -1,10 +1,8 @@
 #if defined(__unix__) || defined(__unix) || defined(unix) ||    \
     (defined(__APPLE__) && defined(__MACH__))
     #define PLATFORM_UNIX
-    #include <dlfcn.h>
 #elif defined(_WIN32) || defined(_WIN64)
     #define PLATFORM_WINDOWS
-    #include <windows.h>
 #endif
 
 #include <algorithm>
@@ -22,18 +20,12 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_surface.h>
 
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#define GLM_FORCE_LEFT_HANDED
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+#include "game.h"
 
 #if SKL_ENABLED_EDITOR
 #include <imgui.h>
 #include <backends/imgui_impl_sdl3.h>
 #endif
-
-#include "game.h"
 
 #include "asset_types.h"
 #include "renderer/render_backend.h"

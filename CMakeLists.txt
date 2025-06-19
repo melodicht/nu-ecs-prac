@@ -206,7 +206,7 @@ if(NOT EMSCRIPTEN)
         file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
 
         # Includes shaders in build
-        if(SKL_RENDER_SYS STREQUAL "Vulkan" AND OFF)
+        if(SKL_RENDER_SYS STREQUAL "Vulkan")
                 file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
 
                 set(SLANGC "slangc")

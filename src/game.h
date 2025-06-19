@@ -4,6 +4,12 @@
 
 #include "meta_definitions.h"
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_LEFT_HANDED
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include <bitset>   // For ECS
 #include <unordered_map>
 #include <string>
