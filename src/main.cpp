@@ -13,7 +13,7 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-#include "math/math_consts.h"
+#include "math/skl_math_consts.h"
 
 #define SDL_MAIN_HANDLED
 
@@ -42,7 +42,7 @@
 
 #include "asset_utils.cpp"
 
-#include "math/math_utils.cpp"
+#include "math/skl_math_utils.h"
 
 int windowWidth = WINDOW_WIDTH;
 int windowHeight = WINDOW_HEIGHT;
@@ -51,7 +51,7 @@ std::unordered_map<std::string, bool> keysDown;
 f32 mouseDeltaX = 0;
 f32 mouseDeltaY = 0;
 
-#include "ecs.h"
+#include "ecs.cpp"
 
 #include "game.h"
 #include "systems.cpp"
@@ -166,7 +166,7 @@ int main()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    RenderInitDescriptor initDesc {
+    RenderInitInfo initDesc {
         .window = window,
         .startWidth = WINDOW_WIDTH,
         .startHeight = WINDOW_HEIGHT

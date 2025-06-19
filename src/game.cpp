@@ -4,20 +4,37 @@ void GameInitialize(Scene &scene)
 {
     bool slowStep = false;
     
-    RenderUploadMeshDescriptor cuboidAssetDesc {
-        .meshAsset = LoadMeshAsset("models/cube.glb")
+    MeshAsset cuboidAsset = LoadMeshAsset("models/cube.glb");
+    MeshAsset trapAsset = LoadMeshAsset("models/trap.glb");
+    MeshAsset pyraAsset = LoadMeshAsset("models/pyra.glb");
+    MeshAsset prismAsset = LoadMeshAsset("models/prism.glb");
+    
+    RenderUploadMeshInfo cuboidAssetDesc {
+        .vertData = cuboidAsset.vertices.data(),
+        .idxData = cuboidAsset.indices.data(),
+        .vertSize = (u32)cuboidAsset.vertices.size(),
+        .idxSize = (u32)cuboidAsset.indices.size()
     };
 
-    RenderUploadMeshDescriptor trapAssetDesc {
-        .meshAsset = LoadMeshAsset("models/trap.glb")
+    RenderUploadMeshInfo trapAssetDesc {
+        .vertData = trapAsset.vertices.data(),
+        .idxData = trapAsset.indices.data(),
+        .vertSize = (u32)trapAsset.vertices.size(),
+        .idxSize = (u32)trapAsset.indices.size()
     };
 
-    RenderUploadMeshDescriptor pyraAssetDesc {
-        .meshAsset = LoadMeshAsset("models/pyra.glb")
+    RenderUploadMeshInfo pyraAssetDesc {
+        .vertData = pyraAsset.vertices.data(),
+        .idxData = pyraAsset.indices.data(),
+        .vertSize = (u32)pyraAsset.vertices.size(),
+        .idxSize =(u32) pyraAsset.indices.size()
     };
 
-    RenderUploadMeshDescriptor prismAssetDesc {
-        .meshAsset =  LoadMeshAsset("models/prism.glb")
+    RenderUploadMeshInfo prismAssetDesc {
+        .vertData = prismAsset.vertices.data(),
+        .idxData = prismAsset.indices.data(),
+        .vertSize = (u32)prismAsset.vertices.size(),
+        .idxSize = (u32)prismAsset.indices.size()
     };
 
     cuboidMesh = UploadMesh(cuboidAssetDesc);

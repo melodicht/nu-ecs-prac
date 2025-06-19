@@ -111,7 +111,9 @@ class RenderSystem : public System
 
     void OnStart(Scene *scene)
     {
-        RenderPipelineInitDescriptor initDesc {
+        lightTransform.rotation = {0, 30, 120};
+
+        RenderPipelineInitInfo initDesc {
             .numCascades = NUM_CASCADES
         };
 
@@ -119,15 +121,48 @@ class RenderSystem : public System
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
-    {
-        RenderUpdateDescriptor updateDesc {
-            .scene = scene,
-            .screenWidth = (u32)windowWidth,
-            .screenHeight = (u32)windowHeight,
-            .deltaTime = deltaTime
-        };
+    {    
+        std::vector<MeshRenderInfo> meshInstances;
+        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
+        {
+            Transform3D *t = scene->Get<Transform3D>(ent);
+            glm::mat4 model = GetTransformMatrix(t);
+            ColorComponent *c = scene->Get<ColorComponent>(ent);
+            MeshComponent *m = scene->Get<MeshComponent>(ent);
+            MeshID mesh = m->mesh;
+            meshInstances.push_back({model, {c->r, c->g, c->b}, mesh});
+        }
 
-        RenderUpdate(updateDesc);
+        // Get the main camera view
+        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
+        if (cameraView.begin() == cameraView.end())
+        {
+            return;
+        }
+    
+        EntityID cameraEnt = *cameraView.begin();
+        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
+        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
+        glm::mat4 view = GetViewMatrix(cameraTransform);
+        f32 aspect = (f32)windowWidth / (f32)windowHeight;
+        
+        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
+    
+        // TODO: Remove later when lighting system gets more fully fleshed out
+        std::vector<DirLightRenderInfo> lights;
+        lightTransform.rotation.z += deltaTime * 45.0f;
+        lights.push_back({GetForwardVector(&lightTransform),0, {0.0,0.0,0.0}, 0.5});
+
+        RenderFrameInfo sendState{ 
+            .mainCam = {view, proj, cameraTransform->position},
+            .meshes = meshInstances, 
+            .dirLights = lights,
+            .cameraFov = camera->fov,
+            .cameraNear = camera->near,
+            .cameraFar = camera->far
+        };
+        
+        RenderUpdate(sendState);
     }
 };
 
