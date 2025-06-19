@@ -197,16 +197,15 @@ if(NOT EMSCRIPTEN)
                 endif()
         endif()
 
+        set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+        set(SHADERS_OUT_DIR "${BUILD_DIR}/shaders")
+        file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
+
         # Includes shaders in build
         if(SKL_RENDER_SYS STREQUAL "Vulkan" AND OFF)
-                set(SHADERS_IN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-                set(SHADERS_OUT_DIR "${BUILD_DIR}/shaders")
-
                 file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
 
                 set(SLANGC "slangc")
-
-                file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
 
                 foreach(SHADER ${SHADERS})
                 get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
