@@ -2,6 +2,8 @@
 
 struct SDLGameCode
 {
+    SDL_SharedObject *sharedObjectHandle;
+  
     game_initialize_t *gameInitialize;
     game_update_and_render_t *gameUpdateAndRender;
 };
