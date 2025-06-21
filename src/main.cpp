@@ -63,16 +63,42 @@ GET_STRING_ID(GetStringId)
     return currId;
 }
 
-local SDLGameCode SDLLoadGameCode()
+local const char *SDLGetGameCodeSrcFilePath()
+{
+    const char *result;
+#ifdef PLATFORM_WINDOWS
+    result = GAME_CODE_SRC_FILE_NAME ".dll";
+#else
+    result = GAME_CODE_SRC_FILE_NAME ".so";
+#endif
+    return result;
+}
+
+local inline SDL_Time SDLGetFileLastWritten(const char *path)
+{
+    SDL_Time result;
+    SDL_PathInfo pathInfo;
+    if (SDL_GetPathInfo(path, &pathInfo))
+    {
+        result = pathInfo.modify_time;
+    }
+    else
+    {
+        LOG_ERROR("Unable to get path info of game code.");
+    }
+    return result;
+}
+
+local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
 {
     SDLGameCode result = {};
-    const char *gameCodeSrcFilePath;
+    const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
+    // NOTE(marvin): Could make a macro to generalize, but lazy and
+    // unsure of impact on compile time.
     const char *gameCodeUseFilePath;
 #ifdef PLATFORM_WINDOWS
-    gameCodeSrcFilePath = GAME_CODE_SRC_FILE_NAME ".dll";
     gameCodeUseFilePath = GAME_CODE_USE_FILE_NAME ".dll";
 #else
-    gameCodeSrcFilePath = GAME_CODE_SRC_FILE_NAME ".so";
     gameCodeUseFilePath = GAME_CODE_USE_FILE_NAME ".so";
 #endif
 
@@ -92,13 +118,24 @@ local SDLGameCode SDLLoadGameCode()
 
     result.gameInitialize = (game_initialize_t *)SDL_LoadFunction(result.sharedObjectHandle, "GameInitialize");
     result.gameUpdateAndRender = (game_update_and_render_t *)SDL_LoadFunction(result.sharedObjectHandle, "GameUpdateAndRender");
-    if (!result.gameInitialize || !result.gameUpdateAndRender)
+    if (result.gameInitialize && result.gameUpdateAndRender)
+    {
+        result.fileLastWritten = newFileLastWritten;
+    }
+    else
     {
         LOG_ERROR("Unable to load symbols from game shared object.");
         result.gameInitialize = 0;
         result.gameUpdateAndRender = 0;
+
     }
     return result;
+}
+
+local SDLGameCode SDLLoadGameCode()
+{
+    const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
+    return SDLLoadGameCode(SDLGetFileLastWritten(gameCodeSrcFilePath));
 }
 
 local void SDLUnloadGameCode(SDLGameCode *gameCode)
@@ -112,21 +149,34 @@ local void SDLUnloadGameCode(SDLGameCode *gameCode)
     gameCode->gameUpdateAndRender = 0;
 }
 
+local b32 SDLGameCodeChanged(SDLGameCode *gameCode)
+{
+    b32 result;
+    const char *gameCodeSrcFilePath = SDLGetGameCodeSrcFilePath();
+    gameCode->fileNewLastWritten_ = SDLGetFileLastWritten(gameCodeSrcFilePath);
+
+    if (gameCode->fileNewLastWritten_)
+    {
+        result = gameCode->fileNewLastWritten_ > gameCode->fileLastWritten;
+    }
+    
+    return result;
+}
+
 void updateLoop(void* appInfo) {
     AppInformation* info = (AppInformation* )appInfo;
     info->last = info->now;
     info->now = SDL_GetPerformanceCounter();
     f32 deltaTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
 
-    local_persist u32 counter;
-    if(counter > 240)
+    SDLGameCode gameCode = info->gameCode;
+    if (SDLGameCodeChanged(&gameCode))
     {
-        SDLUnloadGameCode(&info->gameCode);
-        info->gameCode = SDLLoadGameCode();
-        counter = 0;
+        SDLUnloadGameCode(&gameCode);
+        info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
+        gameCode = info->gameCode;
     }
-    ++counter;
-    
+
     while (SDL_PollEvent(&info->e))
     {
         // Cut off Imgui until we actually implement a base renderer for WGPU
@@ -163,7 +213,6 @@ void updateLoop(void* appInfo) {
     ImGui::NewFrame();
     #endif
 
-    SDLGameCode gameCode = info->gameCode;
     GameInput gameInput;
     gameInput.mouseDeltaX = mouseDeltaX;
     gameInput.mouseDeltaY = mouseDeltaY;

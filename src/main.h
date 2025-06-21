@@ -3,6 +3,9 @@
 struct SDLGameCode
 {
     SDL_SharedObject *sharedObjectHandle;
+
+    SDL_Time fileLastWritten;
+    SDL_Time fileNewLastWritten_;
   
     game_initialize_t *gameInitialize;
     game_update_and_render_t *gameUpdateAndRender;
