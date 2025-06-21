@@ -165,6 +165,11 @@ endif()
 # GAME MODULE
 #==============================================================================
 add_library(game-module MODULE ${GAME_SRC})
+# Version the PDB file to avoid locking issues
+string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
+set_target_properties(game-module PROPERTIES
+    PDB_NAME "game_module_${BUILD_TIME}"
+)
 target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
