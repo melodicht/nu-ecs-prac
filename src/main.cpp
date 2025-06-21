@@ -46,6 +46,23 @@ global_variable std::unordered_map<std::string, bool> keysDown;
 global_variable f32 mouseDeltaX = 0;
 global_variable f32 mouseDeltaY = 0;
 
+GET_STRING_ID(GetStringId)
+{
+    local_persist u32 nextId;
+    local_persist std::unordered_map<std::string, u32> stringToId;
+
+    if (auto search = stringToId.find(string);
+        search != stringToId.end())
+    {
+        u64 count = search->second;
+        return count;
+    }
+
+    u32 currId = nextId++;
+    stringToId[string] = currId;
+    return currId;
+}
+
 local SDLGameCode SDLLoadGameCode()
 {
     SDLGameCode result = {};
@@ -197,8 +214,11 @@ int main()
 
     SDLGameCode gameCode = SDLLoadGameCode();
 
+    GameMemory gameMemory = {};
+    gameMemory.getStringId = &GetStringId;
+
     Scene scene;
-    gameCode.gameInitialize(scene);
+    gameCode.gameInitialize(scene, gameMemory);
 
     SDL_Event e;
     bool playing = true;

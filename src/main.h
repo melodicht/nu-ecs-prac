@@ -18,7 +18,7 @@ struct AppInformation
     u64 now;
     u64 last;
 
-    AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, Scene &setScene, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast) :
+AppInformation(SDL_Window *setWindow, SDLGameCode &gameCode, Scene &setScene, SDL_Event &setE, bool setPlaying, u64 setNow, u64 setLast) :
         window(setWindow),
         gameCode(gameCode),
         scene(setScene),
@@ -28,3 +28,4 @@ struct AppInformation
         last(setLast)
     { }
 };
+

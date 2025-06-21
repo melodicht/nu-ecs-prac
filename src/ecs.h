@@ -33,26 +33,8 @@ local inline bool IsEntityValid(EntityID id);
 
 //////////////// COMPONENTS ////////////////
 
-// Gets a unique identifier for the given component T, which is
-// guaranteed to be different from previous outputs for only the first
-// 2^64 u32s.
-u64 s_componentCounter;
-
-template<class T>
-int GetId()
-{
-    static u64 s_componentId = s_componentCounter++;
-    return s_componentId;
-}
-
-/*
- * Examples
- * GetId<TransformComponent>() -> 0
- * GetId<TransformComponent>() -> 0
- * GetId<BallPhysics>() -> 1
- * GetId<TransformComponent>() -> 0
- * GetId<BallPhysics>() -> 1
- */
+// NOTE(marvin): GetId has been moved to plaform layer, so that the
+// IDs don't get reset after a hot reload.
 
 /*
  * COMPONENT POOL
@@ -113,6 +95,11 @@ struct Scene
     std::vector<u32> freeIndices;
     std::vector<System *> systems;
 
+    // NOTE(marvin): The definition is on the platform side, and the
+    // platform will pass the function pointer to the game module,
+    // which will initialize this field here.
+    platform_get_string_id_t *getComponentStringId;
+
     void AddSystem(System *sys);
       
     void InitSystems();
@@ -135,7 +122,7 @@ struct Scene
         if (entities[GetEntityIndex(id)].id != id)
             return;
 
-        int componentId = GetId<T>();
+        int componentId = GetComponentId<T>(this);
         // Finds location of component data within the entity component pool and
         // resets, thus removing the component from the entity
         entities[GetEntityIndex(id)].mask.reset(componentId);
@@ -148,7 +135,7 @@ struct Scene
     template<typename T>
     T *Assign(EntityID id)
     {
-        int componentId = GetId<T>();
+        int componentId = GetComponentId<T>(this);
 
         if (componentPools.size() <= componentId) // Not enough component pool
         {
@@ -173,7 +160,7 @@ struct Scene
     template<typename T>
     T *Get(EntityID id)
     {
-        int componentId = GetId<T>();
+        int componentId = GetComponentId<T>(this);
         if (!entities[GetEntityIndex(id)].mask.test(componentId))
             return nullptr;
 
@@ -181,3 +168,13 @@ struct Scene
         return pComponent;
     }
 };
+
+// NOTE(marvin): The reason why this is separated out from the struct
+// is to mirror the prior implementation where it was also separated
+// out from the struct. Honestly, could just integrate it.
+
+template<typename T>
+local u32 GetComponentId(Scene *scene)
+{
+    return scene->getComponentStringId(typeid(T).name());
+}

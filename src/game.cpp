@@ -21,6 +21,7 @@ __declspec(dllexport)
 #endif
 GAME_INITIALIZE(GameInitialize)
 {
+    scene.getComponentStringId = memory.getStringId;
     bool slowStep = false;
 
     MeshAsset cuboidAsset = LoadMeshAsset("models/cube.glb");

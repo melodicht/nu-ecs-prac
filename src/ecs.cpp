@@ -114,8 +114,8 @@ struct SceneView
         else
         {
             // Unpack the template parameters into an initializer list
-            int componentIds[] = {0, GetId<ComponentTypes>()...};
-            for (int i = 1; i < (sizeof...(ComponentTypes) + 1); i++)
+            u32 componentIds[] = {0, GetComponentId<ComponentTypes>(&scene)...};
+            for (u32 i = 1; i < (sizeof...(ComponentTypes) + 1); i++)
                 componentMask.set(componentIds[i]);
         }
     }
