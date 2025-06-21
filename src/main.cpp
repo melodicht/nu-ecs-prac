@@ -106,7 +106,6 @@ void updateLoop(void* appInfo) {
     {
         SDLUnloadGameCode(&info->gameCode);
         info->gameCode = SDLLoadGameCode();
-        info->gameCode.gameInitialize(info->scene);
         counter = 0;
     }
     ++counter;
