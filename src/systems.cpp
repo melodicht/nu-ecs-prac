@@ -528,7 +528,7 @@ public:
 
                         pointLightCount++;
 
-                        LOG(pointLightcount);
+                        LOG(pointLightCount);
                     }
                 }
 
