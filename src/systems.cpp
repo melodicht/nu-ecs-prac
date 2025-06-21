@@ -201,6 +201,9 @@ class RenderSystem : public System
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
         {
+#if SKL_ENABLED_EDITOR
+            DrawImGui();
+#endif
             EndFrame();
             return;
         }
