@@ -8,15 +8,15 @@
 
 typedef int32_t MeshID;
 typedef int32_t TextureID;
-typedef int32_t CameraID;
+typedef int32_t LightID;
 
 // Represents a vertex of a mesh (CPU->GPU)
 struct Vertex
 {
     glm::vec3 position;
-    float uvX;
+    f32 uvX;
     glm::vec3 normal;
-    float uvY;
+    f32 uvY;
 };
 
 // Represents the transformation data of the objects in the scene (CPU->GPU)
@@ -26,51 +26,11 @@ struct ObjectData
     glm::vec4 color;
 };
 
-struct DirLightData
-{
-    glm::vec3 direction;
-    TextureID shadowID;
-
-    glm::vec3 diffuse;
-    glm::vec3 specular;
-};
-
-struct SpotLightData
-{
-    glm::mat4 lightSpace;
-
-    glm::vec3 position;
-    glm::vec3 direction;
-    TextureID shadowID;
-
-    glm::vec3 diffuse;
-    glm::vec3 specular;
-
-    f32 innerCutoff;
-    f32 outerCutoff;
-    f32 range;
-};
-
-struct PointLightData
-{
-    glm::vec3 position;
-    TextureID shadowID;
-
-    glm::vec3 diffuse;
-    glm::vec3 specular;
-
-    f32 constant;
-    f32 linear;
-    f32 quadratic;
-
-    f32 maxRange;
-};
-
 // Represents one cascade of a cascaded directional light (CPU->GPU)
 struct LightCascade
 {
     glm::mat4 lightSpace;
-    float maxDepth;
+    f32 maxDepth;
 };
 
 // Represents the transformation data of the camera (CPU->GPU)

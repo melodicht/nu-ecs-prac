@@ -153,17 +153,17 @@ MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
     return currentMeshID;
 }
 
-MeshID UploadMesh(MeshAsset &asset)
+MeshID UploadMesh(RenderUploadMeshInfo& info)
 {
-    return UploadMesh(asset.vertices.size(), asset.vertices.data(), asset.indices.size(), asset.indices.data());
+    return UploadMesh(info.vertSize, info.vertData, info.idxSize, info.idxData);
 }
 
-void DestroyMesh(MeshID meshID)
+void DestroyMesh(RenderDestroyMeshInfo& info)
 {
-    Mesh& mesh = meshes[meshID];
+    Mesh& mesh = meshes[info.meshID];
     DestroyBuffer(allocator, mesh.indexBuffer);
     DestroyBuffer(allocator, mesh.vertBuffer);
-    meshes.erase(meshID);
+    meshes.erase(info.meshID);
 }
 
 CameraID AddCamera(u32 viewCount)
@@ -1273,16 +1273,16 @@ void SetCubemapInfo(glm::vec3 lightPos, f32 farPlane)
 }
 
 void SetLights(glm::vec3 ambientLight,
-               u32 dirCount, DirLightData* dirData, LightCascade* dirCascades,
-               u32 spotCount, SpotLightData* spotData,
-               u32 pointCount, PointLightData* pointData)
+               u32 dirCount, VkDirLightData* dirData, LightCascade* dirCascades,
+               u32 spotCount, VkSpotLightData* spotData,
+               u32 pointCount, VkPointLightData* pointData)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
     if (dirCount > 0)
     {
         void* dirLightData = frames[frameNum].dirLightBuffer.allocation->GetMappedData();
-        memcpy(dirLightData, dirData, sizeof(DirLightData) * dirCount);
+        memcpy(dirLightData, dirData, sizeof(VkDirLightData) * dirCount);
         void* dirCascadeData = frames[frameNum].dirCascadeBuffer.allocation->GetMappedData();
         memcpy(dirCascadeData, dirCascades, sizeof(LightCascade) * numCascades);
     }
@@ -1290,13 +1290,13 @@ void SetLights(glm::vec3 ambientLight,
     if (spotCount > 0)
     {
         void* spotLightData = frames[frameNum].spotLightBuffer.allocation->GetMappedData();
-        memcpy(spotLightData, spotData, sizeof(SpotLightData) * spotCount);
+        memcpy(spotLightData, spotData, sizeof(VkSpotLightData) * spotCount);
     }
 
     if (pointCount > 0)
     {
         void* pointLightData = frames[frameNum].pointLightBuffer.allocation->GetMappedData();
-        memcpy(pointLightData, pointData, sizeof(PointLightData) * pointCount);
+        memcpy(pointLightData, pointData, sizeof(VkPointLightData) * pointCount);
     }
 
     FragPushConstants pushConstants = {frames[frameNum].dirLightBuffer.address,

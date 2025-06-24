@@ -99,29 +99,46 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
     return frustumCorners;
 }
 
-#define NUM_CASCADES 6
 
 class RenderSystem : public System
 {
-    TextureID dirShadowMap;
-    Transform3D lightTransform;
-
-    CameraID mainCam;
-    CameraID dirLightCam;
 
     void OnStart(Scene *scene)
     {
-        lightTransform.rotation = {0, 30, 120};
-
-        RenderPipelineInitInfo initDesc {
-            .numCascades = NUM_CASCADES
-        };
+        RenderPipelineInitInfo initDesc {};
 
         InitPipelines(initDesc);
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
-    {    
+    {
+        for (EntityID ent: SceneView<DirLight, Transform3D>(*scene))
+        {
+            DirLight *l = scene->Get<DirLight>(ent);
+            if (l->lightID == -1)
+            {
+                l->lightID = AddDirLight();
+            }
+        }
+
+        for (EntityID ent: SceneView<SpotLight, Transform3D>(*scene))
+        {
+            SpotLight *l = scene->Get<SpotLight>(ent);
+            if (l->lightID == -1)
+            {
+                l->lightID = AddSpotLight();
+            }
+        }
+
+        for (EntityID ent: SceneView<PointLight, Transform3D>(*scene))
+        {
+            PointLight *l = scene->Get<PointLight>(ent);
+            if (l->lightID == -1)
+            {
+                l->lightID = AddPointLight();
+            }
+        }
+
         std::vector<MeshRenderInfo> meshInstances;
         for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
         {
@@ -147,16 +164,14 @@ class RenderSystem : public System
         f32 aspect = (f32)windowWidth / (f32)windowHeight;
         
         glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
-    
-        // TODO: Remove later when lighting system gets more fully fleshed out
-        std::vector<DirLightRenderInfo> lights;
-        lightTransform.rotation.z += deltaTime * 45.0f;
-        lights.push_back({GetForwardVector(&lightTransform),0, {0.0,0.0,0.0}, 0.5});
+
+        std::vector<DirLightRenderInfo> dirLights;
+
 
         RenderFrameInfo sendState{ 
             .mainCam = {view, proj, cameraTransform->position},
             .meshes = meshInstances, 
-            .dirLights = lights,
+            .dirLights = dirLights,
             .cameraFov = camera->fov,
             .cameraNear = camera->near,
             .cameraFar = camera->far

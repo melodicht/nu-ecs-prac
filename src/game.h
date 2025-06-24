@@ -71,8 +71,7 @@ struct DirLight
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    TextureID shadowID = -1;
-    CameraID cameraID = -1;
+    LightID lightID = -1;
 };
 
 struct SpotLight
@@ -80,8 +79,7 @@ struct SpotLight
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    TextureID shadowID = -1;
-    CameraID cameraID = -1;
+    LightID lightID = -1;
 
     f32 innerCone;
     f32 outerCone;
@@ -93,8 +91,7 @@ struct PointLight
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    TextureID shadowID = -1;
-    CameraID cameraID = -1;
+    LightID lightID = -1;
 
     f32 constant;
     f32 linear;
