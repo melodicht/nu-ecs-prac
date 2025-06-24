@@ -34,6 +34,9 @@ GAME_INITIALIZE(GameInitialize)
     pyraMesh = UploadMesh(pyraAsset);
     prismMesh = UploadMesh(prismAsset);
 
+    // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
+    PhysicsSystem *physicsSystem = new PhysicsSystem();
+    CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem);
 
     RenderSystem *renderSys = new RenderSystem();
     MovementSystem *movementSys = new MovementSystem();
@@ -42,6 +45,18 @@ GAME_INITIALIZE(GameInitialize)
     scene.AddSystem(movementSys);
     scene.AddSystem(builderSys);
 
+    EntityID playerCharacterEnt = scene.NewEntity();
+    Transform3D *pcTransform = scene.Assign<Transform3D>(playerCharacterEnt);
+    PlayerCharacter *playerCharacter = scene.Assign<PlayerCharacter>(playerCharacterEnt);
+
+    CharacterVirtualSettings characterVirtualSettings;
+    Vec3 characterPosition = Vec3(0, 10, 0);  // Just so they are not stuck in the ground.
+    Quat characterRotation = Quat(0, 0, 0, 0);
+    CharacterVirtual *characterVirtual = new CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
+    playerCharacter->characterVirtual = *characterVirtual;
+
+    // NOTE(marvin): This is the freecam player, not to be confused with the player character.
+    // Probably should give it a different name but I am lazy.
     EntityID player = scene.NewEntity();
     Transform3D *playerTransform = scene.Assign<Transform3D>(player);
     CameraComponent *playerCamera = scene.Assign<CameraComponent>(player);
