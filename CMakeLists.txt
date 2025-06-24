@@ -175,7 +175,7 @@ target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
         fastgltf::fastgltf
-        Jolt)
+        JoltPhysics)
 target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
