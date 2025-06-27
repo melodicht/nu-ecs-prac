@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <typeinfo>
 
 /*
  * TYPE DEFINITIONS AND CONSTANTS
