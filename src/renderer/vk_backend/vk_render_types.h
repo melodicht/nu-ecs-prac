@@ -117,3 +117,9 @@ struct FrameData
     AllocatedBuffer spotLightBuffer;
     AllocatedBuffer pointLightBuffer;
 };
+
+struct LightEntry
+{
+    u32 cameraIndex;
+    Texture shadowMap;
+};

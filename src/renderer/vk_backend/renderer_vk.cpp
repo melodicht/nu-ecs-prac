@@ -58,6 +58,7 @@ std::vector<VkImageView> swapImageViews;
 std::vector<VkSemaphore> renderSemaphores;
 
 #define NUM_FRAMES 2
+#define NUM_CASCADES 6
 
 VkCommandPool mainCommandPool;
 FrameData frames[NUM_FRAMES];
@@ -75,15 +76,11 @@ VkDescriptorPool descriptorPool;
 VkDescriptorSetLayout texDescriptorLayout;
 VkDescriptorSet texDescriptorSet;
 
-u32 numCascades;
-
 u32 frameNum;
 
 u32 swapIndex;
 bool resize = false;
 u32 currentIndexCount;
-
-CameraID currentCamID;
 
 VkPipelineLayout *currentLayout;
 
@@ -91,6 +88,8 @@ MeshID currentMeshID;
 std::unordered_map<MeshID,Mesh> meshes;
 TextureID currentTexID;
 std::unordered_map<TextureID,Texture> textures;
+LightID currentLightID;
+std::unordered_map<LightID,LightEntry> lights;
 
 
 // Upload a mesh to the gpu
@@ -166,7 +165,7 @@ void DestroyMesh(RenderDestroyMeshInfo& info)
     meshes.erase(info.meshID);
 }
 
-CameraID AddCamera(u32 viewCount)
+u32 CreateCameraBuffer(u32 viewCount)
 {
     for (int i = 0; i < NUM_FRAMES; i++)
     {
@@ -382,6 +381,27 @@ void DestroyTexture(TextureID texID)
     vkDestroyImageView(device, texture.imageView, nullptr);
     DestroyImage(allocator, texture.texture);
     textures.erase(texID);
+}
+
+LightID AddDirLight()
+{
+    currentLightID++;
+    auto iter = lights.emplace(currentLightID, LightEntry());
+    LightEntry& light = iter.first->second;
+    light.cameraIndex = CreateCameraBuffer(NUM_CASCADES);
+    light.shadowMap = CreateDepthArray(2048, 2048, NUM_CASCADES);
+
+    return currentLightID;
+}
+
+LightID AddSpotLight()
+{
+
+}
+
+LightID AddPointLight()
+{
+
 }
 
 // Create swapchain or recreate to change size
@@ -654,7 +674,7 @@ void InitPipelines(u32 cascades)
                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
         frames[i].dirLightBuffer = CreateBuffer(device, allocator,
-                                                sizeof(DirLightData) * 4,
+                                                sizeof(VkDirLightData) * 4,
                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                                 | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT
@@ -668,14 +688,14 @@ void InitPipelines(u32 cascades)
                                                   | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         frames[i].spotLightBuffer = CreateBuffer(device, allocator,
-                                                 sizeof(SpotLightData) * 256,
+                                                 sizeof(VkSpotLightData) * 256,
                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                                  | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         frames[i].pointLightBuffer = CreateBuffer(device, allocator,
-                                                  sizeof(PointLightData) * 256,
+                                                  sizeof(VkPointLightData) * 256,
                                                   VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
                                                   | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                   VMA_ALLOCATION_CREATE_MAPPED_BIT
