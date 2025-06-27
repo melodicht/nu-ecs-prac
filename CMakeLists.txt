@@ -16,7 +16,19 @@ CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
 CPMAddPackage("gh:ocornut/imgui#v1.91.9b")
-CPMAddPackage("gh:jrouwe/JoltPhysics#v5.3.0")
+
+CPMAddPackage(
+    NAME JoltPhysics
+    GITHUB_REPOSITORY jrouwe/JoltPhysics
+    GIT_TAG v5.3.0
+    SOURCE_SUBDIR Build
+    OPTIONS
+        "TARGET_UNIT_TESTS OFF"
+        "TARGET_HELLO_WORLD OFF"
+        "TARGET_PERFORMANCE_TEST OFF"
+        "TARGET_SAMPLES OFF"
+        "ENABLE_ALL_WARNINGS OFF"
+      )
 
 #==============================================================================
 # SHARED DEPENDENCIES (Between platform, rendering backend, and game)
@@ -175,9 +187,10 @@ target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
         fastgltf::fastgltf
-        JoltPhysics)
+        Jolt)
 target_include_directories(game-module PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/include)
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${JoltPhysics_SOURCE_DIR})
 
 #==============================================================================
 # PLATFORM
