@@ -113,6 +113,17 @@ struct Scene
     // Removes a given entity from the scene and signals to the scene the free space that was left behind
     void DestroyEntity(EntityID id);
 
+    template<typename... ComponentTypes>
+    EntityID GetFirstEntity()
+    {
+        for (EntityID ent: SceneView<ComponentTypes...>(*this))
+        {
+            return ent;
+        }
+        
+        return 0;
+    }
+
     // Removes a component from the entity with the given EntityID
     // if the EntityID is not already removed.
     template<typename T>

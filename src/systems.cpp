@@ -405,44 +405,51 @@ class RenderSystem : public System
 // a system, and too generalisable for it to be a private method on
 // CharacterControllerSystem.
 
-local Vec3 GetMovementDirectionFromInput(GameInput *input)
+local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
 {
     // NOTE(marvin): Jolt uses right-hand coordinate system with Y up.
-    Vec3 result = {};
+    JPH::Vec3 result = {};
     if (input->keysDown["W"])
     {
-        result = Vec(0, 0, 1);
+        result = JPH::Vec3(0, 0, 1);
     }
     else if (input->keysDown["S"])
     {
-        result = Vec(0, 0, -1);
+        result = JPH::Vec3(0, 0, -1);
     }
     else if (input->keysDown["D"])
     {
-        result = Vec(-1, 0, 0);
+        result = JPH::Vec3(-1, 0, 0);
     }
     else if (input->keysDown["A"])
     {
-        result = Vec(1, 0, 0);
+        result = JPH::Vec3(1, 0, 0);
     }
     return result;
 }
 
+namespace Layer
+{
+    static constexpr JPH::ObjectLayer NON_MOVING = 0;
+    static constexpr JPH::ObjectLayer MOVING = 1;
+    static constexpr JPH::ObjectLayer NUM_LAYERS = 2;
+};
+
 class CharacterControllerSystem : public System
 {
 private:
-    PhysicsSystem *physicsSystem;
+    JPH::PhysicsSystem *physicsSystem;
 
-    void MoveCharacterVirtual(CharacterVirtual &characterVirtual, PhysicsSystem &physicsSystem,
-                              Vec3 movementDirection, f32 deltaTime)
+    void MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
+                              JPH::Vec3 movementDirection, f32 deltaTime)
     {
         characterVirtual.SetLinearVelocity(movementDirection);
         
-        Vec3Arg gravity = Vec3(0, -9.81f, 0);
-        ExtendedUpdateSettings settings;
+        JPH::Vec3Arg gravity = JPH::Vec3(0, -9.81f, 0);
+        JPH::CharacterVirtual::ExtendedUpdateSettings settings;
         // NOTE(marvin): I threw in a random number that seems reasonably big... I don't actually know
         // how much memory ExtendedUpdate needs...
-        TempAllocator allocator = TempAllocatorImpl(1024);
+        JPH::TempAllocatorImpl allocator = JPH::TempAllocatorImpl(1024);
         characterVirtual.ExtendedUpdate(deltaTime,
                                         gravity,
                                         settings,
@@ -454,7 +461,7 @@ private:
     }
 
 public:
-    CharacterControllerSystem(PhysicsSystem *ps)
+    CharacterControllerSystem(JPH::PhysicsSystem *ps)
         : physicsSystem(ps) {}
     
     void OnStart(Scene *scene)
@@ -466,19 +473,19 @@ public:
     {
         EntityID playerEnt = scene->GetFirstEntity<PlayerCharacter, Transform3D>();
         PlayerCharacter *pc = scene->Get<PlayerCharacter>(playerEnt);
-        CharacterVirtual cv = pc->characterVirtual;
+        JPH::CharacterVirtual *cv = pc->characterVirtual;
         Transform3D *pt = scene->Get<Transform3D>(playerEnt);
 
         EntityID cameraEnt = scene->GetFirstEntity<CameraComponent, Transform3D>();
         Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
 
-        Vec3 movementDirection = GetMovementDirectionFromInput(input);
-        MoveCharacterVirtual(cv, physicsSystem, movementDirection, deltaTime);
+        JPH::Vec3 movementDirection = GetMovementDirectionFromInput(input);
+        MoveCharacterVirtual(*cv, *physicsSystem, movementDirection, deltaTime);
         
         // Update player and camera transforms from character virtual's position
-        Vec3 cp = characterVirtual.GetPosition();
-        pt->position = glm::vec3(cp.x, cp.y, cp.z);
-        ct->position = glm::vec3(cp.x, cp.y, cp.z);
+        JPH::Vec3 cp = cv->GetPosition();
+        pt->position = glm::vec3(cp.GetX(), cp.GetY(), cp.GetZ());
+        ct->position = glm::vec3(cp.GetX(), cp.GetY(), cp.GetZ());
     }
 };
 

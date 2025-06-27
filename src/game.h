@@ -26,6 +26,7 @@
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Body/BodyActivationListener.h>
+#include <Jolt/Physics/Character/CharacterVirtual.h>
 
 #include "renderer/render_types.h"
 
@@ -64,7 +65,7 @@ struct MeshComponent
 
 struct PlayerCharacter
 {
-    CharacterVirtual &characterVirtual;
+    JPH::CharacterVirtual *characterVirtual;
 };
 
 struct CameraComponent

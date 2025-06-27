@@ -35,7 +35,7 @@ GAME_INITIALIZE(GameInitialize)
     prismMesh = UploadMesh(prismAsset);
 
     // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
-    PhysicsSystem *physicsSystem = new PhysicsSystem();
+    JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
     CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem);
 
     RenderSystem *renderSys = new RenderSystem();
@@ -49,11 +49,11 @@ GAME_INITIALIZE(GameInitialize)
     Transform3D *pcTransform = scene.Assign<Transform3D>(playerCharacterEnt);
     PlayerCharacter *playerCharacter = scene.Assign<PlayerCharacter>(playerCharacterEnt);
 
-    CharacterVirtualSettings characterVirtualSettings;
-    Vec3 characterPosition = Vec3(0, 10, 0);  // Just so they are not stuck in the ground.
-    Quat characterRotation = Quat(0, 0, 0, 0);
-    CharacterVirtual *characterVirtual = new CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
-    playerCharacter->characterVirtual = *characterVirtual;
+    JPH::CharacterVirtualSettings characterVirtualSettings;
+    JPH::Vec3 characterPosition = JPH::Vec3(0, 10, 0);  // Just so they are not stuck in the ground.
+    JPH::Quat characterRotation = JPH::Quat(0, 0, 0, 0);
+    JPH::CharacterVirtual *characterVirtual = new JPH::CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
+    playerCharacter->characterVirtual = characterVirtual;
 
     // NOTE(marvin): This is the freecam player, not to be confused with the player character.
     // Probably should give it a different name but I am lazy.
