@@ -34,6 +34,11 @@ GAME_INITIALIZE(GameInitialize)
     pyraMesh = UploadMesh(pyraAsset);
     prismMesh = UploadMesh(prismAsset);
 
+    // NOTE(marvin): Initialising the physics system.
+    JPH::RegisterDefaultAllocator();
+    JPH::Factory::sInstance = new JPH::Factory();
+    JPH::RegisterTypes();
+
     // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
     JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
     CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem);
