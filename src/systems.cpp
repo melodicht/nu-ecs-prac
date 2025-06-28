@@ -428,13 +428,6 @@ local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
     return result;
 }
 
-namespace Layer
-{
-    static constexpr JPH::ObjectLayer NON_MOVING = 0;
-    static constexpr JPH::ObjectLayer MOVING = 1;
-    static constexpr JPH::ObjectLayer NUM_LAYERS = 2;
-};
-
 class CharacterControllerSystem : public System
 {
 private:
@@ -449,7 +442,7 @@ private:
         JPH::CharacterVirtual::ExtendedUpdateSettings settings;
         // NOTE(marvin): I threw in a random number that seems reasonably big... I don't actually know
         // how much memory ExtendedUpdate needs...
-        JPH::TempAllocatorImpl allocator = JPH::TempAllocatorImpl(1024);
+        JPH::TempAllocatorImpl allocator = JPH::TempAllocatorImpl(1024*1024*1024);
         characterVirtual.ExtendedUpdate(deltaTime,
                                         gravity,
                                         settings,
@@ -479,13 +472,21 @@ public:
         EntityID cameraEnt = scene->GetFirstEntity<CameraComponent, Transform3D>();
         Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
 
+        glm::vec3 ip = pt->position;
+        JPH::Vec3 playerPhysicsInitialPosition = JPH::Vec3(-ip.y, ip.z, ip.x);
+        cv->SetPosition(playerPhysicsInitialPosition);
+
+        glm::vec3 ir = pt->rotation;
+        JPH::Quat playerPhysicsInitialRotation = JPH::Quat(-ir.y, ir.z, ir.x, 1.0f).Normalized();
+        cv->SetRotation(playerPhysicsInitialRotation);
+        
         JPH::Vec3 movementDirection = GetMovementDirectionFromInput(input);
         MoveCharacterVirtual(*cv, *physicsSystem, movementDirection, deltaTime);
         
         // Update player and camera transforms from character virtual's position
         JPH::Vec3 cp = cv->GetPosition();
-        pt->position = glm::vec3(cp.GetX(), cp.GetY(), cp.GetZ());
-        ct->position = glm::vec3(cp.GetX(), cp.GetY(), cp.GetZ());
+        pt->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
+        ct->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
     }
 };
 

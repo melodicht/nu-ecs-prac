@@ -13,6 +13,8 @@
 #include "math/math_utils.cpp"
 
 #include "ecs.cpp"
+
+#include "physics.cpp"
 #include "systems.cpp"
 
 extern "C"
@@ -41,7 +43,22 @@ GAME_INITIALIZE(GameInitialize)
 
     // NOTE(marvin): This is not our ECS system! Jolt happened to name it System as well. 
     JPH::PhysicsSystem *physicsSystem = new JPH::PhysicsSystem();
+
+    // NOTE(marvin): Pulled these numbers out of my ass.
+    u32 maxBodies = 1024;
+    u32 numBodyMutexes = 0;  // 0 means auto-detect.
+    u32 maxBodyPairs = 1024;
+    u32 maxContactConstraints = 1024;
+    JPH::BroadPhaseLayerInterface *sklBroadPhaseLayer = new SklBroadPhaseLayer();
+    JPH::ObjectVsBroadPhaseLayerFilter *sklObjectVsBroadPhaseLayerFilter = new SklObjectVsBroadPhaseLayerFilter();
+    JPH::ObjectLayerPairFilter *sklObjectLayerPairFilter = new SklObjectLayerPairFilter();
+    
+    physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
+                        *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
+                        *sklObjectLayerPairFilter);
+    
     CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem);
+    scene.AddSystem(characterControllerSys);
 
     RenderSystem *renderSys = new RenderSystem();
     MovementSystem *movementSys = new MovementSystem();
@@ -55,6 +72,11 @@ GAME_INITIALIZE(GameInitialize)
     PlayerCharacter *playerCharacter = scene.Assign<PlayerCharacter>(playerCharacterEnt);
 
     JPH::CharacterVirtualSettings characterVirtualSettings;
+    f32 halfHeightOfCylinder = 1.0f;
+    f32 cylinderRadius = 0.3f;
+    characterVirtualSettings.mShape = new JPH::CapsuleShape(halfHeightOfCylinder, cylinderRadius);
+    characterVirtualSettings.mSupportingVolume = JPH::Plane(JPH::Vec3::sAxisY(), -cylinderRadius);
+    
     JPH::Vec3 characterPosition = JPH::Vec3(0, 10, 0);  // Just so they are not stuck in the ground.
     JPH::Quat characterRotation = JPH::Quat(0, 0, 0, 0);
     JPH::CharacterVirtual *characterVirtual = new JPH::CharacterVirtual(&characterVirtualSettings, characterPosition, characterRotation, physicsSystem);
