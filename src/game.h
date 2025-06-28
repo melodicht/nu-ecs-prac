@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game_platform.h"
+#include "debug.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED

@@ -33,8 +33,6 @@
 
 #include "main.h"
 
-#include "platform_metrics.cpp"
-
 #if EMSCRIPTEN
 #include <emscripten/html5.h>
 #endif
@@ -293,3 +291,4 @@ int main()
     SDL_Quit();
     return 0;
 }
+

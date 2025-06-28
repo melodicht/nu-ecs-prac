@@ -97,7 +97,8 @@ endif()
 
 target_compile_definitions(SHARED_DEPENDENCIES
         INTERFACE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE}
-        INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING})
+        INTERFACE SKL_LOGGING_ENABLED=${SKL_ENABLE_LOGGING}
+        INTERFACE SKL_INTERNAL=${SKL_INTERNAL})
 
 #==============================================================================
 # IMGUI
@@ -181,8 +182,9 @@ add_library(game-module MODULE ${GAME_SRC})
 # Version the PDB file to avoid locking issues
 string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
 set_target_properties(game-module PROPERTIES
-    PDB_NAME "game_module_${BUILD_TIME}"
-)
+        PDB_NAME "game_module_${BUILD_TIME}")
+target_compile_definitions(game-module PRIVATE
+        debugRecordArray=debugRecordsGame)
 target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND

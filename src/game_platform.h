@@ -2,6 +2,10 @@
 
 #include "meta_definitions.h"
 
+#if SKL_INTERNAL
+#include "platform_metrics.cpp"
+#endif
+
 #include <bitset>   // For ECS
 #include <unordered_map>
 #include <string>

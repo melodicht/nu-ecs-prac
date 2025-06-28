@@ -17,6 +17,8 @@
 #include "physics.cpp"
 #include "systems.cpp"
 
+local void LogDebugRecords();
+
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)
 __declspec(dllexport)
@@ -128,6 +130,13 @@ GAME_INITIALIZE(GameInitialize)
     scene.InitSystems();
 }
 
+// NOTE(marvin): Our logger doesn't have string format...
+// Using c std lib's one for now.
+#if SKL_INTERNAL
+#include <cstdio>
+#endif
+
+
 extern "C"
 #if defined(_WIN32) || defined(_WIN64)
 __declspec(dllexport)
@@ -135,4 +144,30 @@ __declspec(dllexport)
 GAME_UPDATE_AND_RENDER(GameUpdateAndRender)
 {
     scene.UpdateSystems(&input, deltaTime);
+    LogDebugRecords();
+}
+
+// NOTE(marvin): This has to go after ALL the timed blocks in order of
+// what the preprocesser sees, so that the counter here will be the
+// number of all the timed blocks that it has seen.
+DebugRecord debugRecordArray[__COUNTER__];
+
+local void LogDebugRecords()
+{
+#if SKL_INTERNAL
+    for (u32 i = 0;
+         i < ArrayCount(debugRecordArray);
+         ++i)
+    {
+        DebugRecord *debugRecord = debugRecordArray + i;
+
+        printf("%s:%s:%d %llu (%d)\n",
+               debugRecord->blockName,
+               debugRecord->fileName,
+               debugRecord->lineNumber,
+               debugRecord->cycleCount,
+               debugRecord->hitCount);
+    }
+    puts("\n");
+#endif
 }

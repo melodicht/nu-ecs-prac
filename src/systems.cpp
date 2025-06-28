@@ -118,6 +118,7 @@ class RenderSystem : public System
 
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
+        NAMED_TIMED_BLOCK(RenderSystem);
         for (EntityID ent: SceneView<DirLight, Transform3D>(*scene))
         {
             DirLight *l = scene->Get<DirLight>(ent);
@@ -464,6 +465,7 @@ public:
 
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
+        NAMED_TIMED_BLOCK(CharacterControllerSystem);
         EntityID playerEnt = scene->GetFirstEntity<PlayerCharacter, Transform3D>();
         PlayerCharacter *pc = scene->Get<PlayerCharacter>(playerEnt);
         JPH::CharacterVirtual *cv = pc->characterVirtual;
@@ -496,6 +498,7 @@ class MovementSystem : public System
 {
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
+        NAMED_TIMED_BLOCK(MovementSystem);
         for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
@@ -564,6 +567,7 @@ public:
 
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
+        NAMED_TIMED_BLOCK(BuilderSystem);
         if (slowStep && timer > 0.0f)
         {
             timer -= deltaTime;
