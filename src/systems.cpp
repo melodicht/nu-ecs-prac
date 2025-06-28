@@ -486,7 +486,9 @@ public:
         // Update player and camera transforms from character virtual's position
         JPH::Vec3 cp = cv->GetPosition();
         pt->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
+        #if 0
         ct->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
+        #endif
     }
 };
 

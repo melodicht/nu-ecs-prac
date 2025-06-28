@@ -56,7 +56,7 @@ GAME_INITIALIZE(GameInitialize)
     physicsSystem->Init(maxBodies, numBodyMutexes, maxBodyPairs, maxContactConstraints,
                         *sklBroadPhaseLayer, *sklObjectVsBroadPhaseLayerFilter,
                         *sklObjectLayerPairFilter);
-    
+
     CharacterControllerSystem *characterControllerSys = new CharacterControllerSystem(physicsSystem);
     scene.AddSystem(characterControllerSys);
 
