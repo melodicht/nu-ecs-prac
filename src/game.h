@@ -1,6 +1,7 @@
 #pragma once
 
 #include "game_platform.h"
+#include "skl_thread_safe_primitives.h"
 #include "debug.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE

@@ -161,12 +161,17 @@ local void LogDebugRecords()
     {
         DebugRecord *debugRecord = debugRecordArray + i;
 
-        printf("%s:%s:%d %llu (%d)\n",
+        u64 hitCount_cycleCount = AtomicExchangeU64(&debugRecord->hitCount_cycleCount, 0);
+        u32 hitCount = (u32)(hitCount_cycleCount >> 32);
+        u32 cycleCount = (u32)(hitCount_cycleCount & 0xFFFFFFFF);
+
+        printf("%s:%s:%u %ucy (%uh) %ucy/h\n",
                debugRecord->blockName,
                debugRecord->fileName,
                debugRecord->lineNumber,
-               debugRecord->cycleCount,
-               debugRecord->hitCount);
+               cycleCount,
+               hitCount,
+               cycleCount / hitCount);
     }
     puts("\n");
 #endif

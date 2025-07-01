@@ -21,10 +21,13 @@
 struct DebugRecord
 {
     const char *fileName;
-    u32 lineNumber;
     const char *blockName;
-    u64 cycleCount;
-    u32 hitCount;
+
+    u32 lineNumber;
+    u32 reserved;
+
+    // NOTE(marvin): Top 32-bits hit count, bottom 32-bits cycle count.
+    u64 hitCount_cycleCount;
 };
 
 extern DebugRecord debugRecordArray[];
@@ -32,22 +35,28 @@ extern DebugRecord debugRecordArray[];
 struct TimedBlock
 {
     DebugRecord *debugRecord;
+    u64 startCycleCount;
+    u32 hitCount;
+
 
     #if SKL_INTERNAL
     TimedBlock(u32 index, const char *fileName, u32 lineNumber,
-               const char *blockName, u32 hitCount = 1)
+               const char *blockName, u32 hitCount0 = 1)
     {
         debugRecord = debugRecordArray + index;
         debugRecord->fileName = fileName;
         debugRecord->lineNumber = lineNumber;
         debugRecord->blockName = blockName;
-        debugRecord->cycleCount -= ReadCPUTimer();
-        debugRecord->hitCount += hitCount;
+        startCycleCount = ReadCPUTimer();
+        hitCount = hitCount0;
     }
 
     ~TimedBlock()
     {
-        debugRecord->cycleCount += ReadCPUTimer();
+        u64 cycleCountDelta = ReadCPUTimer() - startCycleCount;
+        u64 hitCountDelta = (u64)hitCount;
+        u64 delta = cycleCountDelta | (hitCountDelta << 32);
+        AtomicAddU64(&debugRecord->hitCount_cycleCount, delta);
     }
     #endif
 };
