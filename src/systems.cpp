@@ -74,31 +74,6 @@ class CollisionSystem : public System
     }
 };
 
-std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
-{
-    glm::mat4 inverse = glm::inverse(proj * view);
-
-    std::vector<glm::vec4> frustumCorners;
-    for (u32 x = 0; x < 2; ++x)
-    {
-        for (u32 y = 0; y < 2; ++y)
-        {
-            for (u32 z = 0; z < 2; ++z)
-            {
-                const glm::vec4 pt =
-                        inverse * glm::vec4(
-                                    2.0f * x - 1.0f,
-                                    2.0f * y - 1.0f,
-                                    z,
-                                    1.0f);
-                frustumCorners.push_back(pt / pt.w);
-            }
-        }
-    }
-
-    return frustumCorners;
-}
-
 #define NUM_CASCADES 6
 
 class RenderSystem : public System
@@ -151,15 +126,16 @@ class RenderSystem : public System
         // TODO: Remove later when lighting system gets more fully fleshed out
         std::vector<DirLightRenderInfo> lights;
         lightTransform.rotation.z += deltaTime * 45.0f;
-        lights.push_back({GetForwardVector(&lightTransform),0, {0.0,0.0,0.0}, 0.5});
+        lights.push_back({GetViewMatrix(&lightTransform), GetForwardVector(&lightTransform),0, {0.0,0.0,0.0}, 0.5});
 
         RenderFrameInfo sendState{ 
             .mainCam = {view, proj, cameraTransform->position},
             .meshes = meshInstances, 
             .dirLights = lights,
-            .cameraFov = camera->fov,
-            .cameraNear = camera->near,
-            .cameraFar = camera->far
+            .mainCamAspect = camera->fov,
+            .mainCamFov = camera->fov,
+            .mainCamNear = camera->near,
+            .mainCamFar = camera->far
         };
         
         RenderUpdate(sendState);

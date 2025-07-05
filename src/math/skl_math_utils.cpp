@@ -15,19 +15,34 @@ glm::mat4 GetTransformMatrix(Transform3D *transform)
     return glm::scale(glm::translate(glm::mat4(1.0f), transform->position) * GetRotationMatrix(transform), transform->scale);
 }
 
+glm::vec3 GetForwardVector(const glm::mat4x4& rotMat)
+{
+    return rotMat * glm::vec4(1.0, 0.0, 0.0, 1.0);
+}
+
 glm::vec3 GetForwardVector(Transform3D *transform)
 {
-    return GetRotationMatrix(transform) * glm::vec4(1.0, 0.0, 0.0, 1.0);
+    return GetForwardVector(GetRotationMatrix(transform));
+}
+
+glm::vec3 GetRightVector(const glm::mat4x4& rotMat)
+{
+    return rotMat * glm::vec4(0.0, 1.0, 0.0, 1.0);
 }
 
 glm::vec3 GetRightVector(Transform3D *transform)
 {
-    return GetRotationMatrix(transform) * glm::vec4(0.0, 1.0, 0.0, 1.0);
+    return GetRightVector(GetRotationMatrix(transform));
+}
+
+glm::vec3 GetUpVector(const glm::mat4x4& rotMat)
+{
+    return rotMat * glm::vec4(0.0, 0.0, 1.0, 1.0);
 }
 
 glm::vec3 GetUpVector(Transform3D *transform)
 {
-    return GetRotationMatrix(transform) * glm::vec4(0.0, 0.0, 1.0, 1.0);
+    return GetUpVector(GetRotationMatrix(transform));
 }
 
 glm::mat4 GetViewMatrix(Transform3D *transform)
@@ -79,11 +94,36 @@ glm::vec3 GetArbitraryOrthogonal(const glm::vec3& vec) {
   }
 }
 
-glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& left) {
+glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& right) {
   return glm::mat4x4(
-    glm::vec4(left, 0.0f),
+    glm::vec4(right, 0.0f),
     glm::vec4(up, 0.0f),
     glm::vec4(forward, 0.0f),
     glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
   );
+}
+
+std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
+{
+    glm::mat4 inverse = glm::inverse(proj * view);
+
+    std::vector<glm::vec4> frustumCorners;
+    for (u32 x = 0; x < 2; ++x)
+    {
+        for (u32 y = 0; y < 2; ++y)
+        {
+            for (u32 z = 0; z < 2; ++z)
+            {
+                const glm::vec4 pt =
+                        inverse * glm::vec4(
+                                    2.0f * x - 1.0f,
+                                    2.0f * y - 1.0f,
+                                    z,
+                                    1.0f);
+                frustumCorners.push_back(pt / pt.w);
+            }
+        }
+    }
+
+    return frustumCorners;
 }

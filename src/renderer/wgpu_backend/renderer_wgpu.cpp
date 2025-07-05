@@ -1,4 +1,7 @@
 #include "renderer/wgpu_backend/renderer_wgpu.h"
+
+#include "renderer/wgpu_backend/utils_wgpu.h"
+
 #include "webgpu/sdl3webgpu-main/sdl3webgpu.h"
 
 #include "skl_logger.h"
@@ -22,7 +25,7 @@
 #pragma region Helper Functions
 void WGPURenderBackend::printDeviceSpecs() {
   WGPUSupportedFeatures features;
-  wgpuDeviceGetFeatures(m_wgpuDevice, &features);
+  wgpuDeviceGetFeatures(m_wgpuCore.m_device, &features);
 
   LOG("Device features:");
   for (int iter = 0; iter < features.featureCount ; iter++) {
@@ -32,24 +35,26 @@ void WGPURenderBackend::printDeviceSpecs() {
   WGPULimits limits = {};
   limits.nextInChain = nullptr;
 
-  WGPUStatus success = wgpuDeviceGetLimits(m_wgpuDevice, &limits);
+  WGPUStatus success = wgpuDeviceGetLimits(m_wgpuCore.m_device, &limits);
 
   if (success == WGPUStatus_Success) {
       LOG("Device limits:");
+      LOG(" - maxBindGroups: " << limits.maxBindGroups);
+      LOG(" - maxBindGroupsPlusVertexBuffers: " << limits.maxBindGroupsPlusVertexBuffers);
+      LOG(" - maxBindingsPerBindGroup: " << limits.maxBindingsPerBindGroup);
+      LOG(" - maxBufferSize: " << limits.maxBufferSize);
+      LOG(" - maxColorAttachmentBytesPerSample: " << limits.maxColorAttachmentBytesPerSample);
+      LOG(" - maxColorAttachments: " << limits.maxColorAttachments);
+      LOG(" - maxComputeInvocationsPerWorkgroup: " << limits.maxComputeInvocationsPerWorkgroup);
+      LOG(" - maxComputeWorkgroupSizeX: " << limits.maxComputeWorkgroupSizeX);
+      LOG(" - maxComputeWorkgroupSizeY: " << limits.maxComputeWorkgroupSizeY);
+      LOG(" - maxComputeWorkgroupSizeZ: " << limits.maxComputeWorkgroupSizeZ);
       LOG(" - maxTextureDimension1D: " << limits.maxTextureDimension1D);
       LOG(" - maxTextureDimension2D: " << limits.maxTextureDimension2D);
       LOG(" - maxTextureDimension3D: " << limits.maxTextureDimension3D);
       LOG(" - maxTextureArrayLayers: " << limits.maxTextureArrayLayers);
       // [...] Extra device limits
   }
-}
-
-WGPUStringView WGPURenderBackend::wgpuStr(const char* string) {
-  WGPUStringView retString {
-    .data = string,
-    .length = std::strlen(string)
-  };
-  return retString;
 }
 
 WGPUBindGroupLayoutEntry DefaultBindLayoutEntry() {
@@ -170,14 +175,47 @@ void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType t
 }
 
 void WGPURenderBackend::PrepareDynamicShadowedDirLights(
-  const glm::mat4x4& camMat, 
+  const glm::mat4x4& camView,
+  const float camAspect,
   const float camFov, 
   const float camNear, 
   const float camFar, 
   const std::vector<DirLightRenderInfo>& gotDirLightRenderInfo) {
-  for(const DirLightRenderInfo& dirLight : gotDirLightRenderInfo) {
-    // Right now we assume a cascade of one
-    
+  for (const DirLightRenderInfo& dirLight : gotDirLightRenderInfo)
+  {
+    // Todo Implement custom functionality
+    std::vector<float> cascadeRatios = {1.0f};
+    const float camNearFarDiff = camFar - camNear;
+    float currentCascadeLength = camNear;
+    for (std::vector<float>::iterator cascadeIterator = cascadeRatios.begin() ; cascadeIterator != cascadeRatios.end(); cascadeIterator++)
+    {
+        // TODO: Implement cascade later
+        currentCascadeLength = *cascadeIterator * camNearFarDiff;
+        glm::mat4 subProj = glm::perspective(glm::radians(camFov), camAspect,
+                                              camNear, camNear + currentCascadeLength);
+
+        f32 minX = std::numeric_limits<f32>::max();
+        f32 maxX = std::numeric_limits<f32>::lowest();
+        f32 minY = std::numeric_limits<f32>::max();
+        f32 maxY = std::numeric_limits<f32>::lowest();
+        f32 minZ = std::numeric_limits<f32>::max();
+        f32 maxZ = std::numeric_limits<f32>::lowest();
+
+        std::vector<glm::vec4> corners = getFrustumCorners(subProj, camView);
+
+        for (const glm::vec3& v : corners)
+        {
+            const glm::vec4 trf = camView * glm::vec4(v, 1.0);
+            minX = std::min(minX, trf.x);
+            maxX = std::max(maxX, trf.x);
+            minY = std::min(minY, trf.y);
+            maxY = std::max(maxY, trf.y);
+            minZ = std::min(minZ, trf.z);
+            maxZ = std::max(maxZ, trf.z);
+        }
+
+        glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+    }
   }
 }
 
@@ -195,7 +233,7 @@ bool WGPURenderBackend::InitFrame() {
 
   WGPUTextureViewDescriptor viewDescriptor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Initializing texture view"),
+    .label = WGPUBackendUtils::wgpuStr("Initializing texture view"),
     .format = wgpuTextureGetFormat(m_surfaceTexture.texture),
     .dimension = WGPUTextureViewDimension_2D,
     .baseMipLevel = 0,
@@ -223,7 +261,7 @@ void WGPURenderBackend::EndFrame() {
 
   #ifndef __EMSCRIPTEN__
   wgpuSurfacePresent(m_wgpuSurface);
-  wgpuInstanceProcessEvents(m_wgpuInstance);  
+  wgpuInstanceProcessEvents(m_wgpuCore.m_instance);  
   #else
     
   emscripten_sleep(10);
@@ -248,9 +286,9 @@ void WGPURenderBackend::BeginColorPass() {
   // Create a command encoder for the draw call
   WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
-    .label = wgpuStr("Color Encoder Descriptor")
+    .label = WGPUBackendUtils::wgpuStr("Color Encoder Descriptor")
   };
-  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &encoderDesc);
 
   WGPURenderPassColorAttachment startPass {
     .view = m_surfaceTextureView,
@@ -271,7 +309,7 @@ void WGPURenderBackend::BeginColorPass() {
 
   WGPURenderPassDescriptor colorPassDescriptor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Color Pass Descriptor"),
+    .label = WGPUBackendUtils::wgpuStr("Color Pass Descriptor"),
     .colorAttachmentCount = 1,
     .colorAttachments = &startPass,
     .depthStencilAttachment = &depthStencilAttachment,
@@ -281,10 +319,11 @@ void WGPURenderBackend::BeginColorPass() {
   m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &colorPassDescriptor);
 
   wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_defaultPipeline);
-  wgpuRenderPassEncoderSetBindGroup(m_renderPassEncoder, 0, m_bindGroup, 0, nullptr);
 
-  wgpuRenderPassEncoderSetVertexBuffer(m_renderPassEncoder, 0, m_meshVertexBuffer, 0, sizeof(Vertex) * m_meshTotalVertices);
-  wgpuRenderPassEncoderSetIndexBuffer(m_renderPassEncoder,  m_meshIndexBuffer, WGPUIndexFormat_Uint32, 0, sizeof(u32) * m_meshTotalIndices);
+  m_bindGroup.BindToRenderPass(m_renderPassEncoder);
+
+  m_meshVertexBuffer.BindToRenderPassAsVertexBuffer(m_renderPassEncoder);
+  m_meshIndexBuffer.BindToRenderPassAsIndexBuffer(m_renderPassEncoder); 
 }
 
 void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
@@ -295,9 +334,9 @@ void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
   // Create a command encoder for the draw call
   WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
-    .label = wgpuStr("Depth Encoder Descriptor")
+    .label = WGPUBackendUtils::wgpuStr("Depth Encoder Descriptor")
   };
-  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+  m_passCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &encoderDesc);
 
   WGPURenderPassDepthStencilAttachment depthStencilAttachment {
     .nextInChain = nullptr,
@@ -311,7 +350,7 @@ void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
 
   WGPURenderPassDescriptor depthPassDescriptor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Color Pass Descriptor"),
+    .label = WGPUBackendUtils::wgpuStr("Color Pass Descriptor"),
     .colorAttachmentCount = 0,
     .colorAttachments = nullptr,
     .depthStencilAttachment = &depthStencilAttachment,
@@ -321,10 +360,10 @@ void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
   m_renderPassEncoder = wgpuCommandEncoderBeginRenderPass(m_passCommandEncoder, &depthPassDescriptor);
 
   wgpuRenderPassEncoderSetPipeline(m_renderPassEncoder, m_depthPipeline);
-  wgpuRenderPassEncoderSetBindGroup(m_renderPassEncoder, 0, m_depthBindGroup, 0, nullptr);
 
-  wgpuRenderPassEncoderSetVertexBuffer(m_renderPassEncoder, 0, m_meshVertexBuffer, 0, sizeof(Vertex) * m_meshTotalVertices);
-  wgpuRenderPassEncoderSetIndexBuffer(m_renderPassEncoder,  m_meshIndexBuffer, WGPUIndexFormat_Uint32, 0, sizeof(u32) * m_meshTotalIndices);
+  m_depthBindGroup.BindToRenderPass(m_renderPassEncoder);
+  m_meshVertexBuffer.BindToRenderPassAsVertexBuffer(m_renderPassEncoder);
+  m_meshIndexBuffer.BindToRenderPassAsIndexBuffer(m_renderPassEncoder);
 }
 
 void WGPURenderBackend::EndPass() {
@@ -335,7 +374,7 @@ void WGPURenderBackend::EndPass() {
 
   WGPUCommandBufferDescriptor cmdBufferDescriptor = {
     .nextInChain = nullptr,
-    .label =  wgpuStr("Ending pass command buffer"),
+    .label =  WGPUBackendUtils::wgpuStr("Ending pass command buffer"),
   };
 
   WGPUCommandBuffer passCommand = wgpuCommandEncoderFinish(m_passCommandEncoder, &cmdBufferDescriptor);
@@ -350,9 +389,9 @@ void WGPURenderBackend::DrawImGui() {
 
   WGPUCommandEncoderDescriptor encoderDesc = {
     .nextInChain = nullptr,
-    .label = wgpuStr("Imgui Encoder Descriptor")
+    .label = WGPUBackendUtils::wgpuStr("Imgui Encoder Descriptor")
   };
-  WGPUCommandEncoder imguiCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &encoderDesc);
+  WGPUCommandEncoder imguiCommandEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &encoderDesc);
 
   WGPURenderPassColorAttachment meshColorPass {
     .view = m_surfaceTextureView,
@@ -374,7 +413,7 @@ void WGPURenderBackend::DrawImGui() {
 
   WGPURenderPassDescriptor meshPassDesc {
     .nextInChain = nullptr,
-    .label = wgpuStr("Imgui render pass"),
+    .label = WGPUBackendUtils::wgpuStr("Imgui render pass"),
     .colorAttachmentCount = 1,
     .colorAttachments = &meshColorPass,
     .depthStencilAttachment = &depthStencilAttachment,
@@ -391,7 +430,7 @@ void WGPURenderBackend::DrawImGui() {
 
   WGPUCommandBufferDescriptor cmdBufferDescriptor = {
     .nextInChain = nullptr,
-    .label =  wgpuStr("Imgui Command Buffer"),
+    .label =  WGPUBackendUtils::wgpuStr("Imgui Command Buffer"),
   };
 
   WGPUCommandBuffer imguiCommand = wgpuCommandEncoderFinish(imguiCommandEncoder, &cmdBufferDescriptor);
@@ -408,8 +447,6 @@ WGPURenderBackend::~WGPURenderBackend() {
   wgpuSurfaceUnconfigure(m_wgpuSurface);
   wgpuSurfaceRelease(m_wgpuSurface);
   wgpuQueueRelease(m_wgpuQueue);
-  wgpuDeviceRelease(m_wgpuDevice);
-  wgpuInstanceRelease(m_wgpuInstance);
 }
 
 void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
@@ -419,25 +456,25 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   };
 
   #if EMSCRIPTEN
-  m_wgpuInstance = wgpuCreateInstance(nullptr);
+  m_wgpuCore.m_instance = wgpuCreateInstance(nullptr);
   #else
-  m_wgpuInstance = wgpuCreateInstance(&instanceDescriptor);
+  m_wgpuCore.m_instance = wgpuCreateInstance(&instanceDescriptor);
   #endif
-  if (m_wgpuInstance == nullptr) {
+  if (m_wgpuCore.m_instance == nullptr) {
     LOG_ERROR("Instance creation failed!");
     return;
   }
-  LOG("Instance Created" << m_wgpuInstance);
+  LOG("Instance Created" << m_wgpuCore.m_instance);
 
   LOG("Requesting adapter...");
 
-  m_wgpuSurface = SDL_GetWGPUSurface(m_wgpuInstance, window);
+  m_wgpuSurface = SDL_GetWGPUSurface(m_wgpuCore.m_instance, window);
   WGPURequestAdapterOptions adapterOpts = {
     .nextInChain = nullptr,
     .compatibleSurface = m_wgpuSurface
   };
 
-  WGPUAdapter adapter = GetAdapter(m_wgpuInstance, &adapterOpts);
+  WGPUAdapter adapter = GetAdapter(m_wgpuCore.m_instance, &adapterOpts);
 
   LOG("Got adapter: " << adapter);
 
@@ -446,12 +483,12 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   // General device description
   WGPUDeviceDescriptor deviceDesc = {
     .nextInChain = nullptr,
-    .label = wgpuStr("My Device"),
+    .label = WGPUBackendUtils::wgpuStr("My Device"),
     .requiredFeatureCount = 0,
     .requiredLimits = nullptr,
     .defaultQueue {
       .nextInChain = nullptr,
-      .label = wgpuStr("Default Queue")
+      .label = WGPUBackendUtils::wgpuStr("Default Queue")
     },
     .deviceLostCallbackInfo {
       .mode = WGPUCallbackMode_AllowSpontaneous,
@@ -463,13 +500,13 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
     }
   };
 
-  m_wgpuDevice = GetDevice(adapter, &deviceDesc);
+  m_wgpuCore.m_device = GetDevice(adapter, &deviceDesc);
 
-  LOG("Got device: " << m_wgpuDevice);
+  LOG("Got device: " << m_wgpuCore.m_device);
 
   printDeviceSpecs();
 
-  m_wgpuQueue = wgpuDeviceGetQueue(m_wgpuDevice);
+  m_wgpuQueue = wgpuDeviceGetQueue(m_wgpuCore.m_device);
 
   WGPUQueueWorkDoneCallbackInfo queueDoneCallback =  WGPUQueueWorkDoneCallbackInfo {
     .mode = WGPUCallbackMode_AllowProcessEvents,
@@ -487,7 +524,7 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   m_wgpuTextureFormat = capabilities.formats[0];
   WGPUSurfaceConfiguration config { 
     .nextInChain = nullptr,
-    .device = m_wgpuDevice,
+    .device = m_wgpuCore.m_device,
     .format = m_wgpuTextureFormat,
     .usage = WGPUTextureUsage_RenderAttachment,
     .width = startWidth,
@@ -504,30 +541,14 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   wgpuAdapterRelease(adapter);
 
   // Creates vertex/index buffers
-  WGPUBufferDescriptor vertexBufferDesc {
-    .nextInChain = nullptr,
-    .label = wgpuStr("WGPUBackendMeshIdx Vertex Buffer"),
-    .usage = WGPUBufferUsage_Vertex | WGPUBufferUsage_CopyDst | WGPUBufferUsage_CopySrc, // Todo: Check if Copysrc is needed to shift buffer 
-    .size = sizeof(Vertex) * m_maxMeshVertSize, // For now we only store vec3 positions
-    .mappedAtCreation = false,
-  };
+  m_meshVertexBuffer.Init(m_wgpuCore.m_device, WGPUBufferUsage_Vertex, "WGPUBackendMeshIdx Vertex Buffer", m_maxMeshVertSize);
 
-  m_meshVertexBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &vertexBufferDesc);
-
-  WGPUBufferDescriptor indexBufferDesc {
-    .nextInChain = nullptr,
-    .label = wgpuStr("WGPUBackendMeshIdx Vertex Buffer"),
-    .usage = WGPUBufferUsage_Index | WGPUBufferUsage_CopyDst | WGPUBufferUsage_CopySrc, // Todo: Check if Copysrc is needed to shift buffer 
-    .size = sizeof(u32) * m_maxMeshIndexSize, // For now we only store vec3 positions
-    .mappedAtCreation = false,
-  };
-
-  m_meshIndexBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &indexBufferDesc);
+  m_meshIndexBuffer.Init(m_wgpuCore.m_device, WGPUBufferUsage_Index, "WGPUBackendMeshIdx Vertex Buffer", m_maxMeshIndexSize);
 
   // Creates depth texture 
   WGPUTextureDescriptor depthTextureDescriptor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Surface texture view"),
+    .label = WGPUBackendUtils::wgpuStr("Surface texture view"),
     .usage = WGPUTextureUsage_RenderAttachment,
     .dimension = WGPUTextureDimension_2D,
     .size = {startWidth, startHeight, 1},
@@ -537,11 +558,11 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
     .viewFormatCount = 1,
     .viewFormats = &m_wgpuDepthTextureFormat,
   };
-  m_depthTexture.m_texture = wgpuDeviceCreateTexture(m_wgpuDevice, &depthTextureDescriptor);
+  m_depthTexture.m_texture = wgpuDeviceCreateTexture(m_wgpuCore.m_device, &depthTextureDescriptor);
 
   WGPUTextureViewDescriptor depthViewDescriptor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Start depth view descriptor"),
+    .label = WGPUBackendUtils::wgpuStr("Start depth view descriptor"),
     .format = m_wgpuDepthTextureFormat,
     .dimension = WGPUTextureViewDimension_2D,
     .baseMipLevel = 0,
@@ -556,7 +577,7 @@ void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 sta
   // Initializes imgui
   #if SKL_ENABLED_EDITOR
   ImGui_ImplWGPU_InitInfo imguiInit;
-  imguiInit.Device = m_wgpuDevice;
+  imguiInit.Device = m_wgpuCore.m_device;
   imguiInit.RenderTargetFormat = m_wgpuTextureFormat;
   imguiInit.DepthStencilFormat = m_wgpuDepthTextureFormat;
   imguiInit.NumFramesInFlight = 3;
@@ -589,7 +610,7 @@ void WGPURenderBackend::InitPipelines()
 
   WGPUShaderModuleDescriptor shaderDesc {
     .nextInChain = &wgslShaderDesc.chain,
-    .label = wgpuStr("Default Shader"),
+    .label = WGPUBackendUtils::wgpuStr("Default Shader"),
   };
 
   size_t depthLoadedDatSize;
@@ -608,13 +629,13 @@ void WGPURenderBackend::InitPipelines()
 
   WGPUShaderModuleDescriptor depthShaderDesc {
     .nextInChain = &depthWgslShaderDesc.chain,
-    .label = wgpuStr("Depth Shader")
+    .label = WGPUBackendUtils::wgpuStr("Depth Shader")
   };
 
 
-  WGPUShaderModule shaderModule = wgpuDeviceCreateShaderModule(m_wgpuDevice, &shaderDesc);
+  WGPUShaderModule shaderModule = wgpuDeviceCreateShaderModule(m_wgpuCore.m_device, &shaderDesc);
 
-  WGPUShaderModule depthShaderModule = wgpuDeviceCreateShaderModule(m_wgpuDevice, &depthShaderDesc);
+  WGPUShaderModule depthShaderModule = wgpuDeviceCreateShaderModule(m_wgpuCore.m_device, &depthShaderDesc);
 
   // Configures z-buffer
   WGPUDepthStencilState depthStencilReadOnlyState {
@@ -687,7 +708,7 @@ void WGPURenderBackend::InitPipelines()
 
   WGPUFragmentState fragState {
     .module = shaderModule,
-    .entryPoint = wgpuStr("fsMain"),
+    .entryPoint = WGPUBackendUtils::wgpuStr("fsMain"),
     .constantCount = 0,
     .constants = nullptr,
     .targetCount = 1,
@@ -751,11 +772,12 @@ void WGPURenderBackend::InitPipelines()
   std::vector<WGPUBindGroupLayoutEntry> bindEntities;
   std::vector<WGPUBindGroupLayoutEntry> depthBindEntities;
   
+  
   WGPUBindGroupLayoutEntry cameraBind = DefaultBindLayoutEntry();
   cameraBind.binding = 0;
   cameraBind.visibility = WGPUShaderStage_Vertex;
   cameraBind.buffer.type = WGPUBufferBindingType_Uniform;
-  cameraBind.buffer.minBindingSize = sizeof(CameraData) + 4; // Adjusts for padding of vec3
+  cameraBind.buffer.minBindingSize = sizeof(WGPUBackendCameraData); // Adjusts for padding of vec3
   bindEntities.push_back( cameraBind );
   depthBindEntities.push_back( cameraBind );
 
@@ -779,51 +801,51 @@ void WGPURenderBackend::InitPipelines()
   dynamicShadowedDirLightBind.binding = 3;
   dynamicShadowedDirLightBind.visibility = WGPUShaderStage_Vertex;
   dynamicShadowedDirLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
-  dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLight);
+  dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData);
 
   bindEntities.push_back( dynamicShadowedDirLightBind );
 
   WGPUBindGroupLayoutDescriptor bindLayoutDescriptor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Default Bind Layout"),
+    .label = WGPUBackendUtils::wgpuStr("Default Bind Layout"),
     .entryCount = bindEntities.size(), 
     .entries = bindEntities.data(),
   };
 
   WGPUBindGroupLayoutDescriptor depthBindLayoutDescriptor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Depth Bind Layout"),
+    .label = WGPUBackendUtils::wgpuStr("Depth Bind Layout"),
     .entryCount = depthBindEntities.size(), 
     .entries = depthBindEntities.data(),
   };
 
-  WGPUBindGroupLayout bindLayout = wgpuDeviceCreateBindGroupLayout(m_wgpuDevice, &bindLayoutDescriptor);
-  WGPUBindGroupLayout depthBindLayout = wgpuDeviceCreateBindGroupLayout(m_wgpuDevice, &depthBindLayoutDescriptor);
+  WGPUBindGroupLayout bindLayout = wgpuDeviceCreateBindGroupLayout(m_wgpuCore.m_device, &bindLayoutDescriptor);
+  WGPUBindGroupLayout depthBindLayout = wgpuDeviceCreateBindGroupLayout(m_wgpuCore.m_device, &depthBindLayoutDescriptor);
 
   WGPUPipelineLayoutDescriptor pipelineLayoutConstructor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Default Pipeline layout"),
+    .label = WGPUBackendUtils::wgpuStr("Default Pipeline layout"),
     .bindGroupLayoutCount = 1,
     .bindGroupLayouts = &bindLayout,
   };
 
   WGPUPipelineLayoutDescriptor depthPipelineLayoutConstructor {
     .nextInChain = nullptr,
-    .label = wgpuStr("Depth Pipeline layout"),
+    .label = WGPUBackendUtils::wgpuStr("Depth Pipeline layout"),
     .bindGroupLayoutCount = 1,
     .bindGroupLayouts = &depthBindLayout,
   };
 
-  WGPUPipelineLayout depthPipelineLayout = wgpuDeviceCreatePipelineLayout(m_wgpuDevice, &depthPipelineLayoutConstructor);
-  WGPUPipelineLayout pipelineLayout = wgpuDeviceCreatePipelineLayout(m_wgpuDevice, &pipelineLayoutConstructor);
+  WGPUPipelineLayout depthPipelineLayout = wgpuDeviceCreatePipelineLayout(m_wgpuCore.m_device, &depthPipelineLayoutConstructor);
+  WGPUPipelineLayout pipelineLayout = wgpuDeviceCreatePipelineLayout(m_wgpuCore.m_device, &pipelineLayoutConstructor);
 
   WGPURenderPipelineDescriptor depthPipelineDesc {
     .nextInChain = nullptr,
-    .label = wgpuStr("Depth Pipeline Layout"),
+    .label = WGPUBackendUtils::wgpuStr("Depth Pipeline Layout"),
     .layout = depthPipelineLayout,
     .vertex {
       .module = depthShaderModule,
-      .entryPoint = wgpuStr("vtxMain"),
+      .entryPoint = WGPUBackendUtils::wgpuStr("vtxMain"),
       .constantCount = 0,
       .constants = nullptr,
       .bufferCount = 1,
@@ -846,11 +868,11 @@ void WGPURenderBackend::InitPipelines()
 
   WGPURenderPipelineDescriptor pipelineDesc {
     .nextInChain = nullptr,
-    .label = wgpuStr("Default Pipeline Layout"),
+    .label = WGPUBackendUtils::wgpuStr("Default Pipeline Layout"),
     .layout = pipelineLayout,
     .vertex {
       .module = shaderModule,
-      .entryPoint = wgpuStr("vtxMain"),
+      .entryPoint = WGPUBackendUtils::wgpuStr("vtxMain"),
       .constantCount = 0,
       .constants = nullptr,
       .bufferCount = 1,
@@ -871,110 +893,29 @@ void WGPURenderBackend::InitPipelines()
     .fragment = &fragState,
   };
 
-  m_defaultPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuDevice, &pipelineDesc);
-  m_depthPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuDevice, &depthPipelineDesc);
+  m_defaultPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &pipelineDesc);
+  m_depthPipeline = wgpuDeviceCreateRenderPipeline(m_wgpuCore.m_device, &depthPipelineDesc);
 
-  WGPUBufferDescriptor cameraBufferDesc {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Uniform Buffer Description"),
-    .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Uniform,
-    .size = sizeof(CameraData) + 4, // Adjusts for padding
-    .mappedAtCreation = false,
-  };
+  m_bindGroup.Init("Main Pipeline Bind Group", bindLayout);
+  m_depthBindGroup.Init("Depth Pipeline Bind Group", depthBindLayout);
+  
+  m_cameraBuffer.Init(m_wgpuCore.m_device, "Camera Buffer", 0);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_cameraBuffer));
+  m_depthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_cameraBuffer));
 
-  m_cameraBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &cameraBufferDesc);
+  m_instanceDatBuffer.Init(m_wgpuCore.m_device, "Instance Buffer", 1, m_maxObjArraySize);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_instanceDatBuffer));
+  m_depthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_instanceDatBuffer));
 
-  WGPUBufferDescriptor instanceBufferDesc {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Instance Buffer Description"),
-    .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Storage,
-    .size = sizeof(ObjectData) * m_maxObjArraySize,
-    .mappedAtCreation = false,
-  };
+  m_lightSpacesStoreBuffer.Init(m_wgpuCore.m_device, "Light Space Buffer", 2, m_maxLightSpaces);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_lightSpacesStoreBuffer));
 
-  m_instanceDatBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &instanceBufferDesc);
+  m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", 3, m_maxDynamicShadowedDirLights);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightBuffer));
 
-  WGPUBufferDescriptor lightSpacesBufferDesc {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Light Space Buffer Description"),
-    .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Storage,
-    .size = sizeof(glm::mat4x4) * m_maxLightSpaces,
-    .mappedAtCreation = false,
-  };
-
-  m_lightSpacesStoreBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &lightSpacesBufferDesc);
-
-  WGPUBufferDescriptor dynamicShadowedDirLightBufferDesc {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Dynamic Shadowed Direction Light Buffer Description"),
-    .usage = WGPUBufferUsage_CopyDst | WGPUBufferUsage_Storage,
-    .size = sizeof(WGPUBackendDynamicShadowedDirLight) * m_maxDynamicShadowedDirLights,
-    .mappedAtCreation = false,
-  };
-
-  m_dynamicShadowedDirLightBuffer = wgpuDeviceCreateBuffer(m_wgpuDevice, &dynamicShadowedDirLightBufferDesc);
-
-  std::vector<WGPUBindGroupEntry> bindGroupEntries;
-  std::vector<WGPUBindGroupEntry> depthBindGroupEntries;
-
-  WGPUBindGroupEntry cameraBindEntry {
-    .nextInChain = nullptr,
-    .binding = 0,
-    .buffer = m_cameraBuffer,
-    .offset = 0,
-    .size = sizeof(CameraData) + 4, // Adjusts for padding
-  };
-  bindGroupEntries.push_back(cameraBindEntry);
-  depthBindGroupEntries.push_back(cameraBindEntry);
-
-
-  WGPUBindGroupEntry objDataBindEntry {
-    .nextInChain = nullptr,
-    .binding = 1,
-    .buffer = m_instanceDatBuffer,
-    .offset = 0,
-    .size = sizeof(ObjectData) * m_maxObjArraySize,
-  };
-  bindGroupEntries.push_back(objDataBindEntry);
-  depthBindGroupEntries.push_back(objDataBindEntry);
-
-  WGPUBindGroupEntry lightSpaceBindEntry {
-    .nextInChain = nullptr,
-    .binding = 2,
-    .buffer = m_lightSpacesStoreBuffer,
-    .offset = 0,
-    .size = sizeof(glm::mat4x4) * m_maxLightSpaces,
-  };
-  bindGroupEntries.push_back(lightSpaceBindEntry);
-
-  WGPUBindGroupEntry dynamicShadowedDirLightBindEntry {
-    .nextInChain = nullptr,
-    .binding = 3,
-    .buffer = m_dynamicShadowedDirLightBuffer,
-    .offset = 0,
-    .size = sizeof(WGPUBackendDynamicShadowedDirLight) * m_maxDynamicShadowedDirLights,
-  };
-  bindGroupEntries.push_back(dynamicShadowedDirLightBindEntry);
-
-  WGPUBindGroupDescriptor bindGroupDescriptor {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Default Pipeline Bind Group"),
-    .layout = bindLayout,
-    .entryCount = bindGroupEntries.size(),
-    .entries = bindGroupEntries.data(),
-  };
-
-  WGPUBindGroupDescriptor depthBindGroupDescriptor {
-    .nextInChain = nullptr,
-    .label = wgpuStr("Depth Pipeline Bind Group"),
-    .layout = depthBindLayout,
-    .entryCount = depthBindGroupEntries.size(),
-    .entries = depthBindGroupEntries.data(),
-  };
-
-  m_bindGroup = wgpuDeviceCreateBindGroup(m_wgpuDevice, &bindGroupDescriptor);
-  m_depthBindGroup = wgpuDeviceCreateBindGroup(m_wgpuDevice, &depthBindGroupDescriptor);
-
+  m_bindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
+  m_depthBindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
+    
   SDL_free(depthLoadedDat);
   SDL_free(loadedDat);
   wgpuPipelineLayoutRelease(depthPipelineLayout);
@@ -989,8 +930,8 @@ MeshID WGPURenderBackend::UploadMesh(u32 vertCount, Vertex* vertices, u32 indexC
   u32 retInt = m_nextMeshID;
   m_meshStore.emplace(std::pair<u32, WGPUBackendMeshIdx>(retInt, WGPUBackendMeshIdx(m_meshTotalIndices, m_meshTotalVertices, indexCount, vertCount)));
   
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_meshVertexBuffer, sizeof(Vertex) * m_meshTotalVertices, vertices, sizeof(Vertex) * vertCount);
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_meshIndexBuffer, sizeof(u32) * m_meshTotalIndices, indices, sizeof(u32) * indexCount);
+  m_meshVertexBuffer.AppendToBack(m_wgpuCore.m_device, m_wgpuQueue, vertices, vertCount);
+  m_meshIndexBuffer.AppendToBack(m_wgpuCore.m_device, m_wgpuQueue, indices, indexCount);
 
   m_nextMeshID++;
   m_meshTotalIndices += indexCount; 
@@ -1005,27 +946,13 @@ void WGPURenderBackend::DestroyMesh(MeshID meshID) {
   // Wipes out mesh on buffer side
   WGPUCommandEncoderDescriptor destroyMeshDescriptor {
     .nextInChain = nullptr,
-    .label = wgpuStr(""),
+    .label = WGPUBackendUtils::wgpuStr(""),
   };
-  WGPUCommandEncoder meshDestroyEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuDevice, &destroyMeshDescriptor);
+  WGPUCommandEncoder meshDestroyEncoder = wgpuDeviceCreateCommandEncoder(m_wgpuCore.m_device, &destroyMeshDescriptor);
 
-  wgpuCommandEncoderCopyBufferToBuffer(
-    meshDestroyEncoder, 
-    m_meshVertexBuffer, 
-    sizeof(Vertex) * (gotMesh.m_baseVertex + gotMesh.m_vertexCount), 
-    m_meshVertexBuffer, 
-    sizeof(Vertex) * (gotMesh.m_baseVertex), 
-    sizeof(Vertex) * (m_meshTotalVertices - (gotMesh.m_baseVertex + gotMesh.m_vertexCount))
-  );
-
-  wgpuCommandEncoderCopyBufferToBuffer(
-    meshDestroyEncoder, 
-    m_meshIndexBuffer, 
-    sizeof(u32) * (gotMesh.m_baseIndex + gotMesh.m_indexCount), 
-    m_meshIndexBuffer, 
-    sizeof(u32) * (gotMesh.m_baseIndex), 
-    sizeof(u32) * (m_meshTotalVertices - (gotMesh.m_baseIndex + gotMesh.m_indexCount))
-  );
+  // Removes mesh gpu side informations
+  m_meshVertexBuffer.EraseRange(m_wgpuCore.m_device, m_wgpuQueue, gotMesh.m_baseVertex , gotMesh.m_vertexCount);
+  m_meshIndexBuffer.EraseRange(m_wgpuCore.m_device, m_wgpuQueue, gotMesh.m_baseIndex , gotMesh.m_indexCount);
 
   // Readjusts mesh cpu side descriptors
   for (std::pair<MeshID, WGPUBackendMeshIdx> meshIter : m_meshStore) {
@@ -1069,7 +996,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     totalCount += meshType.second;
   }
 
-  std::vector<ObjectData> objData(totalCount);
+  std::vector<WGPUBackendObjectData> objData(totalCount);
 
   for (MeshRenderInfo meshInstance: state.meshes)
   {
@@ -1077,16 +1004,20 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   }
 
   // Gets light transforms for 
-  glm::mat4x4 combinedCam = state.mainCam.proj * state.mainCam.view;
-  PrepareDynamicShadowedDirLights(combinedCam, state.cameraFov, state.cameraNear, state.cameraFar, state.dirLights);
+  PrepareDynamicShadowedDirLights(state.mainCam.view, state.mainCamAspect, state.mainCamFov, state.mainCamNear, state.mainCamFar, state.dirLights);
 
   // >>> Actually begins sending off information to be rendered <<<
 
   // Sends in the attributes of individual mesh instances
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_instanceDatBuffer, 0, objData.data(), sizeof(ObjectData) * objData.size());
+  m_instanceDatBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, objData.data(), objData.size());
 
   // Sets the orientation of the view camera
-  wgpuQueueWriteBuffer(m_wgpuQueue, m_cameraBuffer, 0, &state.mainCam, sizeof(CameraData));
+  WGPUBackendCameraData camState {
+    .m_view = state.mainCam.view,
+    .m_proj = state.mainCam.proj,
+    .m_pos = state.mainCam.pos
+  };
+  m_cameraBuffer.WriteBuffer(m_wgpuQueue, camState);
 
   BeginDepthPass(m_depthTexture.m_textureView);
   DrawObjects(meshCounts);

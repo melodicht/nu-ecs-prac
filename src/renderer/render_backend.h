@@ -88,6 +88,7 @@ struct MeshRenderInfo {
 
 struct DirLightRenderInfo {
     // Shared
+    glm::mat4x4 viewSpace;
     glm::vec3 dir;
     u32 shadowID; 
     glm::vec3 color;
@@ -108,10 +109,10 @@ struct RenderFrameInfo {
 
     // WGPU Specific
     std::vector<DirLightRenderInfo>& dirLights; // Currently i'm making the assumption that all dir lights are dynamic.
-    // Additional camera data to avoid having some operations when recreating camera frustum.
-    float cameraFov;
-    float cameraNear;
-    float cameraFar;
+    float mainCamAspect;
+    float mainCamFov;
+    float mainCamNear;
+    float mainCamFar;
 };
 
 // Renders a frame using the supplied render state

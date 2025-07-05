@@ -2,6 +2,8 @@
 
 #include "skl_math_consts.h"
 
+#include <vector>
+
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
 #include <glm/glm.hpp>
@@ -15,17 +17,19 @@ struct Transform3D
     glm::vec3 scale = glm::vec3(1);
 };
 
-glm::vec3 GetArbitraryOrthogonal(const glm::vec3& vec);
-
-glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& right);
-
 glm::mat4 GetRotationMatrix(Transform3D *transform);
 
 glm::mat4 GetTransformMatrix(Transform3D *transform);
 
+glm::vec3 GetForwardVector(const glm::mat4x4& rotMat);
+
 glm::vec3 GetForwardVector(Transform3D *transform);
 
+glm::vec3 GetRightVector(const glm::mat4x4& rotMat);
+
 glm::vec3 GetRightVector(Transform3D *transform);
+
+glm::vec3 GetUpVector(const glm::mat4x4& rotMat);
 
 glm::vec3 GetUpVector(Transform3D *transform);
 
@@ -40,3 +44,5 @@ u32 RandInt(u32 min, u32 max);
 glm::vec3 GetArbitraryOrthogonal(const glm::vec3& vec);
 
 glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& right);
+
+std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view);

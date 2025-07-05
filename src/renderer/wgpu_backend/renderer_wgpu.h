@@ -3,6 +3,8 @@
 #include <webgpu/webgpu.h>
 
 #include "renderer/render_backend.h"
+#include "renderer/wgpu_backend/bind_group_wgpu.h"
+#include "renderer/wgpu_backend/utils_wgpu.h"
 #include "renderer/wgpu_backend/render_types_wgpu.h"
 
 #include "math/skl_math_consts.h"
@@ -20,8 +22,7 @@ private:
 
     // WGPU objects that remains important throughout rendering 
     // from init to destruction
-    WGPUInstance m_wgpuInstance{ };
-    WGPUDevice m_wgpuDevice{ };
+    WGPUCore m_wgpuCore{ };
     WGPUQueue m_wgpuQueue{ };
     WGPUSurface m_wgpuSurface{ };
 
@@ -49,26 +50,26 @@ private:
 
     // Defines default pipeline
     WGPURenderPipeline m_defaultPipeline{ };
-    WGPUBindGroup m_bindGroup{ };
+    WGPUBackendBindGroup m_bindGroup;
 
     // Defines depth pipeline
     WGPURenderPipeline m_depthPipeline{ };
-    WGPUBindGroup m_depthBindGroup;
+    WGPUBackendBindGroup m_depthBindGroup;
 
     // Defines general light vars
-    std::unordered_map<u32, std::vector<glm::mat4x4>> m_lightSpaces; 
-    std::unordered_map<u32, std::vector<WGPUBackendTexture>> m_dirShadows; // Stores depth textures to prevent constant recreation of such textures
+    std::vector<glm::mat4x4> m_lightSpaces; 
+    WGPUTexture m_shadowAtlas; // Stores depth textures to prevent constant recreation of such textures
 
     // Defines dir light vars 
+    std::unordered_map<u32, WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLights;
 
+    WGPUBackendSingleUniformBuffer<WGPUBackendCameraData> m_cameraBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<glm::mat4x4> m_lightSpacesStoreBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLightBuffer{ };
 
-    WGPUBuffer m_cameraBuffer{ };
-    WGPUBuffer m_instanceDatBuffer{ };
-    WGPUBuffer m_lightSpacesStoreBuffer{ };
-    WGPUBuffer m_dynamicShadowedDirLightBuffer{ };
-
-    WGPUBuffer m_meshVertexBuffer{ };
-    WGPUBuffer m_meshIndexBuffer{ };
+    WGPUBackendArrayBuffer<Vertex> m_meshVertexBuffer{ };
+    WGPUBackendArrayBuffer<u32> m_meshIndexBuffer{ };
     u32 m_meshTotalVertices{ 0 };
     u32 m_meshTotalIndices{ 0 };
     // Currently mesh deletion logic requires that meshes with greater MeshID's to correspond to older mesh stores
@@ -77,18 +78,14 @@ private:
     // The id of the next obj that will be created
     MeshID m_nextMeshID{ 0 }; 
 
-
     void printDeviceSpecs();
-
-    // Translates a c_string to a wgpu string view
-    static WGPUStringView wgpuStr(const char* str);
 
     // The following getters occur asynchronously in wgpu but is awaited for by these functions
     static WGPUAdapter GetAdapter(const WGPUInstance instance, WGPURequestAdapterOptions const * options);
 
     static WGPUDevice GetDevice(const WGPUAdapter adapter, WGPUDeviceDescriptor const * descriptor);
 
-    // What to call on the a queue finishing its work
+    // What to call on the queue finishing its work
     static void QueueFinishCallback(WGPUQueueWorkDoneStatus status, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
 
     // What to call on m_wgpuDevice being lost.
@@ -99,7 +96,8 @@ private:
 
     // Fills in related directional light
     void PrepareDynamicShadowedDirLights(
-        const glm::mat4x4& camMat, 
+        const glm::mat4x4& camView,
+        const float camAspect,
         const float camFov, 
         const float camNear, 
         const float camFar, 

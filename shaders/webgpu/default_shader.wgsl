@@ -11,12 +11,14 @@ struct ObjData {
     color : vec4<f32>,
 }
 
+// Represents a single directional light with shadows and a potential to change pos/dir over time.
 struct DynamicShadowedDirLight {
     direction : vec3<f32>,
-    color : vec3<f32>,
     intensity : f32,
-    lightSpaceIdxStart : u32, // Defines light space location in relation to lightSpacesStore
-    lightCascadeCount : u32
+    color : vec3<f32>,
+    shadowIdxStart: u32, // Define depth texture location in shadowDepthTextureStore
+    lightSpaceIdxStart : u32, // Defines light space location in lightSpacesStore
+    lightCascadeCount : u32,
 }
 
 @binding(0) @group(0) var<uniform> camera : Camera;
