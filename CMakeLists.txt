@@ -204,7 +204,7 @@ if(NOT EMSCRIPTEN)
                 add_custom_command(
                         MAIN_DEPENDENCY ${SHADER}
                         OUTPUT ${SHADER_OUT_NAME}
-                        COMMAND ${SLANGC} ${SHADER} -o ${SHADER_OUT_NAME} -target spirv -fvk-use-entrypoint-name -emit-spirv-directly -fvk-use-scalar-layout -matrix-layout-column-major
+                        COMMAND ${SLANGC} ${SHADER} -o ${SHADER_OUT_NAME} -target spirv -fvk-use-entrypoint-name -emit-spirv-directly -fvk-use-scalar-layout -matrix-layout-row-major
                         VERBATIM)
                 endforeach()
 
