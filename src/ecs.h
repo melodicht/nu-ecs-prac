@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math/math_consts.h"
+#include "math/skl_math_consts.h"
 
 #include <vector>
 #include <bitset>
