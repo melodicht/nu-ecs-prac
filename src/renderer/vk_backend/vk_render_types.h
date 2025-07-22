@@ -123,3 +123,10 @@ struct LightEntry
     u32 cameraIndex;
     Texture shadowMap;
 };
+
+// Represents one cascade of a cascaded directional light (CPU->GPU)
+struct LightCascade
+{
+    glm::mat4 lightSpace;
+    f32 maxDepth;
+};

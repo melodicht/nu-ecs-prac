@@ -101,3 +101,28 @@ glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const 
     glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
   );
 }
+
+std::vector<glm::vec4> GetFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
+{
+    glm::mat4 inverse = glm::inverse(proj * view);
+
+    std::vector<glm::vec4> frustumCorners;
+    for (u32 x = 0; x < 2; ++x)
+    {
+        for (u32 y = 0; y < 2; ++y)
+        {
+            for (u32 z = 0; z < 2; ++z)
+            {
+                const glm::vec4 pt =
+                        inverse * glm::vec4(
+                                2.0f * x - 1.0f,
+                                2.0f * y - 1.0f,
+                                z,
+                                1.0f);
+                frustumCorners.push_back(pt / pt.w);
+            }
+        }
+    }
+
+    return frustumCorners;
+}

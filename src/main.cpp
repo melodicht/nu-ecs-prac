@@ -51,7 +51,7 @@ std::unordered_map<std::string, bool> keysDown;
 f32 mouseDeltaX = 0;
 f32 mouseDeltaY = 0;
 
-#include "ecs.cpp"
+#include "ecs.h"
 
 #include "game.h"
 #include "systems.cpp"
@@ -120,8 +120,6 @@ void updateLoop(void* appInfo) {
     #if SKL_ENABLED_EDITOR
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-
-    ImGui::ShowDemoWindow();
     #endif
 
     GameUpdateAndRender(info->scene, info->window, deltaTime);

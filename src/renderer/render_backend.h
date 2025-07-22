@@ -87,6 +87,7 @@ struct DirLightRenderInfo {
     // Shared
     LightID lightID;
     Transform3D transform;
+
     glm::vec3 diffuse;
     glm::vec3 specular;
 
@@ -102,8 +103,8 @@ struct SpotLightRenderInfo {
     glm::vec3 diffuse;
     glm::vec3 specular;
 
-    f32 innerCutoff;
-    f32 outerCutoff;
+    f32 innerCone;
+    f32 outerCone;
     f32 range;
 };
 
@@ -124,17 +125,20 @@ struct PointLightRenderInfo {
 // Represents the information needed to render a single frame on any renderer
 struct RenderFrameInfo {
     // Shared
-    Transform3D transform;
+    Transform3D cameraTransform;
     std::vector<MeshRenderInfo> &meshes;
+
+    std::vector<DirLightRenderInfo>& dirLights;
+    std::vector<SpotLightRenderInfo>& spotLights;
+    std::vector<PointLightRenderInfo>& pointLights;
+
+    float cameraFov;
+    float cameraNear;
+    float cameraFar;
 
     // Vulkan Specific
 
     // WGPU Specific
-    std::vector<DirLightRenderInfo>& dirLights; // Currently i'm making the assumption that all dir lights are dynamic.
-    // Additional camera data to avoid having some operations when recreating camera frustum.
-    float cameraFov;
-    float cameraNear;
-    float cameraFar;
 };
 
 // Renders a frame using the supplied render state
