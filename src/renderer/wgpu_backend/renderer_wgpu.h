@@ -57,13 +57,14 @@ private:
     WGPUBackendBindGroup m_depthBindGroup;
 
     // Defines general light vars
-    std::vector<glm::mat4x4> m_lightSpaces; 
+    u32 m_nextLightSpace = 0;
     WGPUTexture m_shadowAtlas; // Stores depth textures to prevent constant recreation of such textures
 
-    // Defines dir light vars 
-    std::unordered_map<u32, WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLights;
+    // Defines dir light vars, the key is the Shadow Id
+    std::vector<WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLights;
 
     WGPUBackendSingleUniformBuffer<WGPUBackendCameraData> m_cameraBuffer{ };
+    WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<glm::mat4x4> m_lightSpacesStoreBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLightBuffer{ };

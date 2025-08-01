@@ -81,7 +81,7 @@ struct WGPUBackendDynamicShadowedDirLightData {
     glm::vec3 m_direction;
     f32 m_intensity;
     glm::vec3 m_lightColor;
-    u32 m_shadowTextureIdx;
+    u32 m_shadowMapIdxStart;
     u32 m_lightSpaceIdxStart;
     u32 m_lightCascadeCount;
 };

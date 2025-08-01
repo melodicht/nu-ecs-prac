@@ -183,38 +183,51 @@ void WGPURenderBackend::PrepareDynamicShadowedDirLights(
   const std::vector<DirLightRenderInfo>& gotDirLightRenderInfo) {
   for (const DirLightRenderInfo& dirLight : gotDirLightRenderInfo)
   {
+    std::vector<glm::mat4x4> m_lightSpaces;
+
     // Todo Implement custom functionality
-    std::vector<float> cascadeRatios = {1.0f};
+    std::vector<float> cascadeRatios = {0.25, 0.25, 0.25, 0.25};
     const float camNearFarDiff = camFar - camNear;
     float currentCascadeLength = camNear;
     for (std::vector<float>::iterator cascadeIterator = cascadeRatios.begin() ; cascadeIterator != cascadeRatios.end(); cascadeIterator++)
     {
-        // TODO: Implement cascade later
-        currentCascadeLength = *cascadeIterator * camNearFarDiff;
-        glm::mat4 subProj = glm::perspective(glm::radians(camFov), camAspect,
-                                              camNear, camNear + currentCascadeLength);
+      currentCascadeLength = *cascadeIterator * camNearFarDiff;
+      glm::mat4 subProj = glm::perspective(glm::radians(camFov), camAspect,
+                                            camNear, camNear + currentCascadeLength);
 
+      std::vector<glm::vec4> corners = getFrustumCorners(subProj, camView);
+      for (const DirLightRenderInfo& dirLight : gotDirLightRenderInfo) {
         f32 minX = std::numeric_limits<f32>::max();
         f32 maxX = std::numeric_limits<f32>::lowest();
         f32 minY = std::numeric_limits<f32>::max();
         f32 maxY = std::numeric_limits<f32>::lowest();
-        f32 minZ = std::numeric_limits<f32>::max();
         f32 maxZ = std::numeric_limits<f32>::lowest();
 
-        std::vector<glm::vec4> corners = getFrustumCorners(subProj, camView);
-
-        for (const glm::vec3& v : corners)
-        {
-            const glm::vec4 trf = camView * glm::vec4(v, 1.0);
-            minX = std::min(minX, trf.x);
-            maxX = std::max(maxX, trf.x);
-            minY = std::min(minY, trf.y);
-            maxY = std::max(maxY, trf.y);
-            minZ = std::min(minZ, trf.z);
-            maxZ = std::max(maxZ, trf.z);
+        for (const glm::vec4& v : corners) {
+          const glm::vec4 trf = v * dirLight.viewSpace;
+          minX = std::min(minX, trf.x);
+          maxX = std::max(maxX, trf.x);
+          minY = std::min(minY, trf.y);
+          maxY = std::max(maxY, trf.y);
+          maxZ = std::max(maxZ, trf.z);
         }
 
-        glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+        // TODO: Find more specific method for determining maxZ size
+        glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, maxZ - camFar, maxZ);  
+        
+        // Creates in shadow dir if it didn't already exist
+        auto foundDirShadow = m_dynamicShadowedDirLights.find(dirLight.shadowID);
+        if (foundDirShadow == m_dynamicShadowedDirLights.end()) {
+          m_dynamicShadowedDirLights[dirLight.shadowID] = {
+            .m_direction = dirLight.dir,
+            .m_intensity = 0.5,
+            .m_lightCascadeCount = (u32)cascadeRatios.size(),
+            .m_lightColor = {100.0f, 100.0f, 100.0f},
+            .m_lightSpaceIdxStart = m_nextLightSpace,
+          
+          };
+        }
+      }
     }
   }
 }
@@ -772,14 +785,19 @@ void WGPURenderBackend::InitPipelines()
   std::vector<WGPUBindGroupLayoutEntry> bindEntities;
   std::vector<WGPUBindGroupLayoutEntry> depthBindEntities;
   
-  
   WGPUBindGroupLayoutEntry cameraBind = DefaultBindLayoutEntry();
   cameraBind.binding = 0;
   cameraBind.visibility = WGPUShaderStage_Vertex;
   cameraBind.buffer.type = WGPUBufferBindingType_Uniform;
   cameraBind.buffer.minBindingSize = sizeof(WGPUBackendCameraData); // Adjusts for padding of vec3
   bindEntities.push_back( cameraBind );
-  depthBindEntities.push_back( cameraBind );
+
+  WGPUBindGroupLayoutEntry cameraSpaceBind = DefaultBindLayoutEntry();
+  cameraBind.binding = 0;
+  cameraBind.visibility = WGPUShaderStage_Vertex;
+  cameraBind.buffer.type = WGPUBufferBindingType_Uniform;
+  cameraBind.buffer.minBindingSize = sizeof(glm::mat4x4); // Adjusts for padding of vec3
+  depthBindEntities.push_back( cameraSpaceBind );
 
   WGPUBindGroupLayoutEntry objDatBind = DefaultBindLayoutEntry();
   objDatBind.binding = 1;
@@ -901,7 +919,9 @@ void WGPURenderBackend::InitPipelines()
   
   m_cameraBuffer.Init(m_wgpuCore.m_device, "Camera Buffer", 0);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_cameraBuffer));
-  m_depthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_cameraBuffer));
+
+  m_cameraSpaceBuffer.Init(m_wgpuCore.m_device, "Camera Buffer", 0);
+  m_depthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_cameraSpaceBuffer));
 
   m_instanceDatBuffer.Init(m_wgpuCore.m_device, "Instance Buffer", 1, m_maxObjArraySize);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_instanceDatBuffer));
@@ -985,7 +1005,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   std::map<MeshID, u32> meshCounts;
   for (MeshRenderInfo meshInstance: state.meshes)
   {
-      meshCounts[meshInstance.mesh] += 1;
+    meshCounts[meshInstance.mesh] += 1;
   }
 
   u32 totalCount = 0;
@@ -1018,6 +1038,13 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     .m_pos = state.mainCam.pos
   };
   m_cameraBuffer.WriteBuffer(m_wgpuQueue, camState);
+
+  for ( auto dynamicDirShadowIter = m_dynamicShadowedDirLights.begin() ; dynamicDirShadowIter != m_dynamicShadowedDirLights.end() ; dynamicDirShadowIter++ ) {
+  }
+
+  // Sets the oreintation of the view camera for depth pre pass
+  glm::mat4x4 camSpace = state.mainCam.proj * state.mainCam.view;
+  m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, camSpace);
 
   BeginDepthPass(m_depthTexture.m_textureView);
   DrawObjects(meshCounts);
