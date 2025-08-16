@@ -181,56 +181,7 @@ void WGPURenderBackend::PrepareDynamicShadowedDirLights(
   const float camNear, 
   const float camFar, 
   const std::vector<DirLightRenderInfo>& gotDirLightRenderInfo) {
-  for (const DirLightRenderInfo& dirLight : gotDirLightRenderInfo)
-  {
-    std::vector<glm::mat4x4> m_lightSpaces;
-
-    // Todo Implement custom functionality
-    std::vector<float> cascadeRatios = {0.25, 0.25, 0.25, 0.25};
-    const float camNearFarDiff = camFar - camNear;
-    float currentCascadeLength = camNear;
-    for (std::vector<float>::iterator cascadeIterator = cascadeRatios.begin() ; cascadeIterator != cascadeRatios.end(); cascadeIterator++)
-    {
-      currentCascadeLength = *cascadeIterator * camNearFarDiff;
-      glm::mat4 subProj = glm::perspective(glm::radians(camFov), camAspect,
-                                            camNear, camNear + currentCascadeLength);
-
-      std::vector<glm::vec4> corners = getFrustumCorners(subProj, camView);
-      for (const DirLightRenderInfo& dirLight : gotDirLightRenderInfo) {
-        f32 minX = std::numeric_limits<f32>::max();
-        f32 maxX = std::numeric_limits<f32>::lowest();
-        f32 minY = std::numeric_limits<f32>::max();
-        f32 maxY = std::numeric_limits<f32>::lowest();
-        f32 maxZ = std::numeric_limits<f32>::lowest();
-
-        for (const glm::vec4& v : corners) {
-          const glm::vec4 trf = v * dirLight.viewSpace;
-          minX = std::min(minX, trf.x);
-          maxX = std::max(maxX, trf.x);
-          minY = std::min(minY, trf.y);
-          maxY = std::max(maxY, trf.y);
-          maxZ = std::max(maxZ, trf.z);
-        }
-
-        // TODO: Find more specific method for determining maxZ size
-        glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, maxZ - camFar, maxZ);  
-        
-        // Creates in shadow dir if it didn't already exist
-        auto foundDirShadow = m_dynamicShadowedDirLights.find(dirLight.shadowID);
-        if (foundDirShadow == m_dynamicShadowedDirLights.end()) {
-          m_dynamicShadowedDirLights[dirLight.shadowID] = {
-            .m_direction = dirLight.dir,
-            .m_intensity = 0.5,
-            .m_lightCascadeCount = (u32)cascadeRatios.size(),
-            .m_lightColor = {100.0f, 100.0f, 100.0f},
-            .m_lightSpaceIdxStart = m_nextLightSpace,
-          
-          };
-        }
-      }
-    }
   }
-}
 
 bool WGPURenderBackend::InitFrame() {
   #if SKL_ENABLED_EDITOR
@@ -819,7 +770,7 @@ void WGPURenderBackend::InitPipelines()
   dynamicShadowedDirLightBind.binding = 3;
   dynamicShadowedDirLightBind.visibility = WGPUShaderStage_Vertex;
   dynamicShadowedDirLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
-  dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData);
+  dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData<4>);
 
   bindEntities.push_back( dynamicShadowedDirLightBind );
 

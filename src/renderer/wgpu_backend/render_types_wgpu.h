@@ -6,7 +6,7 @@
 
 #include <glm/fwd.hpp>
 
-// >>> Represents helper objects <<<
+// >>> Represents helper structs  <<<
 #pragma region misc types
 // Simply combines a single texture and texture view
 // Does not handle the release of the textures on its own
@@ -77,12 +77,11 @@ struct WGPUBackendObjectData {
 };
 
 // Represents a single shadowed directional light
+template <size_t CascadeAmount>
 struct WGPUBackendDynamicShadowedDirLightData {
+    std::array<glm::mat4x4, CascadeAmount> m_lightSpaces;
     glm::vec3 m_direction;
     f32 m_intensity;
     glm::vec3 m_lightColor;
-    u32 m_shadowMapIdxStart;
-    u32 m_lightSpaceIdxStart;
-    u32 m_lightCascadeCount;
 };
 #pragma endregion

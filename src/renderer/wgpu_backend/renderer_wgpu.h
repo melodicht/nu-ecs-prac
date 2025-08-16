@@ -6,6 +6,7 @@
 #include "renderer/wgpu_backend/bind_group_wgpu.h"
 #include "renderer/wgpu_backend/utils_wgpu.h"
 #include "renderer/wgpu_backend/render_types_wgpu.h"
+#include "renderer/wgpu_backend/dynamic_shadow_vector_map_wgpu.h"
 
 #include "math/skl_math_consts.h"
 
@@ -60,14 +61,15 @@ private:
     u32 m_nextLightSpace = 0;
     WGPUTexture m_shadowAtlas; // Stores depth textures to prevent constant recreation of such textures
 
-    // Defines dir light vars, the key is the Shadow Id
-    std::vector<WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLights;
-
+    // CPU-> Gathers into 
+    WGPUBackendDirectionalDynamicShadowMap<4> m_dynamicShadowedDirLights;
+    
+    // Stores actual GPU buffers
     WGPUBackendSingleUniformBuffer<WGPUBackendCameraData> m_cameraBuffer{ };
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<glm::mat4x4> m_lightSpacesStoreBuffer{ };
-    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLightBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData<4>> m_dynamicShadowedDirLightBuffer{ };
 
     WGPUBackendArrayBuffer<Vertex> m_meshVertexBuffer{ };
     WGPUBackendArrayBuffer<u32> m_meshIndexBuffer{ };

@@ -11,23 +11,23 @@ struct ObjData {
     color : vec4<f32>,
 }
 
+// All dynamic directional lights must have a set amount of cascades.
+// TODO: Hopefully we can create a way of modifying this at CPU side with some shader metaprogramming
+const dynamicShadowedDirLightCascadeAmount : u32 = 4;
+
 // Represents a single directional light with shadows and a potential to change pos/dir over time.
 struct DynamicShadowedDirLight {
+    lightSpaces : array<mat4x4, dynamicShadowedDirLightCascadeAmount>,
     direction : vec3<f32>,
     intensity : f32,
-    color : vec3<f32>,
-    shadowIdxStart: u32, // Define depth texture location in shadowDepthTextureStore
-    lightSpaceIdxStart : u32, // Defines light space location in lightSpacesStore
-    lightCascadeCount : u32,
+    color : vec3<f32>
 }
 
 @binding(0) @group(0) var<uniform> camera : Camera;
 
 @binding(1) @group(0) var<storage> objStore : array<ObjData>; 
 
-@binding(2) @group(0) var<storage> lightSpacesStore : array<mat4x4<f32>>;
-
-@binding(3) @group(0) var<storage> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
+@binding(2) @group(0) var<storage> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
 
 
 struct VertexIn {

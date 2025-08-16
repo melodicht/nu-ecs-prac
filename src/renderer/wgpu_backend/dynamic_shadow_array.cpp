@@ -2,10 +2,14 @@
 
 #include <algorithm>
 
-void WGPUBackendDynamicDirShadowArray::ResizeTexture(const WGPUDevice& device, const WGPUQueue& queue, u32 newArraySize) {
+u16 WGPUBackendBaseDynamicShadowMapArray::GenerateNewAllocatedSize (u16 newArraySize) {
     assert(newArraySize <= m_arrayMaxAllocatedSize);
 
-    m_arrayAllocatedSize = newArraySize;
+    return newArraySize;
+}
+
+void WGPUBackendBaseDynamicShadowMapArray::ResizeTexture(const WGPUDevice& device, const WGPUQueue& queue, u16 newArraySize) {
+    m_arrayAllocatedSize = GenerateNewAllocatedSize(newArraySize);
 
     // Creates new texture and destroys old one in gpu
     WGPUTextureDescriptor newTextureDesc {
@@ -24,13 +28,13 @@ void WGPUBackendDynamicDirShadowArray::ResizeTexture(const WGPUDevice& device, c
     };
 
     // No need to copy since all data gets cleared on being rendered to anyways
-    wgpuTextureDestroy(m_textureData);
+    WGPUTexture oldTexture = m_textureData;
     m_textureData = wgpuDeviceCreateTexture(device, &newTextureDesc);
 
     // Destroys and recreates all of the previous texture views
     WGPUTextureViewDescriptor newTextureViewDesc {
         .nextInChain = nullptr,
-        .label = WGPUBackendUtils::wgpuStr("Dynamic Directional Shadowed Light Texture View"),
+        .label = WGPUBackendUtils::wgpuStr(m_wholeViewLabel.data()),
         .format = WGPUTextureFormat_Depth32Float,
         .dimension = WGPUTextureViewDimension_2D,
         .baseMipLevel = 0,
@@ -45,7 +49,7 @@ void WGPUBackendDynamicDirShadowArray::ResizeTexture(const WGPUDevice& device, c
     m_wholeTextureDataView = wgpuTextureCreateView(m_textureData, &newTextureViewDesc);
 
     newTextureViewDesc.arrayLayerCount = 1;
-    newTextureViewDesc.label = WGPUBackendUtils::wgpuStr("Dynamic Directional Shadowed Light Layered Texture View");
+    newTextureViewDesc.label = WGPUBackendUtils::wgpuStr(m_layerViewLabel.data());
 
     const size_t viewAmount = m_arrayLayerViews.size();
     for (u16 viewIdx = 0 ; viewIdx < viewAmount ; viewIdx++) {
@@ -58,29 +62,74 @@ void WGPUBackendDynamicDirShadowArray::ResizeTexture(const WGPUDevice& device, c
         newTextureViewDesc.baseArrayLayer = nextIdx;
         m_arrayLayerViews[nextIdx] = wgpuTextureCreateView(m_textureData, &newTextureViewDesc);
     }
+
+    // Removes old texture now that all old texture views are gone
+    wgpuTextureDestroy(oldTexture);
 }
 
-WGPUBackendDynamicDirShadowArray::WGPUBackendDynamicDirShadowArray() : 
-    m_bindGroups(),
-    m_usedSlots({ false }),
-    m_textureData(),
-    m_label("un-inited"),
-    m_currentBindGroupEntry(),
-    m_arrayLayerWidth(0),
-    m_arrayLayerHeight(0),
-    m_arraySize(0),
-    m_arrayAllocatedSize(1),
-    m_arrayMaxAllocatedSize(0) { }
-WGPUBackendDynamicDirShadowArray::~WGPUBackendDynamicDirShadowArray() {
+void WGPUBackendBaseDynamicShadowMapArray::Clear() {
+    // Deallocate on WGPU Side
+    for ( auto iter = m_arrayLayerViews.begin() ; iter != m_arrayLayerViews.end() ; iter++) {
+        wgpuTextureViewRelease(*iter);
+    }
+    wgpuTextureViewRelease(m_wholeTextureDataView);
     wgpuTextureDestroy(m_textureData);
+
+    // Resets to pre-init state
+    m_bindGroups = {};
+    m_textureData = {};
+    m_label = {"un-inited"};
+    m_wholeViewLabel = {"un-inited"};
+    m_layerViewLabel = {"un-inited"};
+    m_currentBindGroupEntry = {};
+    m_arrayLayerWidth = {0};
+    m_arrayLayerHeight = {0};
+    m_arraySize = {0};
+    m_arrayAllocatedSize = {1};
+    m_arrayMaxAllocatedSize = {0};
+    m_depthPerShadow = {0};
+    m_inited = {false};
 }
 
-void WGPUBackendDynamicDirShadowArray::Init(const WGPUDevice& device, u32 arrayLayerWidth, u32 arrayLayerHeight, u16 maxTextureArraySize, std::string label, u32 binding)
-{
+WGPUBackendBaseDynamicShadowMapArray::WGPUBackendBaseDynamicShadowMapArray() : 
+m_bindGroups(),
+m_textureData(),
+m_label("un-inited"),
+m_wholeViewLabel("un-inited"),
+m_layerViewLabel("un-inited"),
+m_currentBindGroupEntry(),
+m_arrayLayerWidth(0),
+m_arrayLayerHeight(0),
+m_arraySize(0),
+m_arrayAllocatedSize(1),
+m_arrayMaxAllocatedSize(0),
+m_depthPerShadow(0),
+m_inited(false) { }
+
+WGPUBackendBaseDynamicShadowMapArray::~WGPUBackendBaseDynamicShadowMapArray() {
+    Clear();
+}
+
+void WGPUBackendBaseDynamicShadowMapArray::Init(
+    const WGPUDevice& device, 
+    u32 arrayLayerWidth, 
+    u32 arrayLayerHeight, 
+    u16 maxTextureDepth, 
+    u16 depthPerShadow, 
+    std::string label,
+    std::string wholeViewLabel,
+    std::string layerViewLabel, 
+    u16 binding) {
+    // TODO: Prevent this from running in final build
+    assert( !m_inited );
     m_label = label;
+    m_wholeViewLabel = wholeViewLabel;
+    m_layerViewLabel= layerViewLabel;
     m_arrayLayerWidth = arrayLayerWidth;
     m_arrayLayerHeight = arrayLayerHeight;
-    m_arrayMaxAllocatedSize = maxTextureArraySize;
+    m_arrayMaxAllocatedSize = maxTextureDepth;
+    m_depthPerShadow = depthPerShadow;
+    m_inited = true;
 
     // Creates empty shadow map
     WGPUTextureDescriptor textureDesc {
@@ -130,52 +179,46 @@ void WGPUBackendDynamicDirShadowArray::Init(const WGPUDevice& device, u32 arrayL
         .sampler = nullptr,
         .textureView = m_wholeTextureDataView
     };
-};
-
-void WGPUBackendDynamicDirShadowArray::Register(const WGPUDevice& device, const WGPUQueue& queue, WGPUBackendDynamicShadowedDirLightData& shadow) {
-    // Checks if gap between current array size and allocated size can fit cascade size
-    if (m_arrayAllocatedSize - m_arraySize > shadow.m_lightCascadeCount) {
-        shadow.m_shadowMapIdxStart = m_arraySize;
-        m_usedSlots.insert(m_usedSlots.end(), shadow.m_lightCascadeCount, true);
-        m_arraySize += shadow.m_lightCascadeCount;
-        return;
-    }
-
-    // Checks for any no shadows no longer being used
-    u16 contiguousCounter = 0;
-    for (u16 iter = 0  ; iter < m_usedSlots.size() ; iter++) {
-        if (m_usedSlots[iter]) {
-            contiguousCounter++;
-            if (contiguousCounter >= shadow.m_lightCascadeCount) {
-                shadow.m_shadowMapIdxStart = iter - (contiguousCounter - 1);
-                std::fill(m_usedSlots.begin() + shadow.m_shadowMapIdxStart, m_usedSlots.begin() + shadow.m_shadowMapIdxStart + shadow.m_lightCascadeCount, true);
-                return;
-            }
-        }
-        else {
-            contiguousCounter = 1;
-        }
-    }
-
-    // It seems that all options have been exhausted, the shadow array needs to expand
-    ResizeTexture(device, queue, m_arraySize + shadow.m_lightCascadeCount);
-    shadow.m_shadowMapIdxStart = m_arraySize;
-    m_usedSlots.insert(m_usedSlots.end(), shadow.m_lightCascadeCount, true);
-    m_arraySize += shadow.m_lightCascadeCount;
-    return;
-}
-void WGPUBackendDynamicDirShadowArray::Unregister(const WGPUBackendDynamicShadowedDirLightData& shadow) {
-    std::fill(m_usedSlots.begin() + shadow.m_shadowMapIdxStart, m_usedSlots.begin() + shadow.m_shadowMapIdxStart + shadow.m_lightCascadeCount, false);
 }
 
-WGPUBindGroupEntry WGPUBackendDynamicDirShadowArray::GetEntry() {
+void WGPUBackendBaseDynamicShadowMapArray::Reset(
+    const WGPUDevice& device, 
+    u32 arrayLayerWidth, 
+    u32 arrayLayerHeight, 
+    u16 maxTextureDepth, 
+    u16 depthPerShadow, 
+    std::string label,
+    std::string wholeViewLabel,
+    std::string layerViewLabel,
+    u16 binding) {
+    Clear();
+    Init(device, arrayLayerWidth, arrayLayerHeight, maxTextureDepth, depthPerShadow, label, wholeViewLabel, layerViewLabel, binding);
+}
+
+void WGPUBackendBaseDynamicShadowMapArray::RegisterShadow(const WGPUDevice& device, const WGPUQueue& queue) {
+    // Check gap between current array size and allocated size can fit cascade size
+    if (m_arrayAllocatedSize - m_arraySize > m_depthPerShadow) {
+        m_arraySize += m_depthPerShadow;
+    }
+    // If it seems that all options have been exhausted, the shadow array needs to expand allocated memory
+    else {
+        ResizeTexture(device, queue, m_arraySize + m_depthPerShadow);
+        m_arraySize += m_depthPerShadow;
+    }
+}
+
+void WGPUBackendBaseDynamicShadowMapArray::UnregisterShadow() {
+    m_arraySize -= m_depthPerShadow;
+}
+
+WGPUBindGroupEntry WGPUBackendBaseDynamicShadowMapArray::GetEntry() {
     return m_currentBindGroupEntry;
 }
-
-void WGPUBackendDynamicDirShadowArray::RegisterBindGroup(WGPUBackendBindGroup& bindGroup) {
+void WGPUBackendBaseDynamicShadowMapArray::RegisterBindGroup(WGPUBackendBindGroup& bindGroup) {
     m_bindGroups.push_back(bindGroup);
 }
 
-WGPUTextureView WGPUBackendDynamicDirShadowArray::GetView(u16 shadowIndex) {
+WGPUTextureView WGPUBackendBaseDynamicShadowMapArray::GetView(u16 shadowIndex) {
     return m_arrayLayerViews[shadowIndex];
 }
+
