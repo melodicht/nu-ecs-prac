@@ -74,29 +74,99 @@ class CollisionSystem : public System
     }
 };
 
-#define NUM_CASCADES 6
+std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
+{
+    glm::mat4 inverse = glm::inverse(proj * view);
+
+    std::vector<glm::vec4> frustumCorners;
+    for (u32 x = 0; x < 2; ++x)
+    {
+        for (u32 y = 0; y < 2; ++y)
+        {
+            for (u32 z = 0; z < 2; ++z)
+            {
+                const glm::vec4 pt =
+                        inverse * glm::vec4(
+                                    2.0f * x - 1.0f,
+                                    2.0f * y - 1.0f,
+                                    z,
+                                    1.0f);
+                frustumCorners.push_back(pt / pt.w);
+            }
+        }
+    }
+
+    return frustumCorners;
+}
+
 
 class RenderSystem : public System
 {
-    TextureID dirShadowMap;
-    Transform3D lightTransform;
-
-    CameraID mainCam;
-    CameraID dirLightCam;
 
     void OnStart(Scene *scene)
     {
-        lightTransform.rotation = {0, 30, 120};
-
-        RenderPipelineInitInfo initDesc {
-            .numCascades = NUM_CASCADES
-        };
+        RenderPipelineInitInfo initDesc {};
 
         InitPipelines(initDesc);
     }
 
     void OnUpdate(Scene *scene, f32 deltaTime)
-    {    
+    {
+        // Get the main camera view
+        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
+        if (cameraView.begin() == cameraView.end())
+        {
+            return;
+        }
+    
+        EntityID cameraEnt = *cameraView.begin();
+        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
+        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
+
+        std::vector<DirLightRenderInfo> dirLights;
+        for (EntityID ent: SceneView<DirLight, Transform3D>(*scene))
+        {
+            DirLight *l = scene->Get<DirLight>(ent);
+            if (l->lightID == -1)
+            {
+                l->lightID = AddDirLight();
+            }
+
+            Transform3D *lTransform = scene->Get<Transform3D>(ent);
+
+            dirLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular});
+        }
+
+        std::vector<SpotLightRenderInfo> spotLights;
+        for (EntityID ent: SceneView<SpotLight, Transform3D>(*scene))
+        {
+            SpotLight *l = scene->Get<SpotLight>(ent);
+            if (l->lightID == -1)
+            {
+                l->lightID = AddSpotLight();
+            }
+
+            Transform3D *lTransform = scene->Get<Transform3D>(ent);
+
+            spotLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
+                                  l->innerCone, l->outerCone, l->range});
+        }
+
+        std::vector<PointLightRenderInfo> pointLights;
+        for (EntityID ent: SceneView<PointLight, Transform3D>(*scene))
+        {
+            PointLight *l = scene->Get<PointLight>(ent);
+            if (l->lightID == -1)
+            {
+                l->lightID = AddPointLight();
+            }
+
+            Transform3D *lTransform = scene->Get<Transform3D>(ent);
+
+            pointLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
+                                   l->constant, l->linear, l->quadratic, l->maxRange});
+        }
+
         std::vector<MeshRenderInfo> meshInstances;
         for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
         {
@@ -108,34 +178,15 @@ class RenderSystem : public System
             meshInstances.push_back({model, {c->r, c->g, c->b}, mesh});
         }
 
-        // Get the main camera view
-        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
-        if (cameraView.begin() == cameraView.end())
-        {
-            return;
-        }
-    
-        EntityID cameraEnt = *cameraView.begin();
-        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
-        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
-        glm::mat4 view = GetViewMatrix(cameraTransform);
-        f32 aspect = (f32)windowWidth / (f32)windowHeight;
-        
-        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->near, camera->far);
-    
-        // TODO: Remove later when lighting system gets more fully fleshed out
-        std::vector<DirLightRenderInfo> lights;
-        lightTransform.rotation.z += deltaTime * 45.0f;
-        lights.push_back({GetViewMatrix(&lightTransform), GetForwardVector(&lightTransform),0, {0.0,0.0,0.0}, 0.5});
-
-        RenderFrameInfo sendState{ 
-            .mainCam = {view, proj, cameraTransform->position},
+        RenderFrameInfo sendState{
+            .cameraTransform = *cameraTransform,
             .meshes = meshInstances, 
-            .dirLights = lights,
-            .mainCamAspect = camera->fov,
-            .mainCamFov = camera->fov,
-            .mainCamNear = camera->near,
-            .mainCamFar = camera->far
+            .dirLights = dirLights,
+            .spotLights = spotLights,
+            .pointLights = pointLights,
+            .cameraFov = camera->fov,
+            .cameraNear = camera->near,
+            .cameraFar = camera->far
         };
         
         RenderUpdate(sendState);
@@ -204,6 +255,8 @@ private:
     bool slowStep = false;
     f32 timer = 2.0f; // Seconds until next step
     f32 rate = 0.5f;   // Steps per second
+
+    u32 pointLightCount = 0;
 public:
     BuilderSystem(bool slowStep)
     {
@@ -252,6 +305,26 @@ public:
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
                     BuildPart(scene, ent, t, cuboidMesh, {antennaWidth, antennaWidth, antennaHeight});
                     t->position.z -= antennaWidth / 2;
+
+                    if (pointLightCount < 256)
+                    {
+                        EntityID pointLight = scene->NewEntity();
+                        Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
+                        *pointTransform = *t;
+                        pointTransform->position.z += antennaHeight / 2;
+                        PointLight* pointLightComponent = scene->Assign<PointLight>(pointLight);
+                        f32 red = RandInBetween(0.8, 1.0);
+                        pointLightComponent->diffuse = {red, 0.6, 0.25};
+                        pointLightComponent->specular = {red, 0.6, 0.25};
+                        pointLightComponent->constant = 1;
+                        pointLightComponent->linear = 0.0005;
+                        pointLightComponent->quadratic = 0.00005;
+                        pointLightComponent->maxRange = 1000;
+
+                        pointLightCount++;
+
+                        LOG(pointLightCount);
+                    }
                 }
 
                 scene->Remove<Plane>(ent);
@@ -260,7 +333,7 @@ public:
 
             switch (RandInt(0, 13))
             {
-            case 0:
+                case 0:
                 {
                     // Rotate
                     f32 shortSide = std::min(plane->width, plane->length);
@@ -283,7 +356,7 @@ public:
                     t->rotation.z += glm::degrees(angle);
                     break;
                 }
-            case 1:
+                case 1:
                 {
                     // Build Trapezoid
                     if (plane->width > 256 || plane->length > 256)
@@ -305,7 +378,7 @@ public:
                     scene->Remove<Plane>(ent);
                     break;
                 }
-            case 2:
+                case 2:
                 {
                     // Build Pyramid Roof
                     if (plane->width > 96 || plane->length > 96)
@@ -319,7 +392,7 @@ public:
                     scene->Remove<Plane>(ent);
                     break;
                 }
-            case 3:
+                case 3:
                 {
                     // Build Prism Roof
                     if (plane->width > 96)
@@ -333,10 +406,10 @@ public:
                     scene->Remove<Plane>(ent);
                     break;
                 }
-            case 4:
-            case 5:
-            case 6:
-            case 7:
+                case 4:
+                case 5:
+                case 6:
+                case 7:
                 {
                     // Build Cuboid
                     f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
@@ -352,7 +425,7 @@ public:
                     scene->Remove<Plane>(ent);
                     break;
                 }
-            default:
+                default:
                 {
                     // Subdivide
                     EntityID newPlane = scene->NewEntity();
@@ -400,8 +473,9 @@ public:
         MeshComponent *m = scene->Assign<MeshComponent>(ent);
         m->mesh = mesh;
         ColorComponent *c = scene->Assign<ColorComponent>(ent);
-        c->r = RandInBetween(0.0f, 1.0f);
-        c->g = RandInBetween(0.0f, 1.0f);
-        c->b = RandInBetween(0.0f, 1.0f);
+        f32 shade = RandInBetween(0.25f, 0.75f);
+        c->r = shade;
+        c->g = shade;
+        c->b = shade;
     }
 };

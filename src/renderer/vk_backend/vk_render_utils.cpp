@@ -32,8 +32,9 @@ void DestroyBuffer(VmaAllocator allocator, AllocatedBuffer buffer)
     vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
 }
 
-AllocatedImage CreateImage(VmaAllocator allocator, VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent,
-                           u32 layers, VmaMemoryUsage memUsage, VkMemoryPropertyFlags memFlags)
+AllocatedImage CreateImage(VmaAllocator allocator, VkFormat format, VkImageCreateFlags createFlags,
+                           VkImageUsageFlags usageFlags, VkExtent3D extent, u32 layers,
+                           VmaMemoryUsage memUsage, VkMemoryPropertyFlags memFlags)
 {
     VkImageCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -41,6 +42,7 @@ AllocatedImage CreateImage(VmaAllocator allocator, VkFormat format, VkImageUsage
 
     info.imageType = VK_IMAGE_TYPE_2D;
     info.format = format;
+    info.flags = createFlags;
     info.extent = extent;
 
     info.mipLevels = 1;

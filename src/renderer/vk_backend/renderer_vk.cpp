@@ -10,6 +10,8 @@
 		}                                                           \
 	} while (0)
 
+#define DEFAULT_SLANG true
+
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
 
@@ -28,6 +30,10 @@
 #include <vulkan/VkBootstrap.h>
 
 #include <unordered_map>
+#include "skl_logger.h"
+
+#include "math/skl_math_consts.h"
+#include "math/skl_math_utils.h"
 
 // Vulkan structures
 VkInstance instance;
@@ -55,14 +61,17 @@ std::vector<VkImageView> swapImageViews;
 std::vector<VkSemaphore> renderSemaphores;
 
 #define NUM_FRAMES 2
+#define NUM_CASCADES 6
 
 VkCommandPool mainCommandPool;
 FrameData frames[NUM_FRAMES];
 
 VkPipelineLayout depthPipelineLayout;
+VkPipelineLayout cubemapPipelineLayout;
 VkPipelineLayout colorPipelineLayout;
 VkPipeline shadowPipeline;
 VkPipeline cascadedPipeline;
+VkPipeline cubemapPipeline;
 VkPipeline depthPipeline;
 VkPipeline colorPipeline;
 
@@ -70,15 +79,11 @@ VkDescriptorPool descriptorPool;
 VkDescriptorSetLayout texDescriptorLayout;
 VkDescriptorSet texDescriptorSet;
 
-u32 numCascades;
-
 u32 frameNum;
 
 u32 swapIndex;
 bool resize = false;
 u32 currentIndexCount;
-
-CameraID currentCamID;
 
 VkPipelineLayout *currentLayout;
 
@@ -86,7 +91,11 @@ MeshID currentMeshID;
 std::unordered_map<MeshID,Mesh> meshes;
 TextureID currentTexID;
 std::unordered_map<TextureID,Texture> textures;
+LightID currentLightID;
+std::unordered_map<LightID,LightEntry> lights;
 
+u32 currentCamIndex;
+u32 mainCamIndex;
 
 // Upload a mesh to the gpu
 MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
@@ -148,20 +157,20 @@ MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
     return currentMeshID;
 }
 
-MeshID UploadMesh(MeshAsset &asset)
+MeshID UploadMesh(RenderUploadMeshInfo& info)
 {
-    return UploadMesh(asset.vertices.size(), asset.vertices.data(), asset.indices.size(), asset.indices.data());
+    return UploadMesh(info.vertSize, info.vertData, info.idxSize, info.idxData);
 }
 
-void DestroyMesh(MeshID meshID)
+void DestroyMesh(RenderDestroyMeshInfo& info)
 {
-    Mesh& mesh = meshes[meshID];
+    Mesh& mesh = meshes[info.meshID];
     DestroyBuffer(allocator, mesh.indexBuffer);
     DestroyBuffer(allocator, mesh.vertBuffer);
-    meshes.erase(meshID);
+    meshes.erase(info.meshID);
 }
 
-CameraID AddCamera(u32 viewCount)
+u32 CreateCameraBuffer(u32 viewCount)
 {
     for (int i = 0; i < NUM_FRAMES; i++)
     {
@@ -177,14 +186,12 @@ CameraID AddCamera(u32 viewCount)
     return frames[0].cameraBuffers.size() - 1;
 }
 
-TextureID CreateDepthTexture(u32 width, u32 height)
+Texture CreateDepthTexture(u32 width, u32 height)
 {
-    currentTexID++;
-    auto iter = textures.emplace(currentTexID, Texture());
-    Texture& texture = iter.first->second;
+    Texture texture;
 
     AllocatedImage depthTexture = CreateImage(allocator,
-                             depthFormat,
+                             depthFormat, 0,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                              VK_IMAGE_USAGE_SAMPLED_BIT,
                              {width, height, 1}, 1,
@@ -223,7 +230,7 @@ TextureID CreateDepthTexture(u32 width, u32 height)
     VkWriteDescriptorSet descriptorWrite{};
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrite.descriptorCount = 1;
-    descriptorWrite.dstArrayElement = currentTexID - 1;
+    descriptorWrite.dstArrayElement = currentTexID;
     descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrite.dstSet = texDescriptorSet;
     descriptorWrite.dstBinding = 0;
@@ -235,19 +242,19 @@ TextureID CreateDepthTexture(u32 width, u32 height)
     texture.imageView = depthTexView;
     texture.sampler = sampler;
     texture.extent = {width, height};
-    texture.descriptorIndex = currentTexID - 1;
+    texture.descriptorIndex = currentTexID;
 
-    return currentTexID;
+    currentTexID++;
+
+    return texture;
 }
 
-TextureID CreateDepthArray(u32 width, u32 height, u32 layers)
+Texture CreateDepthArray(u32 width, u32 height, u32 layers)
 {
-    currentTexID++;
-    auto iter = textures.emplace(currentTexID, Texture());
-    Texture& texture = iter.first->second;
+    Texture texture;
 
     AllocatedImage depthTexture = CreateImage(allocator,
-                                              depthFormat,
+                                              depthFormat, 0,
                                               VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
                                               VK_IMAGE_USAGE_SAMPLED_BIT,
                                               {width, height, 1}, layers,
@@ -286,7 +293,7 @@ TextureID CreateDepthArray(u32 width, u32 height, u32 layers)
     VkWriteDescriptorSet descriptorWrite{};
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrite.descriptorCount = 1;
-    descriptorWrite.dstArrayElement = currentTexID - 1;
+    descriptorWrite.dstArrayElement = currentTexID;
     descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     descriptorWrite.dstSet = texDescriptorSet;
     descriptorWrite.dstBinding = 0;
@@ -298,9 +305,75 @@ TextureID CreateDepthArray(u32 width, u32 height, u32 layers)
     texture.imageView = depthTexView;
     texture.sampler = sampler;
     texture.extent = {width, height};
-    texture.descriptorIndex = currentTexID - 1;
+    texture.descriptorIndex = currentTexID;
 
-    return currentTexID;
+    currentTexID++;
+
+    return texture;
+}
+
+Texture CreateDepthCubemap(u32 width, u32 height)
+{
+    Texture texture;
+
+    AllocatedImage depthTexture = CreateImage(allocator,
+                                              depthFormat,
+                                              VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+                                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
+                                              VK_IMAGE_USAGE_SAMPLED_BIT,
+                                              {width, height, 1}, 6,
+                                              VMA_MEMORY_USAGE_GPU_ONLY,
+                                              VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+
+    VkImageView depthTexView;
+
+    VkImageViewCreateInfo depthViewInfo{};
+    depthViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    depthViewInfo.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    depthViewInfo.format = depthFormat;
+    depthViewInfo.image = depthTexture.image;
+    depthViewInfo.subresourceRange.baseMipLevel = 0;
+    depthViewInfo.subresourceRange.levelCount = 1;
+    depthViewInfo.subresourceRange.baseArrayLayer = 0;
+    depthViewInfo.subresourceRange.layerCount = 6;
+    depthViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+    VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
+
+    VkSampler sampler;
+
+    VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.compareEnable = VK_TRUE;
+    samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageView = depthTexView;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.sampler = sampler;
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.dstArrayElement = currentTexID;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.dstSet = texDescriptorSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+
+    texture.texture = depthTexture;
+    texture.imageView = depthTexView;
+    texture.sampler = sampler;
+    texture.extent = {width, height};
+    texture.descriptorIndex = currentTexID;
+
+    currentTexID++;
+
+    return texture;
 }
 
 void DestroyTexture(TextureID texID)
@@ -310,6 +383,54 @@ void DestroyTexture(TextureID texID)
     vkDestroyImageView(device, texture.imageView, nullptr);
     DestroyImage(allocator, texture.texture);
     textures.erase(texID);
+}
+
+LightID AddDirLight()
+{
+    currentLightID++;
+    auto iter = lights.emplace(currentLightID, LightEntry());
+    LightEntry& light = iter.first->second;
+    light.cameraIndex = CreateCameraBuffer(NUM_CASCADES);
+    light.shadowMap = CreateDepthArray(2048, 2048, NUM_CASCADES);
+
+    return currentLightID;
+}
+
+LightID AddSpotLight()
+{
+    currentLightID++;
+    auto iter = lights.emplace(currentLightID, LightEntry());
+    LightEntry& light = iter.first->second;
+    light.cameraIndex = CreateCameraBuffer(1);
+    light.shadowMap = CreateDepthTexture(1024, 1024);
+
+    return currentLightID;
+}
+
+LightID AddPointLight()
+{
+    currentLightID++;
+    auto iter = lights.emplace(currentLightID, LightEntry());
+    LightEntry& light = iter.first->second;
+    light.cameraIndex = CreateCameraBuffer(6);
+    light.shadowMap = CreateDepthCubemap(512, 512);
+
+    return currentLightID;
+}
+
+void DestroyDirLight(LightID lightID)
+{
+
+}
+
+void DestroySpotLight(LightID lightID)
+{
+
+}
+
+void DestroyPointLight(LightID lightID)
+{
+
 }
 
 // Create swapchain or recreate to change size
@@ -344,7 +465,7 @@ void CreateSwapchain(u32 width, u32 height, VkSwapchainKHR oldSwapchain)
             };
 
     depthImage = CreateImage(allocator,
-                             depthFormat,
+                             depthFormat, 0,
                              VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                              depthImageExtent, 1,
                              VMA_MEMORY_USAGE_GPU_ONLY,
@@ -403,7 +524,7 @@ SDL_WindowFlags GetRenderWindowFlags()
 }
 
 // Initialize the rendering API
-void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
+void InitRenderer(RenderInitInfo& info)
 {
     if (volkInitialize() != VK_SUCCESS)
     {
@@ -427,7 +548,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
 
 
     // Create window surface
-    SDL_Vulkan_CreateSurface(window, instance, vkbInstance.allocation_callbacks, &surface);
+    SDL_Vulkan_CreateSurface(info.window, instance, vkbInstance.allocation_callbacks, &surface);
 
     VkPhysicalDeviceFeatures feat10{};
     feat10.depthClamp = true;
@@ -488,7 +609,7 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     VK_CHECK(vmaCreateAllocator(&allocInfo, &allocator));
 
     // Create the swapchain and associated resources at the default dimensions
-    CreateSwapchain(startWidth, startHeight, nullptr);
+    CreateSwapchain(info.startWidth, info.startHeight, nullptr);
 
     // Create the command pools and command buffers
     VkCommandPoolCreateInfo commandPoolInfo = {};
@@ -539,9 +660,35 @@ void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight)
     }
 }
 
-void InitPipelines(u32 cascades)
+// Also checks that the creation of the shader module is good.
+VkShaderModule CreateShaderModuleFromFile(const char *FilePath)
 {
-    numCascades = cascades;
+    VkShaderModuleCreateInfo shaderInfo{};
+    shaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    void *shaderFile = SDL_LoadFile(FilePath, &shaderInfo.codeSize);
+    if (!shaderFile)
+    {
+        std::cerr << "Failed to load shader file: " << SDL_GetError() << std::endl;
+        return VK_NULL_HANDLE;
+    }
+    shaderInfo.pCode = reinterpret_cast<const u32*>(shaderFile);
+    VkShaderModule shaderModule;
+    VK_CHECK(vkCreateShaderModule(device, &shaderInfo, nullptr, &shaderModule));
+    return shaderModule;
+}
+
+VkPipelineShaderStageCreateInfo CreateStageInfo(VkShaderStageFlagBits shaderStage, VkShaderModule shaderModule, const char *entryPointName)
+{
+    VkPipelineShaderStageCreateInfo stageInfo{};
+    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageInfo.stage = shaderStage;
+    stageInfo.module = shaderModule;
+    stageInfo.pName = entryPointName;
+    return stageInfo;
+}
+
+void InitPipelines(RenderPipelineInitInfo& info)
+{
 
     // Create object and light buffers
     for (int i = 0; i < NUM_FRAMES; i++)
@@ -554,53 +701,78 @@ void InitPipelines(u32 cascades)
                                               | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
-        frames[i].lightBuffer = CreateBuffer(device, allocator,
-                                             sizeof(LightCascade) * numCascades,
-                                             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                             | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                             VMA_ALLOCATION_CREATE_MAPPED_BIT
-                                             | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-                                             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].dirLightBuffer = CreateBuffer(device, allocator,
+                                                sizeof(VkDirLightData) * 4,
+                                                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].dirCascadeBuffer = CreateBuffer(device, allocator,
+                                                  sizeof(LightCascade) * NUM_CASCADES * 4,
+                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                  | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].spotLightBuffer = CreateBuffer(device, allocator,
+                                                 sizeof(VkSpotLightData) * 256,
+                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                 | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                 | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        frames[i].pointLightBuffer = CreateBuffer(device, allocator,
+                                                  sizeof(VkPointLightData) * 256,
+                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
+                                                  | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
+                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
+                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
     }
 
+    mainCamIndex = CreateCameraBuffer(1);
+
     // Create shader stages
-    VkShaderModuleCreateInfo depthShaderInfo{};
-    depthShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *depthShaderFile = SDL_LoadFile("shaders/depth.spv", &depthShaderInfo.codeSize);
+#if DEFAULT_SLANG
+    VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.spv");
     
-    depthShaderInfo.pCode = reinterpret_cast<const uint32_t*>(depthShaderFile);
-    VkShaderModule depthShader;
-    VK_CHECK(vkCreateShaderModule(device, &depthShaderInfo, nullptr, &depthShader));
+    VkShaderModule cubemapShader = CreateShaderModuleFromFile("shaders/cubemap.spv");
+    VkShaderModule cubemapVertShader = cubemapShader;
+    VkShaderModule cubemapFragShader = cubemapShader;
 
-    VkShaderModuleCreateInfo colorShaderInfo{};
-    colorShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    void *colorShaderFile = SDL_LoadFile("shaders/color.spv", &colorShaderInfo.codeSize);
-    colorShaderInfo.pCode = reinterpret_cast<const uint32_t*>(colorShaderFile);
-    VkShaderModule colorShader;
-    VK_CHECK(vkCreateShaderModule(device, &colorShaderInfo, nullptr, &colorShader));
+    VkShaderModule colorShader = CreateShaderModuleFromFile("shaders/color.spv");
+    VkShaderModule colorVertShader = colorShader;
+    VkShaderModule colorFragShader = colorShader;
+#else
+    VkShaderModule depthShader = CreateShaderModuleFromFile("shaders/depth.vert.spv");
+    
+    VkShaderModule cubemapVertShader = CreateShaderModuleFromFile("shaders/cubemap.vert.spv");
+    VkShaderModule cubemapFragShader = CreateShaderModuleFromFile("shaders/cubemap.frag.spv");
+    
+    VkShaderModule colorVertShader = CreateShaderModuleFromFile("shaders/color.vert.spv");
+    VkShaderModule colorFragShader = CreateShaderModuleFromFile("shaders/color.frag.spv");
+#endif
 
-    VkPipelineShaderStageCreateInfo colorVertStageInfo{};
-    colorVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    colorVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    colorVertStageInfo.module = colorShader;
-    colorVertStageInfo.pName = "vertexMain";
-
-    VkPipelineShaderStageCreateInfo depthVertStageInfo{};
-    depthVertStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    depthVertStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    depthVertStageInfo.module = depthShader;
-    depthVertStageInfo.pName = "vertexMain";
-
-    VkPipelineShaderStageCreateInfo fragStageInfo{};
-    fragStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    fragStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-    fragStageInfo.module = colorShader;
-    fragStageInfo.pName = "fragmentMain";
-
-    VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, fragStageInfo};
+#if DEFAULT_SLANG
+    const char *vertEntryPointName = "vertexMain";
+    const char *fragEntryPointName = "fragmentMain";
+#else
+    const char *vertEntryPointName = "main";
+    const char *fragEntryPointName = "main";
+#endif
+    
+    VkPipelineShaderStageCreateInfo colorVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, colorVertShader, vertEntryPointName);
+    VkPipelineShaderStageCreateInfo depthVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, depthShader, vertEntryPointName);
+    VkPipelineShaderStageCreateInfo cubemapVertStageInfo = CreateStageInfo(VK_SHADER_STAGE_VERTEX_BIT, cubemapVertShader, vertEntryPointName);
+    VkPipelineShaderStageCreateInfo colorFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, colorFragShader, fragEntryPointName);
+    VkPipelineShaderStageCreateInfo cubemapFragStageInfo = CreateStageInfo(VK_SHADER_STAGE_FRAGMENT_BIT, cubemapFragShader, fragEntryPointName);
+    
+    VkPipelineShaderStageCreateInfo colorShaderStages[] = {colorVertStageInfo, colorFragStageInfo};
+    VkPipelineShaderStageCreateInfo cubemapShaderStages[] = {cubemapVertStageInfo, cubemapFragStageInfo};
 
     // Set up descriptor pool and set for textures
-    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 128}};
+    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 512}};
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo{};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -615,7 +787,7 @@ void InitPipelines(u32 cascades)
     VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
     VkDescriptorSetLayoutBinding texBinding{};
     texBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    texBinding.descriptorCount = 128;
+    texBinding.descriptorCount = 512;
     texBinding.binding = 0;
     texBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     texBinding.pImmutableSamplers = nullptr;
@@ -650,6 +822,11 @@ void InitPipelines(u32 cascades)
     pushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(FragPushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
+    VkPushConstantRange cubePushConstants;
+    cubePushConstants.offset = 0;
+    cubePushConstants.size = sizeof(VkDeviceAddress) + sizeof(VertPushConstants) + sizeof(CubemapPushConstants);
+    cubePushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
     VkPipelineLayoutCreateInfo depthLayoutInfo{};
     depthLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     depthLayoutInfo.setLayoutCount = 0;
@@ -658,6 +835,15 @@ void InitPipelines(u32 cascades)
     depthLayoutInfo.pPushConstantRanges = &pushConstants;
 
     VK_CHECK(vkCreatePipelineLayout(device, &depthLayoutInfo, nullptr, &depthPipelineLayout));
+
+    VkPipelineLayoutCreateInfo cubemapLayoutInfo{};
+    cubemapLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    cubemapLayoutInfo.setLayoutCount = 0;
+    cubemapLayoutInfo.pSetLayouts = nullptr;
+    cubemapLayoutInfo.pushConstantRangeCount = 1;
+    cubemapLayoutInfo.pPushConstantRanges = &cubePushConstants;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &cubemapLayoutInfo, nullptr, &cubemapPipelineLayout));
 
     VkPipelineLayoutCreateInfo colorLayoutInfo{};
     colorLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -705,12 +891,11 @@ void InitPipelines(u32 cascades)
     rasterizer.lineWidth = 1.0f;
     rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable = VK_FALSE;
-    rasterizer.depthBiasConstantFactor = 0.00f;
-    rasterizer.depthBiasClamp = 0.0f;
-    rasterizer.depthBiasSlopeFactor = 0.0f;
 
-    VkPipelineRasterizationStateCreateInfo shadowRasterizer = rasterizer;
-    shadowRasterizer.depthClampEnable = VK_TRUE;
+    VkPipelineRasterizationStateCreateInfo cubemapRasterizer = rasterizer;
+    cubemapRasterizer.depthClampEnable = VK_TRUE;
+
+    VkPipelineRasterizationStateCreateInfo shadowRasterizer = cubemapRasterizer;
     shadowRasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 
     VkPipelineMultisampleStateCreateInfo multisampling{};
@@ -777,7 +962,10 @@ void InitPipelines(u32 cascades)
     depthRenderInfo.depthAttachmentFormat = depthFormat;
 
     VkPipelineRenderingCreateInfo cascadedRenderInfo = depthRenderInfo;
-    cascadedRenderInfo.viewMask = (1 << numCascades) - 1;
+    cascadedRenderInfo.viewMask = (1 << NUM_CASCADES) - 1;
+
+    VkPipelineRenderingCreateInfo cubemapRenderInfo = depthRenderInfo;
+    cubemapRenderInfo.viewMask = 0x3F;
 
     // For color pass
     VkPipelineRenderingCreateInfo colorRenderInfo{};
@@ -809,6 +997,12 @@ void InitPipelines(u32 cascades)
     VkGraphicsPipelineCreateInfo cascadedPipelineInfo = shadowPipelineInfo;
     cascadedPipelineInfo.pNext = &cascadedRenderInfo;
 
+    VkGraphicsPipelineCreateInfo cubemapPipelineInfo = shadowPipelineInfo;
+    cubemapPipelineInfo.stageCount = 2;
+    cubemapPipelineInfo.pStages = cubemapShaderStages;
+    cubemapPipelineInfo.pRasterizationState = &cubemapRasterizer;
+    cubemapPipelineInfo.pNext = &cubemapRenderInfo;
+
     VkGraphicsPipelineCreateInfo colorPipelineInfo{};
     colorPipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     colorPipelineInfo.stageCount = 2;
@@ -828,12 +1022,22 @@ void InitPipelines(u32 cascades)
 
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &shadowPipelineInfo, nullptr, &shadowPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &cascadedPipelineInfo, nullptr, &cascadedPipeline));
+    VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &cubemapPipelineInfo, nullptr, &cubemapPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &depthPipelineInfo, nullptr, &depthPipeline));
     VK_CHECK(vkCreateGraphicsPipelines(device, nullptr, 1, &colorPipelineInfo, nullptr, &colorPipeline));
 
     vkDestroyShaderModule(device, depthShader, nullptr);
+#if DEFAULT_SLANG
     vkDestroyShaderModule(device, colorShader, nullptr);
+    vkDestroyShaderModule(device, cubemapShader, nullptr);
+#else
+    vkDestroyShaderModule(device, colorVertShader, nullptr);
+    vkDestroyShaderModule(device, colorFragShader, nullptr);
+    vkDestroyShaderModule(device, cubemapVertShader, nullptr);
+    vkDestroyShaderModule(device, cubemapFragShader, nullptr);
+#endif
 
+#if SKL_ENABLED_EDITOR
     // Initialize ImGui
     ImGui_ImplVulkan_InitInfo imGuiInfo{};
     imGuiInfo.ApiVersion = VK_API_VERSION_1_3;
@@ -851,12 +1055,15 @@ void InitPipelines(u32 cascades)
     ImGui_ImplVulkan_Init(&imGuiInfo);
 
     ImGui_ImplVulkan_CreateFontsTexture();
+#endif
 }
 
 // Set up frame and begin capturing draw calls
 bool InitFrame()
 {
+#if SKL_ENABLED_EDITOR
     ImGui_ImplVulkan_NewFrame();
+#endif
     //Set up commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
@@ -896,6 +1103,14 @@ void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode,
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = extent.width;
+    scissor.extent.height = extent.height;
+
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
     vkCmdSetCullMode(cmd, GetCullModeFlags(cullMode));
 
     VkRenderingAttachmentInfo depthAttachment{};
@@ -918,8 +1133,6 @@ void BeginDepthPass(VkImageView depthView, VkExtent2D extent, CullMode cullMode,
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-
-    currentLayout = &depthPipelineLayout;
 }
 
 void BeginDepthPass(CullMode cullMode)
@@ -937,24 +1150,17 @@ void BeginDepthPass(CullMode cullMode)
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = swapExtent.width;
-    scissor.extent.height = swapExtent.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
     BeginDepthPass(depthImageView, swapExtent, cullMode, 1);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
+    currentLayout = &depthPipelineLayout;
 }
 
-void BeginShadowPass(TextureID target, CullMode cullMode)
+void BeginShadowPass(Texture target, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    VkExtent2D extent = textures[target].extent;
+    VkExtent2D extent = target.extent;
 
     //set dynamic viewport and scissor
     VkViewport viewport = {};
@@ -967,24 +1173,17 @@ void BeginShadowPass(TextureID target, CullMode cullMode)
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = extent.width;
-    scissor.extent.height = extent.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    BeginDepthPass(textures[target].imageView, extent, cullMode, 1);
+    BeginDepthPass(target.imageView, extent, cullMode, 1);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline);
+    currentLayout = &depthPipelineLayout;
 }
 
-void BeginCascadedPass(TextureID target, CullMode cullMode)
+void BeginCascadedPass(Texture target, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    VkExtent2D extent = textures[target].extent;
+    VkExtent2D extent = target.extent;
 
     //set dynamic viewport and scissor
     VkViewport viewport = {};
@@ -997,17 +1196,33 @@ void BeginCascadedPass(TextureID target, CullMode cullMode)
 
     vkCmdSetViewport(cmd, 0, 1, &viewport);
 
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = extent.width;
-    scissor.extent.height = extent.height;
-
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    BeginDepthPass(textures[target].imageView, extent, cullMode, numCascades);
+    BeginDepthPass(target.imageView, extent, cullMode, NUM_CASCADES);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cascadedPipeline);
+    currentLayout = &depthPipelineLayout;
+}
+
+void BeginCubemapShadowPass(Texture target, CullMode cullMode)
+{
+    VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    VkExtent2D extent = target.extent;
+
+    //set dynamic viewport and scissor
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = extent.height;
+    viewport.width = (float)extent.width;
+    viewport.height = -(float)extent.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+
+    BeginDepthPass(target.imageView, extent, cullMode, 6);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubemapPipeline);
+    currentLayout = &cubemapPipelineLayout;
 }
 
 void BeginColorPass(CullMode cullMode)
@@ -1068,9 +1283,7 @@ void BeginColorPass(CullMode cullMode)
     vkCmdBeginRendering(cmd, &renderInfo);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipeline);
-
     vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, colorPipelineLayout, 0, 1, &texDescriptorSet, 0, nullptr);
-
     currentLayout = &colorPipelineLayout;
 }
 
@@ -1086,27 +1299,63 @@ void DrawImGui()
 }
 
 // Set the matrices of the camera (Must be called between InitFrame and EndFrame)
-void SetCamera(u32 id)
+void SetCamera(u32 index)
 {
-    currentCamID = id;
+    currentCamIndex = index;
     vkCmdPushConstants(frames[frameNum].commandBuffer, *currentLayout,
                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-                       0, sizeof(VkDeviceAddress), &frames[frameNum].cameraBuffers[id].address);
+                       0, sizeof(VkDeviceAddress), &frames[frameNum].cameraBuffers[index].address);
 }
 
 void UpdateCamera(u32 viewCount, CameraData* views)
 {
-    void* cameraData = frames[frameNum].cameraBuffers[currentCamID].allocation->GetMappedData();
+    void* cameraData = frames[frameNum].cameraBuffers[currentCamIndex].allocation->GetMappedData();
     memcpy(cameraData, views, sizeof(CameraData) * viewCount);
 }
 
-void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture)
+void SetCubemapInfo(glm::vec3 lightPos, f32 farPlane)
+{
+    CubemapPushConstants pushConstants = {lightPos, farPlane};
+    vkCmdPushConstants(frames[frameNum].commandBuffer, cubemapPipelineLayout,
+                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+                       sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(CubemapPushConstants),
+                       &pushConstants);
+}
+
+void SetLights(glm::vec3 ambientLight,
+               u32 dirCount, VkDirLightData* dirData, LightCascade* dirCascades,
+               u32 spotCount, VkSpotLightData* spotData,
+               u32 pointCount, VkPointLightData* pointData)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    void* lightData = frames[frameNum].lightBuffer.allocation->GetMappedData();
-    memcpy(lightData, cascades, sizeof(LightCascade) * numCascades);
-    FragPushConstants pushConstants = {lightDir, textures[texture].descriptorIndex, frames[frameNum].lightBuffer.address, numCascades};
+    if (dirCount > 0)
+    {
+        void* dirLightData = frames[frameNum].dirLightBuffer.allocation->GetMappedData();
+        memcpy(dirLightData, dirData, sizeof(VkDirLightData) * dirCount);
+        void* dirCascadeData = frames[frameNum].dirCascadeBuffer.allocation->GetMappedData();
+        memcpy(dirCascadeData, dirCascades, sizeof(LightCascade) * NUM_CASCADES);
+    }
+
+    if (spotCount > 0)
+    {
+        void* spotLightData = frames[frameNum].spotLightBuffer.allocation->GetMappedData();
+        memcpy(spotLightData, spotData, sizeof(VkSpotLightData) * spotCount);
+    }
+
+    if (pointCount > 0)
+    {
+        void* pointLightData = frames[frameNum].pointLightBuffer.allocation->GetMappedData();
+        memcpy(pointLightData, pointData, sizeof(VkPointLightData) * pointCount);
+    }
+
+    FragPushConstants pushConstants = {frames[frameNum].dirLightBuffer.address,
+                                       frames[frameNum].dirCascadeBuffer.address,
+                                       frames[frameNum].spotLightBuffer.address,
+                                       frames[frameNum].pointLightBuffer.address,
+                                       dirCount, NUM_CASCADES, spotCount, pointCount,
+                                       ambientLight};
+
     vkCmdPushConstants(cmd, colorPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
                        sizeof(VkDeviceAddress) + sizeof(VertPushConstants), sizeof(FragPushConstants), &pushConstants);
 }
@@ -1189,4 +1438,234 @@ void EndFrame()
 
     frameNum++;
     frameNum %= NUM_FRAMES;
+}
+
+
+void RenderUpdate(RenderFrameInfo& info)
+{
+    if (!InitFrame())
+    {
+        return;
+    }
+
+    // 1. Gather counts of each unique mesh pointer.
+    std::map<MeshID, u32> meshCounts;
+    for (MeshRenderInfo meshInfo : info.meshes)
+    {
+        ++meshCounts[meshInfo.mesh];
+    }
+
+    // 2. Create, with fixed size, the list of Mat4s, by adding up all of the counts.
+    // 3. Get pointers to the start of each segment of unique mesh pointer.
+    u32 totalCount = 0;
+    std::unordered_map<MeshID, u32> offsets;
+    for (std::pair<MeshID, u32> pair: meshCounts)
+    {
+        offsets[pair.first] = totalCount;
+        totalCount += pair.second;
+    }
+
+    std::vector<ObjectData> objects(totalCount);
+
+    // 4. Iterate through scene view once more and fill in the fixed size array.
+    for (MeshRenderInfo meshInfo : info.meshes)
+    {
+        glm::mat4 model = meshInfo.matrix;
+        MeshID mesh = meshInfo.mesh;
+        glm::vec3 color = meshInfo.rgbColor;
+
+        objects[offsets[mesh]++] = {model, glm::vec4(color.r, color.g, color.b, 1.0f)};
+    }
+
+    SendObjectData(objects);
+
+    Transform3D cameraTransform = info.cameraTransform;
+    glm::mat4 view = GetViewMatrix(&cameraTransform);
+    f32 aspect = (f32)swapExtent.width / (f32)swapExtent.height;
+
+    glm::mat4 proj = glm::perspective(glm::radians(info.cameraFov), aspect, info.cameraNear, info.cameraFar);
+
+    // Calculate cascaded shadow views
+
+    CameraData dirViews[NUM_CASCADES];
+
+    f32 subFrustumSize = (info.cameraFar - info.cameraNear) / NUM_CASCADES;
+
+    std::vector<VkDirLightData> dirLightData;
+
+    std::vector<LightCascade> cascades;
+
+    u32 startIndex;
+
+    for (DirLightRenderInfo dirInfo : info.dirLights)
+    {
+        f32 currentNear = info.cameraNear;
+
+        Transform3D dirTransform = dirInfo.transform;
+        glm::mat4 dirView = GetViewMatrix(&dirTransform);
+
+        for (int i = 0; i < NUM_CASCADES; i++)
+        {
+            glm::mat4 subProj = glm::perspective(glm::radians(info.cameraFov), aspect,
+                                                 currentNear, currentNear + subFrustumSize);
+            currentNear += subFrustumSize;
+
+            f32 minX = std::numeric_limits<f32>::max();
+            f32 maxX = std::numeric_limits<f32>::lowest();
+            f32 minY = std::numeric_limits<f32>::max();
+            f32 maxY = std::numeric_limits<f32>::lowest();
+            f32 minZ = std::numeric_limits<f32>::max();
+            f32 maxZ = std::numeric_limits<f32>::lowest();
+
+            std::vector<glm::vec4> corners = GetFrustumCorners(subProj, view);
+
+            for (const glm::vec3& v : corners)
+            {
+                const glm::vec4 trf = dirView * glm::vec4(v, 1.0);
+                minX = std::min(minX, trf.x);
+                maxX = std::max(maxX, trf.x);
+                minY = std::min(minY, trf.y);
+                maxY = std::max(maxY, trf.y);
+                minZ = std::min(minZ, trf.z);
+                maxZ = std::max(maxZ, trf.z);
+            }
+
+            glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+
+            dirViews[i] = {dirView, dirProj, {}};
+
+            cascades.push_back({dirProj * dirView, currentNear});
+        }
+
+        glm::vec3 lightDir = GetForwardVector(&dirTransform);
+
+        LightEntry lightEntry = lights[dirInfo.lightID];
+
+        BeginCascadedPass(lightEntry.shadowMap, CullMode::BACK);
+
+        SetCamera(lightEntry.cameraIndex);
+        UpdateCamera(NUM_CASCADES, dirViews);
+
+        startIndex = 0;
+        for (std::pair<MeshID, u32> pair: meshCounts)
+        {
+            SetMesh(pair.first);
+            DrawObjects(pair.second, startIndex);
+            startIndex += pair.second;
+        }
+        EndPass();
+
+        dirLightData.push_back({GetForwardVector(&dirTransform),
+                                lightEntry.shadowMap.descriptorIndex,
+                                dirInfo.diffuse, dirInfo.specular});
+    }
+
+
+    std::vector<VkSpotLightData> spotLightData;
+
+    for (SpotLightRenderInfo spotInfo : info.spotLights)
+    {
+        Transform3D spotTransform = spotInfo.transform;
+        glm::mat4 spotView = GetViewMatrix(&spotTransform);
+        glm::mat4 spotProj = glm::perspective(glm::radians(spotInfo.outerCone * 2), 1.0f, 0.01f, spotInfo.range);
+        CameraData spotCamData = {spotView, spotProj, spotTransform.position};
+
+        LightEntry lightEntry = lights[spotInfo.lightID];
+
+        BeginShadowPass(lightEntry.shadowMap, CullMode::BACK);
+
+        SetCamera(lightEntry.cameraIndex);
+        UpdateCamera(1, &spotCamData);
+
+        startIndex = 0;
+        for (std::pair<MeshID, u32> pair: meshCounts)
+        {
+            SetMesh(pair.first);
+            DrawObjects(pair.second, startIndex);
+            startIndex += pair.second;
+        }
+        EndPass();
+
+        spotLightData.push_back({spotProj * spotView, spotTransform.position, GetForwardVector(&spotTransform),
+                                 lightEntry.shadowMap.descriptorIndex, spotInfo.diffuse, spotInfo.specular,
+                                 cosf(glm::radians(spotInfo.innerCone)), cosf(glm::radians(spotInfo.outerCone)),
+                                 spotInfo.range});
+    }
+
+    std::vector<VkPointLightData> pointLightData;
+
+    for (PointLightRenderInfo pointInfo : info.pointLights)
+    {
+        Transform3D pointTransform = pointInfo.transform;
+        glm::vec3 pointPos = pointTransform.position;
+        CameraData pointCamData[6];
+
+        glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.5f, pointInfo.maxRange);
+        glm::mat4 pointViews[6];
+
+        GetPointViews(&pointTransform, pointViews);
+
+        for (int i = 0; i < 6; i++)
+        {
+            pointCamData[i] = {pointViews[i], pointProj, pointPos};
+        }
+
+        LightEntry lightEntry = lights[pointInfo.lightID];
+
+        BeginCubemapShadowPass(lightEntry.shadowMap, CullMode::BACK);
+
+        SetCamera(lightEntry.cameraIndex);
+        UpdateCamera(6, pointCamData);
+
+        SetCubemapInfo(pointPos, pointInfo.maxRange);
+
+        startIndex = 0;
+        for (std::pair<MeshID, u32> pair: meshCounts)
+        {
+            SetMesh(pair.first);
+            DrawObjects(pair.second, startIndex);
+            startIndex += pair.second;
+        }
+        EndPass();
+
+        pointLightData.push_back({pointPos, lightEntry.shadowMap.descriptorIndex,
+                                  pointInfo.diffuse, pointInfo.specular,
+                                  pointInfo.constant, pointInfo.linear, pointInfo.quadratic,
+                                  pointInfo.maxRange});
+    }
+
+    BeginDepthPass(CullMode::BACK);
+
+    SetCamera(mainCamIndex);
+    CameraData mainCamData = {view, proj, cameraTransform.position};
+    UpdateCamera(1, &mainCamData);
+
+    startIndex = 0;
+    for (std::pair<MeshID, u32> pair: meshCounts)
+    {
+        SetMesh(pair.first);
+        DrawObjects(pair.second, startIndex);
+        startIndex += pair.second;
+    }
+    EndPass();
+
+    BeginColorPass(CullMode::BACK);
+
+    SetLights({0.1f, 0.1f, 0.1f},
+              dirLightData.size(), dirLightData.data(), cascades.data(),
+              spotLightData.size(), spotLightData.data(),
+              pointLightData.size(), pointLightData.data());
+
+    startIndex = 0;
+    for (std::pair<MeshID, u32> pair: meshCounts)
+    {
+        SetMesh(pair.first);
+        DrawObjects(pair.second, startIndex);
+        startIndex += pair.second;
+    }
+#if SKL_ENABLED_EDITOR
+    DrawImGui();
+#endif
+    EndPass();
+    EndFrame();
 }

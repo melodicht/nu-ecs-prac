@@ -78,9 +78,18 @@ void GameInitialize(Scene &scene)
     MeshComponent* startCubeMesh = scene.Assign<MeshComponent>(startCube);
     startCubeMesh->mesh = cuboidMesh;
     ColorComponent* startCubeColor = scene.Assign<ColorComponent>(startCube);
-    startCubeColor->r = RandInBetween(0.0f, 1.0f);
-    startCubeColor->g = RandInBetween(0.0f, 1.0f);
-    startCubeColor->b = RandInBetween(0.0f, 1.0f);
+    f32 shade = RandInBetween(0.25f, 0.75f);
+    startCubeColor->r = shade;
+    startCubeColor->g = shade;
+    startCubeColor->b = shade;
+
+    EntityID directionalLight = scene.NewEntity();
+    Transform3D* lightTransform = scene.Assign<Transform3D>(directionalLight);
+    lightTransform->rotation = {0, 30, 120};
+    DirLight* dirLight = scene.Assign<DirLight>(directionalLight);
+    dirLight->diffuse = {0.2, 0.2, 0.6};
+    dirLight->specular = {0.4, 0.4, 0.5};
+
 
     scene.InitSystems();
 }

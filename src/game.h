@@ -66,18 +66,37 @@ struct Plane
     f32 length;
 };
 
-struct DirectionalLight
+struct DirLight
 {
-    f32 strength;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+
+    LightID lightID = -1;
 };
 
 struct SpotLight
 {
+    glm::vec3 diffuse;
+    glm::vec3 specular;
 
+    LightID lightID = -1;
+
+    f32 innerCone;
+    f32 outerCone;
+    f32 range;
 };
 
 struct PointLight
 {
-    
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+
+    LightID lightID = -1;
+
+    f32 constant;
+    f32 linear;
+    f32 quadratic;
+
+    f32 maxRange;
 };
 // Centered on the transform position

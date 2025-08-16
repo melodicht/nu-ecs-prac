@@ -33,7 +33,6 @@ struct RenderPipelineInitInfo {
     // Shared 
 
     // Vulkan Specific
-    u32 numCascades;
 
     // WGPU Specific
 };
@@ -52,28 +51,26 @@ struct RenderUploadMeshInfo {
 
     // WGPU Specific
 };
-u32 UploadMesh(RenderUploadMeshInfo& info);
+MeshID UploadMesh(RenderUploadMeshInfo& info);
+
+LightID AddDirLight();
+LightID AddSpotLight();
+LightID AddPointLight();
+
+void DestroyDirLight(LightID lightID);
+void DestroySpotLight(LightID lightID);
+void DestroyPointLight(LightID lightID);
 
 // Destroy the mesh at the given MeshID
 struct RenderDestroyMeshInfo {
     // Shared 
-    u32 meshID;
+    MeshID meshID;
 
     // Vulkan Specific
 
     // WGPU Specific
 };
 void DestroyMesh(RenderDestroyMeshInfo& info);
-
-struct RenderAddCameraInfo {
-    // Shared
-
-    // Vulkan Specific
-    u32 viewCount;
-
-    // WGPU Specific
-};
-CameraID AddCamera(RenderAddCameraInfo& info);
 
 struct MeshRenderInfo {
     // Shared
@@ -88,31 +85,60 @@ struct MeshRenderInfo {
 
 struct DirLightRenderInfo {
     // Shared
-    glm::mat4x4 viewSpace;
-    glm::vec3 dir;
-    u32 shadowID; 
-    glm::vec3 color;
-    f32 intensity;
+    LightID lightID;
+    Transform3D transform;
 
-    // Vulkan Specific 
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+
+    // Vulkan Specific
 
     // WGPU Specific
+};
+
+struct SpotLightRenderInfo {
+    LightID lightID;
+    Transform3D transform;
+
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+
+    f32 innerCone;
+    f32 outerCone;
+    f32 range;
+};
+
+struct PointLightRenderInfo {
+    LightID lightID;
+    Transform3D transform;
+
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+
+    f32 constant;
+    f32 linear;
+    f32 quadratic;
+
+    f32 maxRange;
 };
 
 // Represents the information needed to render a single frame on any renderer
 struct RenderFrameInfo {
     // Shared
-    CameraData mainCam;
+    Transform3D cameraTransform;
     std::vector<MeshRenderInfo> &meshes;
+
+    std::vector<DirLightRenderInfo>& dirLights;
+    std::vector<SpotLightRenderInfo>& spotLights;
+    std::vector<PointLightRenderInfo>& pointLights;
+
+    float cameraFov;
+    float cameraNear;
+    float cameraFar;
 
     // Vulkan Specific
 
     // WGPU Specific
-    std::vector<DirLightRenderInfo>& dirLights; // Currently i'm making the assumption that all dir lights are dynamic.
-    float mainCamAspect;
-    float mainCamFov;
-    float mainCamNear;
-    float mainCamFar;
 };
 
 // Renders a frame using the supplied render state

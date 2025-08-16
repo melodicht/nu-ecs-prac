@@ -6,17 +6,17 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-typedef uint32_t MeshID;
-typedef uint32_t TextureID;
-typedef uint32_t CameraID;
+typedef int32_t MeshID;
+typedef int32_t TextureID;
+typedef int32_t LightID;
 
 // Represents a vertex of a mesh (CPU->GPU)
 struct Vertex
 {
     glm::vec3 position;
-    float uvX;
+    f32 uvX;
     glm::vec3 normal;
-    float uvY;
+    f32 uvY;
 };
 
 // Represents the transformation data of the objects in the scene (CPU->GPU)
@@ -24,13 +24,6 @@ struct ObjectData
 {
     glm::mat4 model;
     glm::vec4 color;
-};
-
-// Represents one cascade of a cascaded directional light (CPU->GPU)
-struct LightCascade
-{
-    glm::mat4 lightSpace;
-    float maxDepth;
 };
 
 // Represents the transformation data of the camera (CPU->GPU)

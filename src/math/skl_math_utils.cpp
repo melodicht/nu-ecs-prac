@@ -42,30 +42,44 @@ glm::vec3 GetUpVector(const glm::mat4x4& rotMat)
 
 glm::vec3 GetUpVector(Transform3D *transform)
 {
-    return GetUpVector(GetRotationMatrix(transform));
+    return GetRotationMatrix(transform) * glm::vec4(0.0, 0.0, 1.0, 1.0);
+}
+
+glm::mat4 MakeViewMatrix(glm::vec3 forward, glm::vec3 right, glm::vec3 up, glm::vec3 position)
+{
+    glm::mat4 view = {};
+    view[0] = {right.x, up.x, forward.x, 0};
+    view[1] = {right.y, up.y, forward.y, 0};
+    view[2] = {right.z, up.z, forward.z, 0};
+    view[3] = {-glm::dot(right, position),
+               -glm::dot(up, position),
+               -glm::dot(forward, position),
+               1};
+
+    return view;
 }
 
 glm::mat4 GetViewMatrix(Transform3D *transform)
 {
-    glm::mat4 view = glm::mat4(0);
+    glm::vec3 forward = GetForwardVector(transform);
     glm::vec3 right = GetRightVector(transform);
     glm::vec3 up = GetUpVector(transform);
-    glm::vec3 forward = GetForwardVector(transform);
-    view[0][0] = right.x;
-    view[1][0] = right.y;
-    view[2][0] = right.z;
-    view[3][0] = -glm::dot(right, transform->position);
-    view[0][1] = up.x;
-    view[1][1] = up.y;
-    view[2][1] = up.z;
-    view[3][1] = -glm::dot(up, transform->position);
-    view[0][2] = forward.x;
-    view[1][2] = forward.y;
-    view[2][2] = forward.z;
-    view[3][2] = -glm::dot(forward, transform->position);
-    view[3][3] = 1;
 
-    return view;
+    return MakeViewMatrix(forward, right, up, transform->position);
+}
+
+void GetPointViews(Transform3D *transform, glm::mat4 *views)
+{
+    glm::vec3 forward = {1, 0, 0};
+    glm::vec3 right = {0, 1, 0};
+    glm::vec3 up = {0, 0, 1};
+
+    views[0] = MakeViewMatrix(forward, -up, right, transform->position);
+    views[1] = MakeViewMatrix(-forward, up, right, transform->position);
+    views[2] = MakeViewMatrix(right, forward, -up, transform->position);
+    views[3] = MakeViewMatrix(-right, forward, up, transform->position);
+    views[4] = MakeViewMatrix(up, forward, right, transform->position);
+    views[5] = MakeViewMatrix(-up, -forward, right, transform->position);
 }
 
 // Generates a random float in the inclusive range of the two given
@@ -103,7 +117,7 @@ glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const 
   );
 }
 
-std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
+std::vector<glm::vec4> GetFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
 {
     glm::mat4 inverse = glm::inverse(proj * view);
 
@@ -116,10 +130,10 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
             {
                 const glm::vec4 pt =
                         inverse * glm::vec4(
-                                    2.0f * x - 1.0f,
-                                    2.0f * y - 1.0f,
-                                    z,
-                                    1.0f);
+                                2.0f * x - 1.0f,
+                                2.0f * y - 1.0f,
+                                z,
+                                1.0f);
                 frustumCorners.push_back(pt / pt.w);
             }
         }

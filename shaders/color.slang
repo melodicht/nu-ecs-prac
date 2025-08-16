@@ -13,6 +13,46 @@ struct ObjectData
     float4 color;
 };
 
+struct DirLightData
+{
+    float3 direction;
+    uint shadowID;
+
+    float3 diffuse;
+    float3 specular;
+};
+
+struct SpotLightData
+{
+    float4x4 lightSpace;
+
+    float3 position;
+    float3 direction;
+    uint shadowID;
+
+    float3 diffuse;
+    float3 specular;
+
+    float innerCutoff;
+    float outerCutoff;
+    float range;
+};
+
+struct PointLightData
+{
+    float3 position;
+    uint shadowID;
+
+    float3 diffuse;
+    float3 specular;
+
+    float constant;
+    float linear;
+    float quadratic;
+
+    float maxRange;
+};
+
 struct LightCascade
 {
     float4x4 lightSpace;
@@ -33,15 +73,17 @@ struct PushConstants
     CameraData *camera;
     ObjectData *objects;
     Vertex *vertices;
-    float3 lightDir;
-    uint shadowID;
-    LightCascade* cascades;
-    uint cascadeCount;
+    DirLightData *dirLights;
+    LightCascade *dirCascades;
+    SpotLightData *spotLights;
+    PointLightData *pointLights;
+    uint dirLightCount;
+    uint dirCascadeCount;
+    uint spotLightCount;
+    uint pointLightCount;
+    float3 ambientLight;
 }
 
-
-[vk::push_constant]
-PushConstants pcs;
 
 // Represents a vertex that has been processed by the vertex shader
 struct CoarseVertex
@@ -58,6 +100,10 @@ struct VertexOutput
     float4 pos : SV_Position;
     CoarseVertex vertData : CoarseVertex;
 };
+
+
+[vk::push_constant]
+PushConstants pcs;
 
 [shader("vertex")]
 VertexOutput vertexMain(uint vertexID : SV_VertexID,
@@ -92,52 +138,130 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
 
 
 [[vk::binding(0,0)]]
+Sampler2DShadow[] shadowMaps;
+
+[[vk::binding(0,0)]]
 Sampler2DArrayShadow[] shadowArrays;
+
+[[vk::binding(0,0)]]
+SamplerCubeShadow[] shadowCubemaps;
 
 [shader("fragment")]
 float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 {
     float4 viewPos = mul(vertData.worldPos, pcs.camera->view);
 
-    int cascade = -1;
-    for (int i = 0; i < pcs.cascadeCount; i++)
+    float3 light = pcs.ambientLight;
+
+    for (uint i = 0; i < pcs.dirLightCount; i++)
     {
-        if (viewPos.z < pcs.cascades[i].maxDepth)
+        DirLightData dirLight = pcs.dirLights[i];
+
+        uint cascadeCount = pcs.dirCascadeCount;
+        uint firstCascade = i * cascadeCount;
+        uint lastCascade = ((i + 1) * cascadeCount);
+
+        int cascade = -1;
+        for (uint c = firstCascade; c < lastCascade; c++)
         {
-            cascade = i;
-            break;
+            if (viewPos.z < pcs.dirCascades[c].maxDepth)
+            {
+                cascade = c;
+                break;
+            }
         }
-    }
-    if (cascade == -1)
-    {
-        cascade = pcs.cascadeCount;
-    }
-
-    float4 lightRelPos = mul(vertData.worldPos + float4(vertData.normal * 8, 0.0), pcs.cascades[cascade].lightSpace);
-
-    float3 normal = vertData.normal;
-
-    float3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
-    float3 lightPosScaled = float3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
-
-    float unshadowed = 0;
-
-    for (int x = -1; x <= 1; x++)
-    {
-        for (int y = -1; y <= 1; y++)
+        if (cascade == -1)
         {
-            unshadowed += shadowArrays[pcs.shadowID].SampleCmp(float3(lightPosScaled.xy, cascade),
-                                                               lightPosScaled.z, int2(x, y)) / 9;
+            cascade = lastCascade;
         }
+
+        float4 lightRelPos = mul(vertData.worldPos + float4(vertData.normal * 8, 0.0), pcs.dirCascades[cascade].lightSpace);
+
+        float3 normal = vertData.normal;
+
+        float3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
+        float3 lightPosScaled = float3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
+
+        float unshadowed = 0;
+
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                unshadowed += shadowArrays[dirLight.shadowID].SampleCmp(float3(lightPosScaled.xy, cascade),
+                                                                                lightPosScaled.z, int2(x, y)) / 9;
+            }
+        }
+
+        float3 diffuse = max(dot(normal, -dirLight.direction), 0.0) * dirLight.diffuse;
+        float3 viewDir = normalize(-vertData.eyeRelPos);
+        float3 halfDir = normalize(viewDir - dirLight.direction);
+        float3 specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * dirLight.specular;
+
+        light += unshadowed * (diffuse + specular);
     }
 
-    float ambient = 0.1;
-    float diffuse = max(dot(normal, -pcs.lightDir), 0.0);
-    float3 viewDir = normalize(-vertData.eyeRelPos);
-    float3 halfDir = normalize(viewDir - pcs.lightDir);
-    float specular = pow(max(dot(normal, halfDir), 0.0), 32.0);
+    for (uint i = 0; i < pcs.spotLightCount; i++)
+    {
+        SpotLightData spotLight = pcs.spotLights[i];
 
-    float brightness = ambient + (unshadowed * (diffuse + specular));
+        float4 lightRelPos = mul(vertData.worldPos + float4(vertData.normal * 8, 0.0), spotLight.lightSpace);
 
-    return vertData.color * brightness;
+        float3 normal = vertData.normal;
+
+        float3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
+        float3 lightPosScaled = float3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
+
+        float unshadowed = 0;
+
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                unshadowed += shadowMaps[spotLight.shadowID].SampleCmp(lightPosScaled.xy,
+                                                                       lightPosScaled.z, int2(x, y)) / 9;
+            }
+        }
+
+        float3 lightDir = normalize(vertData.worldPos.xyz - spotLight.position);
+        float lightAngle = dot(lightDir, spotLight.direction);
+
+        float fadeSize = spotLight.innerCutoff - spotLight.outerCutoff;
+        float intensity = clamp((lightAngle - spotLight.outerCutoff) / fadeSize, 0.0, 1.0);
+
+        float3 diffuse = max(dot(normal, -lightDir), 0.0) * spotLight.diffuse;
+        float3 viewDir = normalize(-vertData.eyeRelPos);
+        float3 halfDir = normalize(viewDir - lightDir);
+        float3 specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * spotLight.specular;
+
+        light += unshadowed * intensity * (diffuse + specular);
+    }
+
+    for (uint i = 0; i < pcs.pointLightCount; i++)
+    {
+        PointLightData pointLight = pcs.pointLights[i];
+
+        float3 normal = vertData.normal;
+        float3 lightVec = vertData.worldPos.xyz - pointLight.position;
+        float3 offsetPos = vertData.worldPos.xyz + (vertData.normal * 8) - pointLight.position;
+        float3 offsetLightDir = normalize(offsetPos);
+
+        float sampleDepth = length(offsetPos) / pointLight.maxRange;
+
+        float unshadowed = shadowCubemaps[pointLight.shadowID].SampleCmp(offsetLightDir, sampleDepth);
+
+        float distance = length(lightVec);
+        float attenuation = 1.0 / (pointLight.constant + (pointLight.linear * distance) + (pointLight.quadratic * distance * distance));
+
+        float3 lightDir = normalize(lightVec);
+
+        float3 diffuse = max(dot(normal, -lightDir), 0.0) * pointLight.diffuse;
+        float3 viewDir = normalize(-vertData.eyeRelPos);
+        float3 halfDir = normalize(viewDir - lightDir);
+        float3 specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * pointLight.specular;
+
+        light += unshadowed * attenuation * (diffuse + specular);
+    }
+
+    return vertData.color * float4(light, 1.0);
 };
