@@ -6,6 +6,8 @@
 
 #include <glm/fwd.hpp>
 
+#include <array>
+
 // >>> Represents helper structs  <<<
 #pragma region misc types
 // Simply combines a single texture and texture view
@@ -64,6 +66,7 @@ struct WGPUBackendMeshIdx {
 // Represents the transformation data of the camera
 struct WGPUBackendCameraData
 {
+    glm::mat4 m_combined;
     glm::mat4 m_view;
     glm::mat4 m_proj;
     glm::vec3 m_pos;

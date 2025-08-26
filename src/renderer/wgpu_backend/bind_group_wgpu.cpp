@@ -16,7 +16,7 @@ WGPUBackendBindGroup::~WGPUBackendBindGroup() {
     }
 }
 
-void WGPUBackendBindGroup::InitOrUpdateBindGroup(WGPUDevice& device) {
+void WGPUBackendBindGroup::InitOrUpdateBindGroup(const WGPUDevice& device) {
     m_inited = true;
 
     std::vector<WGPUBindGroupEntry> bindGroups;

@@ -7,6 +7,7 @@
 #include "renderer/wgpu_backend/utils_wgpu.h"
 #include "renderer/wgpu_backend/render_types_wgpu.h"
 #include "renderer/wgpu_backend/dynamic_shadow_vector_map_wgpu.h"
+#include "renderer/wgpu_backend/dynamic_shadow_array.h"
 
 #include "math/skl_math_consts.h"
 
@@ -29,7 +30,7 @@ private:
 
     // Stores best supported format on current device
     WGPUTextureFormat m_wgpuTextureFormat{ };
-    WGPUTextureFormat m_wgpuDepthTextureFormat{ WGPUTextureFormat_Depth24Plus };
+    WGPUTextureFormat m_wgpuDepthTextureFormat{ WGPUTextureFormat_Depth32Float };
 
     // Represents limits of gpu storage
     u32 m_maxObjArraySize{ 4096 }; // TODO: Fill the following with number informed by limits
@@ -61,8 +62,14 @@ private:
     u32 m_nextLightSpace = 0;
     WGPUTexture m_shadowAtlas; // Stores depth textures to prevent constant recreation of such textures
 
-    // CPU-> Gathers into 
+    // Allocates texture space for shadowmapping based on the amount of shadowed lights registered
+    WGPUBackendBaseDynamicShadowMapArray m_dynamicDirLightShadowMapTexture;
+
+    // CPU-> Gathers into these vector maps -> Copied into buffer
     WGPUBackendDirectionalDynamicShadowMap<4> m_dynamicShadowedDirLights;
+
+    LightID m_dynamicShadowedDirLightNextID = 0;
+    
     
     // Stores actual GPU buffers
     WGPUBackendSingleUniformBuffer<WGPUBackendCameraData> m_cameraBuffer{ };
@@ -98,13 +105,17 @@ private:
     static void ErrorCallback(WGPUDevice const * device, WGPUErrorType type, WGPUStringView message, WGPU_NULLABLE void* userdata1, WGPU_NULLABLE void* userdata2);
 
     // Fills in related directional light
-    void PrepareDynamicShadowedDirLights(
+    // TODO: Implement spot light and point light
+    void PrepareShadowInformation(
         const glm::mat4x4& camView,
         const float camAspect,
         const float camFov, 
         const float camNear, 
         const float camFar, 
-        const std::vector<DirLightRenderInfo>& gotDirLightRenderInfo);
+        std::vector<DirLightRenderInfo>& gotDirLightRenderInfo,
+        std::vector<SpotLightRenderInfo>& gotSpotLightRenderInfo,
+        std::vector<PointLightRenderInfo>& gotPointLightRenderInfo
+    );
 
     // Establishes that the following commands apply to a new frame
     bool InitFrame();
@@ -114,9 +125,6 @@ private:
 
     // Populates depth buffer from view of camera buffer
     void BeginDepthPass(WGPUTextureView depthTexture);
-
-    // TODO: Actually implement
-    void SetDirLight(LightCascade* cascades, glm::vec3 lightDir, TextureID texture) { };
     
     // Stops the current pass
     void EndPass();
@@ -126,7 +134,7 @@ private:
 
     // Takes in mesh counts and renders to current command encoder using previously
     // inserted object data in buffer.
-    void DrawObjects(std::map<u32, u32>& meshCounts);
+    void DrawObjects(std::map<MeshID, u32>& meshCounts);
 
     // Ends the current pass and present it to the screen
     void EndFrame();
@@ -154,4 +162,14 @@ public:
 
     // Removes mesh from GPU and render's mesh ID invalid
     void DestroyMesh(MeshID meshID);
+
+    // Adds dynamic lights into scene
+    LightID AddDirLight();
+    LightID AddSpotLight();
+    LightID AddPointLight();
+
+    // Assures renderer that certain lightId will not longer be used.q
+    void DestroyDirLight(LightID lightID);
+    void DestroySpotLight(LightID lightID);
+    void DestroyPointLight(LightID lightID);
 };

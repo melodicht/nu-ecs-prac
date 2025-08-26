@@ -13,7 +13,8 @@ if(EMSCRIPTEN)
                 ${CMAKE_CURRENT_SOURCE_DIR}/renderer_wgpu.cpp 
                 ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp
                 ${CMAKE_CURRENT_SOURCE_DIR}/utils_wgpu.cpp
-                ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp)
+                ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp
+                ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp)
         target_include_directories(wgpu-backend PRIVATE 
                 ${CMAKE_SOURCE_DIR}/include 
                 ${CMAKE_SOURCE_DIR}/src)
@@ -41,14 +42,16 @@ else()
                         ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp 
                         ${CMAKE_CURRENT_SOURCE_DIR}/utils_wgpu.cpp
                         ${imgui_SOURCE_DIR}/backends/imgui_impl_wgpu.cpp
-                        ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp)
+                        ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp)
                 target_include_directories(wgpu-backend PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
         else()
                 add_library(wgpu-backend STATIC 
                         ${CMAKE_CURRENT_SOURCE_DIR}/renderer_wgpu.cpp 
                         ${CMAKE_CURRENT_SOURCE_DIR}/render_backend_wgpuimpl.cpp
                         ${CMAKE_CURRENT_SOURCE_DIR}/utils_wgpu.cpp
-                        ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp)
+                        ${CMAKE_CURRENT_SOURCE_DIR}/bind_group_wgpu.cpp
+                        ${CMAKE_CURRENT_SOURCE_DIR}/dynamic_shadow_array.cpp)
                 target_include_directories(wgpu-backend PRIVATE ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src)
         endif()
 
@@ -57,10 +60,10 @@ else()
         target_compile_definitions(wgpu-backend PUBLIC IMGUI_IMPL_WEBGPU_BACKEND_DAWN ON)
 
         # Fetches Dawn
-        CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/main.tar.gz")
-
-        target_link_libraries(webgpu INTERFACE 
-                dawn::webgpu_dawn)
+        # set(DAWN_FETCH_DEPENDENCIES ON)
+        # set(DAWN_BUILD_MONOLITHIC_LIBRARY SHARED)
+        CPMAddPackage(NAME dawn URL "https://dawn.googlesource.com/dawn/+archive/refs/heads/chromium/7285.tar.gz")
+        target_link_libraries(webgpu INTERFACE dawn::webgpu_dawn)
 endif()
 
 target_compile_definitions(wgpu-backend PRIVATE SKL_ENABLED_EDITOR=${SKL_ENABLE_EDITOR_MODE})

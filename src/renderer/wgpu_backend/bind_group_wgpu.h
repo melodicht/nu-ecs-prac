@@ -50,7 +50,7 @@ public:
 
     // Uses current entries to recreate binding groups
     // Needs to be called once before initialization
-    void InitOrUpdateBindGroup(WGPUDevice& device);
+    void InitOrUpdateBindGroup(const WGPUDevice& device);
 
     // Applies bind group to render pass
     // Needs to be inited beforehand
@@ -77,7 +77,7 @@ protected:
     WGPUBuffer m_bufferDat; 
 
     // Recreates buffer data to new size 
-    void ResizeTo(WGPUDevice& device, WGPUQueue& queue, u32 newStructDataSize) {
+    void ResizeTo(const WGPUDevice& device, const WGPUQueue& queue, u32 newStructDataSize) {
         // Creates resized buffer that is at least contains one struct (even if totally empty)
         if (newStructDataSize == 0) {
             newStructDataSize = 1;
@@ -173,10 +173,10 @@ public:
     // Appends data to the end of the buffer
     // Will resize existing buffer if too small by doubling size until big enough
     // Will update bind groups accordingly
-    void AppendToBack(WGPUDevice& device, WGPUQueue& queue, const std::vector<BufferStruct>& data) {
+    void AppendToBack(const WGPUDevice& device, const WGPUQueue& queue, const std::vector<BufferStruct>& data) {
         AppendToBack(device, queue, data.data(), data.size());
     }
-    virtual void AppendToBack(WGPUDevice& device, WGPUQueue& queue, const BufferStruct* data, u32 datLength) {
+    virtual void AppendToBack(const WGPUDevice& device, const WGPUQueue& queue, const BufferStruct* data, u32 datLength) {
         if(datLength + m_currentBufferSize > m_currentBufferAllocatedSize) {
             u32 newBufferSize = m_currentBufferAllocatedSize;
             
@@ -205,10 +205,10 @@ public:
     // Directly writes to the uniform buffer using the given data
     // Will double buffer size until data fits.
     // If the data entered is smaller than previous allocated size, remaining data after inserted data should be ignored.
-    void WriteBuffer(WGPUDevice& device, WGPUQueue& queue, const std::vector<BufferStruct>& data) {
+    void WriteBuffer(const WGPUDevice& device, const WGPUQueue& queue, const std::vector<BufferStruct>& data) {
         WriteBuffer(queue, device, data.data(), data.size());
     }
-    virtual void WriteBuffer(WGPUDevice& device, WGPUQueue& queue, const BufferStruct* data, u32 datLength) {
+    virtual void WriteBuffer(const WGPUDevice& device, const WGPUQueue& queue, const BufferStruct* data, u32 datLength) {
         // Resizes all relevant bind groups to fit in
         if(datLength > m_currentBufferAllocatedSize) {
             u32 newBufferSize = m_currentBufferAllocatedSize;
@@ -251,7 +251,7 @@ private:
     std::vector<std::reference_wrapper<WGPUBackendBindGroup>> m_bindGroups{ };
     WGPUBindGroupEntry m_currentBindGroupEntry{ };
 
-    void UpdateRegisteredBindGroups(WGPUDevice& device, WGPUQueue& queue) {
+    void UpdateRegisteredBindGroups(const WGPUDevice& device, const WGPUQueue& queue) {
         // Updates command buffer entry accordingly
         m_currentBindGroupEntry.buffer = WGPUBackendArrayBuffer<StorageStruct>::m_bufferDat;
         m_currentBindGroupEntry.size = WGPUBackendArrayBuffer<StorageStruct>::m_currentBufferAllocatedSize * sizeof(StorageStruct);
@@ -273,13 +273,13 @@ protected:
 
 public:
     // Will update bind groups accordingly
-    void AppendToBack(WGPUDevice& device, WGPUQueue& queue, const StorageStruct* data, u32 datLength) override {
+    void AppendToBack(const WGPUDevice& device, const WGPUQueue& queue, const StorageStruct* data, u32 datLength) override {
         WGPUBackendArrayBuffer<StorageStruct>::AppendToBack(device, queue, data, datLength);
         UpdateRegisteredBindGroups(device, queue);
     }
 
     // Will resize existing buffer if too small to the size of the data written and will update bind groups accordingly
-    void WriteBuffer(WGPUDevice& device, WGPUQueue& queue, const StorageStruct* data, u32 datLength) override {
+    void WriteBuffer(const WGPUDevice& device, const WGPUQueue& queue, const StorageStruct* data, u32 datLength) override {
         WGPUBackendArrayBuffer<StorageStruct>::WriteBuffer(device, queue, data, datLength);
         UpdateRegisteredBindGroups(device, queue);
     }

@@ -2,6 +2,12 @@
 
 #include <algorithm>
 
+void WGPUBackendBaseDynamicShadowMapArray::UpdateAttachedBindGroups(const WGPUDevice& device) {
+    for (WGPUBackendBindGroup& group : m_bindGroups) {
+        group.InitOrUpdateBindGroup(device);
+    }
+}
+
 u16 WGPUBackendBaseDynamicShadowMapArray::GenerateNewAllocatedSize (u16 newArraySize) {
     assert(newArraySize <= m_arrayMaxAllocatedSize);
 
@@ -15,7 +21,7 @@ void WGPUBackendBaseDynamicShadowMapArray::ResizeTexture(const WGPUDevice& devic
     WGPUTextureDescriptor newTextureDesc {
         .nextInChain = nullptr,
         .label = WGPUBackendUtils::wgpuStr(m_label.data()),
-        .usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_StorageBinding,
+        .usage = WGPUTextureUsage_TextureBinding | WGPUTextureUsage_RenderAttachment,
         .dimension = WGPUTextureDimension_2D,
         .size = {
             .width = m_arrayLayerWidth,
@@ -23,7 +29,7 @@ void WGPUBackendBaseDynamicShadowMapArray::ResizeTexture(const WGPUDevice& devic
             .depthOrArrayLayers = m_arrayAllocatedSize,
         },
         .format = WGPUTextureFormat_Depth32Float,
-        .mipLevelCount = 0,
+        .mipLevelCount = 1,
         .sampleCount = 1
     };
 
@@ -36,35 +42,39 @@ void WGPUBackendBaseDynamicShadowMapArray::ResizeTexture(const WGPUDevice& devic
         .nextInChain = nullptr,
         .label = WGPUBackendUtils::wgpuStr(m_wholeViewLabel.data()),
         .format = WGPUTextureFormat_Depth32Float,
-        .dimension = WGPUTextureViewDimension_2D,
+        .dimension = WGPUTextureViewDimension_2DArray,
         .baseMipLevel = 0,
         .mipLevelCount = 1, 
         .baseArrayLayer = 0,
         .arrayLayerCount = m_arrayAllocatedSize,
         .aspect = WGPUTextureAspect_DepthOnly,
-        .usage = WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_StorageBinding
+        .usage = WGPUTextureUsage_TextureBinding | WGPUTextureUsage_RenderAttachment
     };
 
     wgpuTextureViewRelease(m_wholeTextureDataView);
     m_wholeTextureDataView = wgpuTextureCreateView(m_textureData, &newTextureViewDesc);
 
+    newTextureViewDesc.dimension = WGPUTextureViewDimension_2D;
     newTextureViewDesc.arrayLayerCount = 1;
     newTextureViewDesc.label = WGPUBackendUtils::wgpuStr(m_layerViewLabel.data());
 
-    const size_t viewAmount = m_arrayLayerViews.size();
+    const u16 viewAmount = (u16)m_arrayLayerViews.size();
     for (u16 viewIdx = 0 ; viewIdx < viewAmount ; viewIdx++) {
         wgpuTextureViewRelease(m_arrayLayerViews[viewIdx]);
         newTextureViewDesc.baseArrayLayer = viewIdx;
         m_arrayLayerViews[viewIdx] = wgpuTextureCreateView(m_textureData, &newTextureViewDesc);
     }
 
-    for (u16 nextIdx = viewAmount ; viewAmount < m_arrayAllocatedSize ; nextIdx++) {
+    for (u16 nextIdx = viewAmount ; nextIdx < m_arrayAllocatedSize ; nextIdx++) {
         newTextureViewDesc.baseArrayLayer = nextIdx;
-        m_arrayLayerViews[nextIdx] = wgpuTextureCreateView(m_textureData, &newTextureViewDesc);
+        m_arrayLayerViews.push_back(wgpuTextureCreateView(m_textureData, &newTextureViewDesc));
     }
 
     // Removes old texture now that all old texture views are gone
     wgpuTextureDestroy(oldTexture);
+    
+    // Recreates bind group entry
+    m_currentBindGroupEntry.textureView = m_wholeTextureDataView;
 }
 
 void WGPUBackendBaseDynamicShadowMapArray::Clear() {
@@ -78,9 +88,9 @@ void WGPUBackendBaseDynamicShadowMapArray::Clear() {
     // Resets to pre-init state
     m_bindGroups = {};
     m_textureData = {};
-    m_label = {"un-inited"};
-    m_wholeViewLabel = {"un-inited"};
-    m_layerViewLabel = {"un-inited"};
+    m_label = "un-inited";
+    m_wholeViewLabel = "un-inited";
+    m_layerViewLabel = "un-inited";
     m_currentBindGroupEntry = {};
     m_arrayLayerWidth = {0};
     m_arrayLayerHeight = {0};
@@ -135,7 +145,7 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     WGPUTextureDescriptor textureDesc {
         .nextInChain = nullptr,
         .label = WGPUBackendUtils::wgpuStr("Dynamic Directional Shadowed Light Shadow Map"),
-        .usage = WGPUTextureUsage_CopyDst | WGPUTextureUsage_CopySrc | WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_StorageBinding,
+        .usage = WGPUTextureUsage_TextureBinding | WGPUTextureUsage_RenderAttachment,
         .dimension = WGPUTextureDimension_2D,
         .size = {
             .width = arrayLayerWidth,
@@ -143,7 +153,7 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
             .depthOrArrayLayers = m_arrayAllocatedSize  
         },
         .format = WGPUTextureFormat_Depth32Float,
-        .mipLevelCount = 0,
+        .mipLevelCount = 1,
         .sampleCount = 1,
         .viewFormatCount = 0,
         .viewFormats = nullptr
@@ -156,13 +166,13 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
         .nextInChain = nullptr,
         .label = WGPUBackendUtils::wgpuStr("Dynamic Directional Shadowed Light Texture View"),
         .format = WGPUTextureFormat_Depth32Float,
-        .dimension = WGPUTextureViewDimension_2D,
+        .dimension = WGPUTextureViewDimension_2DArray,
         .baseMipLevel = 0,
         .mipLevelCount = 1, 
         .baseArrayLayer = 0,
         .arrayLayerCount = 1,
         .aspect = WGPUTextureAspect_DepthOnly,
-        .usage = WGPUTextureUsage_CopyDst | WGPUTextureUsage_CopySrc | WGPUTextureUsage_RenderAttachment | WGPUTextureUsage_StorageBinding
+        .usage = WGPUTextureUsage_TextureBinding | WGPUTextureUsage_RenderAttachment
     };
 
     m_wholeTextureDataView = wgpuTextureCreateView(m_textureData, &textureViewDesc);
@@ -203,6 +213,7 @@ void WGPUBackendBaseDynamicShadowMapArray::RegisterShadow(const WGPUDevice& devi
     // If it seems that all options have been exhausted, the shadow array needs to expand allocated memory
     else {
         ResizeTexture(device, queue, m_arraySize + m_depthPerShadow);
+        UpdateAttachedBindGroups(device);
         m_arraySize += m_depthPerShadow;
     }
 }

@@ -1,5 +1,6 @@
 // Represents camera that player sees through
 struct Camera {
+    combinedMat : mat4x4<f32>,
     viewMat : mat4x4<f32>,
     projMat : mat4x4<f32>,
     pos: vec3<f32>,
@@ -17,7 +18,7 @@ const dynamicShadowedDirLightCascadeAmount : u32 = 4;
 
 // Represents a single directional light with shadows and a potential to change pos/dir over time.
 struct DynamicShadowedDirLight {
-    lightSpaces : array<mat4x4, dynamicShadowedDirLightCascadeAmount>,
+    lightSpaces : array<mat4x4<f32>, dynamicShadowedDirLightCascadeAmount>,
     direction : vec3<f32>,
     intensity : f32,
     color : vec3<f32>
@@ -25,9 +26,11 @@ struct DynamicShadowedDirLight {
 
 @binding(0) @group(0) var<uniform> camera : Camera;
 
-@binding(1) @group(0) var<storage> objStore : array<ObjData>; 
+@binding(1) @group(0) var<storage, read> objStore : array<ObjData>; 
 
-@binding(2) @group(0) var<storage> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
+@binding(2) @group(0) var<storage, read> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
+
+@binding(3) @group(0) var dynamicShadowedDirLightStoreStore: texture_2d_array<f32>;
 
 
 struct VertexIn {
@@ -56,7 +59,7 @@ fn vtxMain(in : VertexIn) -> ColorPassVertexOut {
 
   var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
 
-  out.position = camera.projMat * camera.viewMat * worldPos;
+  out.position = camera.combinedMat * worldPos;
   out.color = objStore[in.instance].color;
 
   return out;

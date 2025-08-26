@@ -33,3 +33,23 @@ void DestroyMesh(RenderDestroyMeshInfo& desc) {
 void RenderUpdate(RenderFrameInfo& state) {
     wgpuRenderer.RenderUpdate(state);
 }
+
+LightID AddDirLight() {
+    return wgpuRenderer.AddDirLight();
+}
+LightID AddSpotLight() {
+    return wgpuRenderer.AddSpotLight();
+}
+LightID AddPointLight() {
+    return wgpuRenderer.AddPointLight();
+}
+
+void DestroyDirLight(LightID lightID) {
+    wgpuRenderer.DestroyDirLight(lightID);
+}
+void DestroySpotLight(LightID lightID) {
+    wgpuRenderer.DestroySpotLight(lightID);
+}
+void DestroyPointLight(LightID lightID) {
+    wgpuRenderer.DestroyPointLight(lightID);
+}

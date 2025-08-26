@@ -30,6 +30,8 @@ private:
     bool m_inited;
 
 protected:
+    void UpdateAttachedBindGroups(const WGPUDevice& device);
+
     u16 GenerateNewAllocatedSize (u16 newArraySize);
 
     // Continually doubles allocated size until allocation can fit given new arraySize.

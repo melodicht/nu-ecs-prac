@@ -64,7 +64,7 @@ WGPUBindGroupLayoutEntry DefaultBindLayoutEntry() {
     .visibility = WGPUShaderStage_None,
     .buffer {
       .nextInChain = nullptr,
-      .type = WGPUBufferBindingType_Undefined,
+      .type = WGPUBufferBindingType_BindingNotUsed,
       .hasDynamicOffset = false,
       .minBindingSize = 0,
     },
@@ -174,13 +174,16 @@ void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType t
   if (message.data) LOG("(" << message.data << ")");
 }
 
-void WGPURenderBackend::PrepareDynamicShadowedDirLights(
+void WGPURenderBackend::PrepareShadowInformation(
   const glm::mat4x4& camView,
   const float camAspect,
   const float camFov, 
   const float camNear, 
   const float camFar, 
-  const std::vector<DirLightRenderInfo>& gotDirLightRenderInfo) {
+  std::vector<DirLightRenderInfo>& gotDirLightRenderInfo,
+  std::vector<SpotLightRenderInfo>& gotSpotLightRenderInfo,
+  std::vector<PointLightRenderInfo>& gotPointLightRenderInfo) {
+    m_dynamicShadowedDirLights.Update(gotDirLightRenderInfo, &camView, camAspect, camFov, camNear, camFar);
   }
 
 bool WGPURenderBackend::InitFrame() {
@@ -232,7 +235,7 @@ void WGPURenderBackend::EndFrame() {
   #endif
 }
 
-void WGPURenderBackend::DrawObjects(std::map<u32, u32>& meshCounts) {
+void WGPURenderBackend::DrawObjects(std::map<MeshID, u32>& meshCounts) {
   u32 startIndex = 0;
   for (std::pair<MeshID, u32> pair : meshCounts)
   {
@@ -314,7 +317,7 @@ void WGPURenderBackend::BeginDepthPass(WGPUTextureView depthTexture) {
 
   WGPURenderPassDescriptor depthPassDescriptor {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Color Pass Descriptor"),
+    .label = WGPUBackendUtils::wgpuStr("Depth Pass Descriptor"),
     .colorAttachmentCount = 0,
     .colorAttachments = nullptr,
     .depthStencilAttachment = &depthStencilAttachment,
@@ -414,6 +417,8 @@ WGPURenderBackend::~WGPURenderBackend() {
 }
 
 void WGPURenderBackend::InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight) {
+  m_screenWidth = startWidth;
+  m_screenHeight = startHeight;
   // Creates instance
   WGPUInstanceDescriptor instanceDescriptor { 
     .nextInChain = nullptr
@@ -744,10 +749,10 @@ void WGPURenderBackend::InitPipelines()
   bindEntities.push_back( cameraBind );
 
   WGPUBindGroupLayoutEntry cameraSpaceBind = DefaultBindLayoutEntry();
-  cameraBind.binding = 0;
-  cameraBind.visibility = WGPUShaderStage_Vertex;
-  cameraBind.buffer.type = WGPUBufferBindingType_Uniform;
-  cameraBind.buffer.minBindingSize = sizeof(glm::mat4x4); // Adjusts for padding of vec3
+  cameraSpaceBind.binding = 0;
+  cameraSpaceBind.visibility = WGPUShaderStage_Vertex;
+  cameraSpaceBind.buffer.type = WGPUBufferBindingType_Uniform;
+  cameraSpaceBind.buffer.minBindingSize = sizeof(glm::mat4x4); // Adjusts for padding of vec3
   depthBindEntities.push_back( cameraSpaceBind );
 
   WGPUBindGroupLayoutEntry objDatBind = DefaultBindLayoutEntry();
@@ -759,20 +764,24 @@ void WGPURenderBackend::InitPipelines()
   bindEntities.push_back( objDatBind );
   depthBindEntities.push_back( objDatBind );
 
-  WGPUBindGroupLayoutEntry lightSpaceStoreBind = DefaultBindLayoutEntry();
-  lightSpaceStoreBind.binding = 2;
-  lightSpaceStoreBind.visibility = WGPUShaderStage_Vertex;
-  lightSpaceStoreBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
-  lightSpaceStoreBind.buffer.minBindingSize = sizeof(glm::mat4x4);
-  bindEntities.push_back( lightSpaceStoreBind );
-
   WGPUBindGroupLayoutEntry dynamicShadowedDirLightBind = DefaultBindLayoutEntry();
-  dynamicShadowedDirLightBind.binding = 3;
+  dynamicShadowedDirLightBind.binding = 2;
   dynamicShadowedDirLightBind.visibility = WGPUShaderStage_Vertex;
   dynamicShadowedDirLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData<4>);
 
   bindEntities.push_back( dynamicShadowedDirLightBind );
+
+  WGPUBindGroupLayoutEntry dynamicDirLightShadowMapBind = DefaultBindLayoutEntry();
+  dynamicDirLightShadowMapBind.binding = 3;
+  dynamicDirLightShadowMapBind.visibility = WGPUShaderStage_Vertex;
+  dynamicDirLightShadowMapBind.texture = {
+    .nextInChain = nullptr,
+    .sampleType = WGPUTextureSampleType_Depth,
+    .viewDimension = WGPUTextureViewDimension_2DArray,
+    .multisampled = false
+  };
+  bindEntities.push_back( dynamicDirLightShadowMapBind );
 
   WGPUBindGroupLayoutDescriptor bindLayoutDescriptor {
     .nextInChain = nullptr,
@@ -878,11 +887,12 @@ void WGPURenderBackend::InitPipelines()
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_instanceDatBuffer));
   m_depthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_instanceDatBuffer));
 
-  m_lightSpacesStoreBuffer.Init(m_wgpuCore.m_device, "Light Space Buffer", 2, m_maxLightSpaces);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_lightSpacesStoreBuffer));
-
-  m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", 3, m_maxDynamicShadowedDirLights);
+  m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", 2, m_maxDynamicShadowedDirLights);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightBuffer));
+
+  // TODO: Replace placeholder 1024 x 1024 dimensions
+  m_dynamicDirLightShadowMapTexture.Init(m_wgpuCore.m_device, 1024, 1024, 32, 4, "Dynamic Direction Light Shadow Maps", "Dynamic Direction Light Shadow Maps Whole", "Dynamic Direction Light Shadow Maps Layer", 3);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicDirLightShadowMapTexture));
 
   m_bindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
   m_depthBindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
@@ -948,8 +958,6 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
       return;
   }
 
-  // Prepares recieved state for rendering
-
   // >>> Begins processing frame information to be ran by renderer <<<
 
   // Inserts mesh instance information into a single objData vector
@@ -974,27 +982,43 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
       objData[offsets[meshInstance.mesh]++] = {meshInstance.matrix, glm::vec4(meshInstance.rgbColor, 1.0f)};
   }
 
-  // Gets light transforms for 
-  PrepareDynamicShadowedDirLights(state.mainCam.view, state.mainCamAspect, state.mainCamFov, state.mainCamNear, state.mainCamFar, state.dirLights);
+  // Prepares camera to be rendered through
+  float mainCamAspectRatio = (float)m_screenWidth / (float)m_screenHeight;
+  glm::mat4x4 mainCamProj = glm::perspective(glm::radians(state.cameraFov), mainCamAspectRatio, state.cameraNear, state.cameraFar);
+  glm::mat4x4 mainCamView = GetViewMatrix(&state.cameraTransform);
+
+  // Prepares dynamic shadowed lights to be rendered 
+  PrepareShadowInformation(mainCamView, mainCamAspectRatio, state.cameraFov, state.cameraNear, state.cameraFar, state.dirLights, state.spotLights, state.pointLights);
 
   // >>> Actually begins sending off information to be rendered <<<
 
   // Sends in the attributes of individual mesh instances
-  m_instanceDatBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, objData.data(), objData.size());
+  m_instanceDatBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, objData.data(), (u32)objData.size());
 
+  // Begins writing in shadow mapping passes and inserting data for shadowed lights 
+  const std::vector<WGPUBackendDynamicShadowedDirLightData<4>>& dirShadowData = m_dynamicShadowedDirLights.GetShadowData();
+  for (u32 dirShadowIdx = 0; dirShadowIdx < dirShadowData.size() ; dirShadowIdx++) {
+    // TODO: Replace 4 with informed amount
+    for (u8 cascadeIter = 0 ; cascadeIter < 4 ; cascadeIter++) {
+      m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, dirShadowData[dirShadowIdx].m_lightSpaces[cascadeIter]);
+      BeginDepthPass(m_dynamicDirLightShadowMapTexture.GetView(dirShadowIdx * 4 + cascadeIter));
+      DrawObjects(meshCounts);
+      EndPass();
+    }
+  }
+  m_dynamicShadowedDirLightBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, dirShadowData.data(), sizeof(WGPUBackendDynamicShadowedDirLightData<4>) * (u32)dirShadowData.size());
+
+  glm::mat4x4 camSpace = mainCamProj * mainCamView;
   // Sets the orientation of the view camera
   WGPUBackendCameraData camState {
-    .m_view = state.mainCam.view,
-    .m_proj = state.mainCam.proj,
-    .m_pos = state.mainCam.pos
+    .m_combined = camSpace,
+    .m_view = mainCamView,
+    .m_proj = mainCamProj,
+    .m_pos = state.cameraTransform.position
   };
   m_cameraBuffer.WriteBuffer(m_wgpuQueue, camState);
 
-  for ( auto dynamicDirShadowIter = m_dynamicShadowedDirLights.begin() ; dynamicDirShadowIter != m_dynamicShadowedDirLights.end() ; dynamicDirShadowIter++ ) {
-  }
-
-  // Sets the oreintation of the view camera for depth pre pass
-  glm::mat4x4 camSpace = state.mainCam.proj * state.mainCam.view;
+  // Sets the orientation of the view camera for depth pre pass
   m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, camSpace);
 
   BeginDepthPass(m_depthTexture.m_textureView);
@@ -1008,4 +1032,31 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   DrawImGui();
   EndFrame();
 }
+
+  // Adds dynamic lights into scene
+  LightID WGPURenderBackend::AddDirLight() {
+    LightID lightID = m_dynamicShadowedDirLightNextID;
+    m_dynamicShadowedDirLightNextID++;
+    m_dynamicDirLightShadowMapTexture.RegisterShadow(m_wgpuCore.m_device, m_wgpuQueue);
+    m_dynamicShadowedDirLights.PushBack(lightID);
+    return lightID;
+  }
+  LightID WGPURenderBackend::AddSpotLight() {
+    return 0;
+  }
+  LightID WGPURenderBackend::AddPointLight() {
+    return 0;
+  }
+
+  void WGPURenderBackend::DestroyDirLight(LightID lightID) {
+    m_dynamicDirLightShadowMapTexture.UnregisterShadow();
+    m_dynamicShadowedDirLights.Erase(lightID);
+  }
+  // TODO Actually implement
+  void WGPURenderBackend::DestroySpotLight(LightID lightID) {
+
+  }
+  void WGPURenderBackend::DestroyPointLight(LightID lightID) {
+
+  }
 #pragma endregion
