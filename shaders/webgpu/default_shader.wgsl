@@ -57,9 +57,9 @@ fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
 // Default pipeline for color pass 
 struct ColorPassVertexOut {
     @builtin(position) position: vec4<f32>,
-    @location(0) fragToCamPos: vec4<f32>,
-    @location(1) color: vec4<f32>,
-    @location(2) normal: vec4<f32>,
+    @location(0) fragToCamPos: vec3<f32>,
+    @location(1) color: vec3<f32>,
+    @location(2) normal: vec3<f32>,
 }
 
 @vertex
@@ -69,10 +69,10 @@ fn vtxMain(in : VertexIn) -> ColorPassVertexOut {
   var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
 
   out.position = fixedData.combinedMat * worldPos;
-  out.color = objStore[in.instance].color;
-  out.fragToCamPos = fixedData.pos - worldPos;
+  out.color = objStore[in.instance].color.xyz;
+  out.fragToCamPos = fixedData.pos.xyz - worldPos.xyz;
   var nMat = objStore[in.instance].normMat;
-  out.normal = vec4(normalize(mat3x3(nMat[0].xyz, nMat[1].xyz, nMat[2].xyz) * in.normal), 1);
+  out.normal = normalize(mat3x3(nMat[0].xyz, nMat[1].xyz, nMat[2].xyz) * in.normal);
 
   return out;
 }
@@ -83,25 +83,25 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
     // TODO: Set ambient lighting to be specified
 
     // Sets ambient lighting
-    var ambientIntensity : f32 = 0.05;
-    var ambient : vec4<f32> = in.color * ambientIntensity;
+    var ambientIntensity : f32 = 0.1;
+    var ambient : vec3<f32> = in.color * ambientIntensity;
 
     // Sets diffuse lighting
-    var diffuse : vec4<f32> = vec4<f32>(0, 0, 0, 0);
+    var diffuse : vec3<f32> = vec3<f32>(0, 0, 0);
     for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
-        var diffuseIntensity : f32 = max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction), 0.0);
-        diffuse += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse;
+        var diffuseIntensity : f32 = max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction.xyz), 0.0);
+        diffuse += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse.xyz;
     }
     diffuse = diffuse * in.color;
 
     // Sets specular lighting
-    var viewDir : vec4<f32> = vec4(normalize(in.fragToCamPos.xyz), 1);
-    var specular : vec4<f32> = vec4<f32>(0, 0, 0, 0);
+    var viewDir : vec3<f32> = normalize(in.fragToCamPos);
+    var specular : vec3<f32> = vec3<f32>(0, 0, 0);
     for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
-        var specularIntensity : f32 = pow(max(dot(viewDir, reflect(-dynamicShadowedDirLightStore[dirIter].direction, in.normal)), 0.0), 32);
-        //specular += specularIntensity * dynamicShadowedDirLightStore[dirIter].specular;
+        var specularIntensity : f32 = pow(max(dot(viewDir, reflect(-dynamicShadowedDirLightStore[dirIter].direction.xyz, in.normal)), 0.0), 32);
+        specular += specularIntensity * dynamicShadowedDirLightStore[dirIter].specular.xyz;
     }
     specular = specular * in.color;
 
-    return diffuse + ambient + specular;
+    return vec4<f32>(diffuse + ambient + specular,1);
 }
