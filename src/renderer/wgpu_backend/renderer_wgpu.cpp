@@ -741,40 +741,40 @@ void WGPURenderBackend::InitPipelines()
   std::vector<WGPUBindGroupLayoutEntry> bindEntities;
   std::vector<WGPUBindGroupLayoutEntry> depthBindEntities;
   
-  WGPUBindGroupLayoutEntry cameraBind = DefaultBindLayoutEntry();
-  cameraBind.binding = 0;
-  cameraBind.visibility = WGPUShaderStage_Vertex;
-  cameraBind.buffer.type = WGPUBufferBindingType_Uniform;
-  cameraBind.buffer.minBindingSize = sizeof(WGPUBackendCameraData); // Adjusts for padding of vec3
-  bindEntities.push_back( cameraBind );
+  WGPUBindGroupLayoutEntry fixedColorPassBind = DefaultBindLayoutEntry();
+  fixedColorPassBind.binding = 0;
+  fixedColorPassBind.visibility = WGPUShaderStage_Vertex | WGPUShaderStage_Fragment;
+  fixedColorPassBind.buffer.type = WGPUBufferBindingType_Uniform;
+  fixedColorPassBind.buffer.minBindingSize = sizeof(WGPUBackendColorPassFixedData);
+  bindEntities.push_back( fixedColorPassBind );
 
   WGPUBindGroupLayoutEntry cameraSpaceBind = DefaultBindLayoutEntry();
   cameraSpaceBind.binding = 0;
   cameraSpaceBind.visibility = WGPUShaderStage_Vertex;
   cameraSpaceBind.buffer.type = WGPUBufferBindingType_Uniform;
-  cameraSpaceBind.buffer.minBindingSize = sizeof(glm::mat4x4); // Adjusts for padding of vec3
+  cameraSpaceBind.buffer.minBindingSize = sizeof(glm::mat4x4);
   depthBindEntities.push_back( cameraSpaceBind );
 
   WGPUBindGroupLayoutEntry objDatBind = DefaultBindLayoutEntry();
   objDatBind.binding = 1;
   objDatBind.visibility = WGPUShaderStage_Vertex;
   objDatBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
-  objDatBind.buffer.minBindingSize = sizeof(glm::mat4x4) + (sizeof(glm::vec4));
+  objDatBind.buffer.minBindingSize = sizeof(WGPUBackendObjectData);
 
   bindEntities.push_back( objDatBind );
   depthBindEntities.push_back( objDatBind );
 
   WGPUBindGroupLayoutEntry dynamicShadowedDirLightBind = DefaultBindLayoutEntry();
   dynamicShadowedDirLightBind.binding = 2;
-  dynamicShadowedDirLightBind.visibility = WGPUShaderStage_Vertex;
+  dynamicShadowedDirLightBind.visibility = WGPUShaderStage_Fragment;
   dynamicShadowedDirLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
-  dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData<4>);
+  dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData<4>); // Adjusts for padding
 
   bindEntities.push_back( dynamicShadowedDirLightBind );
 
   WGPUBindGroupLayoutEntry dynamicDirLightShadowMapBind = DefaultBindLayoutEntry();
   dynamicDirLightShadowMapBind.binding = 3;
-  dynamicDirLightShadowMapBind.visibility = WGPUShaderStage_Vertex;
+  dynamicDirLightShadowMapBind.visibility = WGPUShaderStage_Fragment;
   dynamicDirLightShadowMapBind.texture = {
     .nextInChain = nullptr,
     .sampleType = WGPUTextureSampleType_Depth,
@@ -785,14 +785,14 @@ void WGPURenderBackend::InitPipelines()
 
   WGPUBindGroupLayoutDescriptor bindLayoutDescriptor {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Default Bind Layout"),
+    .label = WGPUBackendUtils::wgpuStr("Color Pass Bind Layout"),
     .entryCount = bindEntities.size(), 
     .entries = bindEntities.data(),
   };
 
   WGPUBindGroupLayoutDescriptor depthBindLayoutDescriptor {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Depth Bind Layout"),
+    .label = WGPUBackendUtils::wgpuStr("Depth Pass Bind Layout"),
     .entryCount = depthBindEntities.size(), 
     .entries = depthBindEntities.data(),
   };
@@ -802,14 +802,14 @@ void WGPURenderBackend::InitPipelines()
 
   WGPUPipelineLayoutDescriptor pipelineLayoutConstructor {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Default Pipeline layout"),
+    .label = WGPUBackendUtils::wgpuStr("Color Pass Pipeline Layout"),
     .bindGroupLayoutCount = 1,
     .bindGroupLayouts = &bindLayout,
   };
 
   WGPUPipelineLayoutDescriptor depthPipelineLayoutConstructor {
     .nextInChain = nullptr,
-    .label = WGPUBackendUtils::wgpuStr("Depth Pipeline layout"),
+    .label = WGPUBackendUtils::wgpuStr("Depth Pipeline Layout"),
     .bindGroupLayoutCount = 1,
     .bindGroupLayouts = &depthBindLayout,
   };
@@ -876,12 +876,11 @@ void WGPURenderBackend::InitPipelines()
 
   m_bindGroup.Init("Main Pipeline Bind Group", bindLayout);
   m_depthBindGroup.Init("Depth Pipeline Bind Group", depthBindLayout);
-  
-  m_cameraBuffer.Init(m_wgpuCore.m_device, "Camera Buffer", 0);
-  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_cameraBuffer));
-
-  m_cameraSpaceBuffer.Init(m_wgpuCore.m_device, "Camera Buffer", 0);
+  m_cameraSpaceBuffer.Init(m_wgpuCore.m_device, "Camera Space Buffer", 0);
   m_depthBindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_cameraSpaceBuffer));
+
+  m_fixedColorPassDatBuffer.Init(m_wgpuCore.m_device, "Color Pass Fixed Data Buffer", 0);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_fixedColorPassDatBuffer));
 
   m_instanceDatBuffer.Init(m_wgpuCore.m_device, "Instance Buffer", 1, m_maxObjArraySize);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_instanceDatBuffer));
@@ -890,7 +889,7 @@ void WGPURenderBackend::InitPipelines()
   m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", 2, m_maxDynamicShadowedDirLights);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightBuffer));
 
-  // TODO: Replace placeholder 1024 x 1024 dimensions
+  // TODO: Replace placeholder 1024 x 1024 dimensions and limit
   m_dynamicDirLightShadowMapTexture.Init(m_wgpuCore.m_device, 1024, 1024, 32, 4, "Dynamic Direction Light Shadow Maps", "Dynamic Direction Light Shadow Maps Whole", "Dynamic Direction Light Shadow Maps Layer", 3);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicDirLightShadowMapTexture));
 
@@ -976,10 +975,11 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   }
 
   std::vector<WGPUBackendObjectData> objData(totalCount);
-
   for (MeshRenderInfo meshInstance: state.meshes)
   {
-      objData[offsets[meshInstance.mesh]++] = {meshInstance.matrix, glm::vec4(meshInstance.rgbColor, 1.0f)};
+      u32 instanceIdx = offsets[meshInstance.mesh]++;
+      glm::mat4x4 normMat = glm::transpose(glm::inverse(meshInstance.matrix));
+      objData[instanceIdx] = {meshInstance.matrix, normMat, glm::vec4(meshInstance.rgbColor, 1)};
   }
 
   // Prepares camera to be rendered through
@@ -1006,17 +1006,19 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
       EndPass();
     }
   }
+
   m_dynamicShadowedDirLightBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, dirShadowData.data(), sizeof(WGPUBackendDynamicShadowedDirLightData<4>) * (u32)dirShadowData.size());
 
   glm::mat4x4 camSpace = mainCamProj * mainCamView;
-  // Sets the orientation of the view camera
-  WGPUBackendCameraData camState {
+  // Sets the 
+  WGPUBackendColorPassFixedData colorPassState {
     .m_combined = camSpace,
     .m_view = mainCamView,
     .m_proj = mainCamProj,
-    .m_pos = state.cameraTransform.position
+    .m_pos = glm::vec4(state.cameraTransform.position,1),
+    .m_dirLightCount = (u32)dirShadowData.size()
   };
-  m_cameraBuffer.WriteBuffer(m_wgpuQueue, camState);
+  m_fixedColorPassDatBuffer.WriteBuffer(m_wgpuQueue, colorPassState);
 
   // Sets the orientation of the view camera for depth pre pass
   m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, camSpace);

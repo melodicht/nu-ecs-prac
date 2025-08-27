@@ -1,30 +1,38 @@
-// Represents camera that player sees through
-struct Camera {
+// TODO: Better explore alternatives in alignment, maybe we could merge in different variables to reduce waste due to alignment
+
+// Represents fixed length color pass data
+struct ColorPassFixedData {
+    // Camera Data
     combinedMat : mat4x4<f32>,
     viewMat : mat4x4<f32>,
     projMat : mat4x4<f32>,
-    pos: vec3<f32>,
+    pos: vec4<f32>,
+    // Light Data
+    dirLightAmount: u32
 }
 
 // Represents the data that differentiates each instance of the same mesh
 struct ObjData {
     transform : mat4x4<f32>,
-    color : vec4<f32>,
+    normMat : mat4x4<f32>,
+    color : vec4<f32>
 }
 
 // All dynamic directional lights must have a set amount of cascades.
 // TODO: Hopefully we can create a way of modifying this at CPU side with some shader metaprogramming
 const dynamicShadowedDirLightCascadeAmount : u32 = 4;
 
+// TODO: Create specified ambient lighting
+
 // Represents a single directional light with shadows and a potential to change pos/dir over time.
 struct DynamicShadowedDirLight {
     lightSpaces : array<mat4x4<f32>, dynamicShadowedDirLightCascadeAmount>,
-    direction : vec3<f32>,
-    intensity : f32,
-    color : vec3<f32>
+    direction : vec4<f32>, // Assumed to be normal
+    diffuse : vec4<f32>,
+    specular : vec4<f32>
 }
 
-@binding(0) @group(0) var<uniform> camera : Camera;
+@binding(0) @group(0) var<uniform> fixedData : ColorPassFixedData;
 
 @binding(1) @group(0) var<storage, read> objStore : array<ObjData>; 
 
@@ -49,8 +57,9 @@ fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
 // Default pipeline for color pass 
 struct ColorPassVertexOut {
     @builtin(position) position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-    @location(1) camToVertRelPos: vec4<f32>,
+    @location(0) fragToCamPos: vec4<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) normal: vec4<f32>,
 }
 
 @vertex
@@ -59,13 +68,40 @@ fn vtxMain(in : VertexIn) -> ColorPassVertexOut {
 
   var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
 
-  out.position = camera.combinedMat * worldPos;
+  out.position = fixedData.combinedMat * worldPos;
   out.color = objStore[in.instance].color;
+  out.fragToCamPos = fixedData.pos - worldPos;
+  var nMat = objStore[in.instance].normMat;
+  out.normal = vec4(normalize(mat3x3(nMat[0].xyz, nMat[1].xyz, nMat[2].xyz) * in.normal), 1);
 
   return out;
 }
 
+// TODO: Implement blinn-phong instead of just phong
 @fragment
 fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
-    return in.color;
+    // TODO: Set ambient lighting to be specified
+
+    // Sets ambient lighting
+    var ambientIntensity : f32 = 0.05;
+    var ambient : vec4<f32> = in.color * ambientIntensity;
+
+    // Sets diffuse lighting
+    var diffuse : vec4<f32> = vec4<f32>(0, 0, 0, 0);
+    for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
+        var diffuseIntensity : f32 = max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction), 0.0);
+        diffuse += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse;
+    }
+    diffuse = diffuse * in.color;
+
+    // Sets specular lighting
+    var viewDir : vec4<f32> = vec4(normalize(in.fragToCamPos.xyz), 1);
+    var specular : vec4<f32> = vec4<f32>(0, 0, 0, 0);
+    for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
+        var specularIntensity : f32 = pow(max(dot(viewDir, reflect(-dynamicShadowedDirLightStore[dirIter].direction, in.normal)), 0.0), 32);
+        //specular += specularIntensity * dynamicShadowedDirLightStore[dirIter].specular;
+    }
+    specular = specular * in.color;
+
+    return diffuse + ambient + specular;
 }

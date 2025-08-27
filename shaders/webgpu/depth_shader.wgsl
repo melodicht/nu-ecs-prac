@@ -1,7 +1,8 @@
 // Represents the data that differentiates each instance of the same mesh
 struct ObjData {
     transform : mat4x4<f32>,
-    color : vec4<f32>,
+    normMat : mat4x4<f32>,
+    color : vec4<f32>
 }
 
 @binding(0) @group(0) var<uniform> cameraSpace : mat4x4<f32>;

@@ -54,28 +54,26 @@ struct WGPUBackendMeshIdx {
 // >>> Represents types meant to be plugged directly into the buffer <<<
 #pragma region cpu->gpu types
 
-// Represents the location of a single texture within a texture atlas
-// TODO: Likely going to be implemented with depth textures of point lights
-// struct WGPUBackendTextureAtlasIdx {
-//     u32 m_x;
-//     u32 m_y;
-//     u32 m_width;
-//     u32 m_height;
-// };
+// TODO: better represent vec3 that are upgraded to vec4 solely for alignment
 
-// Represents the transformation data of the camera
-struct WGPUBackendCameraData
+// Slots all fixed length data into one struct for efficiency
+struct WGPUBackendColorPassFixedData
 {
+    // Represents camera data
     glm::mat4 m_combined;
     glm::mat4 m_view;
     glm::mat4 m_proj;
-    glm::vec3 m_pos;
-    u32 m_filler; // ensures 144 byte size
+    glm::vec4 m_pos;
+
+    // Represents light 
+    u32 m_dirLightCount;
+    glm::vec3 buffer;
 };
 
 // Represents a instance of a mesh
 struct WGPUBackendObjectData {
     glm::mat4 m_model;
+    glm::mat4x4 m_normMat;
     glm::vec4 m_color;
 };
 
@@ -83,8 +81,8 @@ struct WGPUBackendObjectData {
 template <size_t CascadeAmount>
 struct WGPUBackendDynamicShadowedDirLightData {
     std::array<glm::mat4x4, CascadeAmount> m_lightSpaces;
-    glm::vec3 m_direction;
-    f32 m_intensity;
-    glm::vec3 m_lightColor;
+    glm::vec4 m_direction;
+    glm::vec4 m_diffuse;
+    glm::vec4 m_specular;
 };
 #pragma endregion

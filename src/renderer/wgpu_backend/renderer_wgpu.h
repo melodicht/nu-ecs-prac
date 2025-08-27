@@ -72,10 +72,9 @@ private:
     
     
     // Stores actual GPU buffers
-    WGPUBackendSingleUniformBuffer<WGPUBackendCameraData> m_cameraBuffer{ };
+    WGPUBackendSingleUniformBuffer<WGPUBackendColorPassFixedData>m_fixedColorPassDatBuffer{ };
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
-    WGPUBackendSingleStorageArrayBuffer<glm::mat4x4> m_lightSpacesStoreBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData<4>> m_dynamicShadowedDirLightBuffer{ };
 
     WGPUBackendArrayBuffer<Vertex> m_meshVertexBuffer{ };
