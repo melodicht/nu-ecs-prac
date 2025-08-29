@@ -27,9 +27,12 @@ const dynamicShadowedDirLightCascadeAmount : u32 = 4;
 // Represents a single directional light with shadows and a potential to change pos/dir over time.
 struct DynamicShadowedDirLight {
     lightSpaces : array<mat4x4<f32>, dynamicShadowedDirLightCascadeAmount>,
-    direction : vec4<f32>, // Assumed to be normal
-    diffuse : vec4<f32>,
-    specular : vec4<f32>
+    diffuse : vec3<f32>,
+    diffuseIntensity : f32,
+    specular : vec3<f32>,
+    specularIntensity : f32,
+    direction : vec3<f32>,
+    padding : f32, // Fill with useful stuff later
 }
 
 @binding(0) @group(0) var<uniform> fixedData : ColorPassFixedData;
@@ -89,8 +92,8 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
     // Sets diffuse lighting
     var diffuse : vec3<f32> = vec3<f32>(0, 0, 0);
     for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
-        var diffuseIntensity : f32 = max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction.xyz), 0.0);
-        diffuse += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse.xyz;
+        var diffuseIntensity : f32 = max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction), 0.0);
+        diffuse += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse;
     }
     diffuse = diffuse * in.color;
 
@@ -98,8 +101,8 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
     var viewDir : vec3<f32> = normalize(in.fragToCamPos);
     var specular : vec3<f32> = vec3<f32>(0, 0, 0);
     for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
-        var specularIntensity : f32 = pow(max(dot(viewDir, reflect(-dynamicShadowedDirLightStore[dirIter].direction.xyz, in.normal)), 0.0), 32);
-        specular += specularIntensity * dynamicShadowedDirLightStore[dirIter].specular.xyz;
+        var specularIntensity : f32 = pow(max(dot(viewDir, reflect(-dynamicShadowedDirLightStore[dirIter].direction, in.normal)), 0.0), 32);
+        specular += specularIntensity * dynamicShadowedDirLightStore[dirIter].specular;
     }
     specular = specular * in.color;
 

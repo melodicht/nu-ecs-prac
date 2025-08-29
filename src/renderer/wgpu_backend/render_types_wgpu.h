@@ -81,8 +81,11 @@ struct WGPUBackendObjectData {
 template <size_t CascadeAmount>
 struct WGPUBackendDynamicShadowedDirLightData {
     std::array<glm::mat4x4, CascadeAmount> m_lightSpaces;
-    glm::vec4 m_direction;
-    glm::vec4 m_diffuse;
-    glm::vec4 m_specular;
+    glm::vec3 m_diffuse;
+    float m_diffuseIntensity;
+    glm::vec3 m_specular;
+    float m_specularIntensity;
+    glm::vec3 m_direction;
+    float m_padding; // Fill with useful stuff later
 };
 #pragma endregion

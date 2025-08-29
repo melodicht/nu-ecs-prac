@@ -108,9 +108,11 @@ protected:
         std::vector<glm::mat4x4> lightViews;
         lightViews.reserve(cpuType.size());
         for (int cpuIter = 0; cpuIter < cpuType.size() ; cpuIter++) {
-            output[cpuToGPUIndices[cpuIter]].m_direction = glm::vec4(GetForwardVector(&cpuType[cpuIter].transform),1);
             output[cpuToGPUIndices[cpuIter]].m_diffuse = glm::vec4(cpuType[cpuIter].diffuse, 1);
+            output[cpuToGPUIndices[cpuIter]].m_diffuseIntensity = 1; // TODO: Implement intensity scaling
             output[cpuToGPUIndices[cpuIter]].m_specular = glm::vec4(cpuType[cpuIter].specular, 1);
+            output[cpuToGPUIndices[cpuIter]].m_specularIntensity = 1;
+            output[cpuToGPUIndices[cpuIter]].m_direction = glm::vec4(GetForwardVector(&cpuType[cpuIter].transform),1);
             lightViews.push_back(GetViewMatrix(&cpuType[cpuIter].transform));
         }
 
