@@ -43,7 +43,7 @@ struct DynamicShadowedDirLight {
 
 @binding(3) @group(0) var dynamicShadowedDirLightStoreStore : texture_depth_2d_array;
 
-@binding(4) @group(0) var shadowSampler : sampler_comparison;
+@binding(4) @group(0) var shadowMapSampler : sampler_comparison;
 
 
 struct VertexIn {
@@ -65,6 +65,7 @@ struct ColorPassVertexOut {
     @location(0) fragToCamPos: vec3<f32>,
     @location(1) color: vec3<f32>,
     @location(2) normal: vec3<f32>,
+    @location(3) worldPos: vec4<f32>
 }
 
 @vertex
@@ -73,6 +74,7 @@ fn vtxMain(in : VertexIn) -> ColorPassVertexOut {
 
   var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
 
+  out.worldPos = worldPos;
   out.position = fixedData.combinedMat * worldPos;
   out.color = objStore[in.instance].color.xyz;
   out.fragToCamPos = fixedData.pos - worldPos.xyz;
@@ -88,25 +90,28 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
     // TODO: Set ambient lighting to be specified
 
     // Sets ambient lighting
-    var ambientIntensity : f32 = 0.1;
+    var ambientIntensity : f32 = 0.25;
     var ambient : vec3<f32> = in.color * ambientIntensity;
 
     // Sets diffuse lighting
     var diffuse : vec3<f32> = vec3<f32>(0, 0, 0);
-    for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
-        var diffuseIntensity : f32 = max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction), 0.0);
-        diffuse += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse;
-    }
-    diffuse = diffuse * in.color;
 
-    // Sets specular lighting
     var viewDir : vec3<f32> = normalize(in.fragToCamPos);
     var specular : vec3<f32> = vec3<f32>(0, 0, 0);
     for (var dirIter : u32 = 0 ; dirIter < fixedData.dirLightAmount ; dirIter++) {
-        var specularIntensity : f32 = pow(max(dot(viewDir, reflect(-dynamicShadowedDirLightStore[dirIter].direction, in.normal)), 0.0), 32);
+        var lightsUncovered : f32 = 1;
+        for (var lightIter : u32 = 0 ; lightIter < dynamicShadowedDirLightCascadeAmount ; lightIter++) {
+            // Checks if location has been covered by light
+            var lightSpacePosition : vec4<f32> = dynamicShadowedDirLightStore[dirIter].lightSpaces[lightIter] * in.worldPos; 
+            lightSpacePosition.y = lightSpacePosition.y * -1;
+            lightsUncovered = lightsUncovered * textureSampleCompare(dynamicShadowedDirLightStoreStore, shadowMapSampler, lightSpacePosition.xy / lightSpacePosition.w, dirIter, lightSpacePosition.z / lightSpacePosition.w);
+        }
+        var diffuseIntensity : f32 = lightsUncovered * max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction), 0.0);
+        diffuse += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse;
+
+        var specularIntensity : f32 = lightsUncovered * pow(max(dot(viewDir, reflect(-dynamicShadowedDirLightStore[dirIter].direction, in.normal)), 0.0), 32);
         specular += specularIntensity * dynamicShadowedDirLightStore[dirIter].specular;
     }
-    specular = specular * in.color;
 
-    return vec4<f32>(diffuse + ambient + specular,1);
+    return vec4<f32>(((diffuse + specular) * in.color) + ambient,1);
 }

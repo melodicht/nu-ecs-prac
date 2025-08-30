@@ -918,7 +918,7 @@ void WGPURenderBackend::InitPipelines()
     WGPUMipmapFilterMode_Nearest, 
     0.0, 
     0.0, 
-    WGPUCompareFunction_LessEqual, 
+    WGPUCompareFunction_Less, 
     1, 
     "Shadow Map Sampler", 
     4);
