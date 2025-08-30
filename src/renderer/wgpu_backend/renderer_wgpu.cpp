@@ -760,7 +760,6 @@ void WGPURenderBackend::InitPipelines()
   objDatBind.visibility = WGPUShaderStage_Vertex;
   objDatBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   objDatBind.buffer.minBindingSize = sizeof(WGPUBackendObjectData);
-
   bindEntities.push_back( objDatBind );
   depthBindEntities.push_back( objDatBind );
 
@@ -769,7 +768,6 @@ void WGPURenderBackend::InitPipelines()
   dynamicShadowedDirLightBind.visibility = WGPUShaderStage_Fragment;
   dynamicShadowedDirLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
   dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData<4>); // Adjusts for padding
-
   bindEntities.push_back( dynamicShadowedDirLightBind );
 
   WGPUBindGroupLayoutEntry dynamicDirLightShadowMapBind = DefaultBindLayoutEntry();
@@ -782,6 +780,15 @@ void WGPURenderBackend::InitPipelines()
     .multisampled = false
   };
   bindEntities.push_back( dynamicDirLightShadowMapBind );
+
+  WGPUBindGroupLayoutEntry shadowMapSamplerMapBind = DefaultBindLayoutEntry();
+  shadowMapSamplerMapBind.binding = 4;
+  shadowMapSamplerMapBind.visibility = WGPUShaderStage_Fragment;
+  shadowMapSamplerMapBind.sampler = {
+    .nextInChain = nullptr,
+    .type = WGPUSamplerBindingType_Comparison
+  };
+  bindEntities.push_back( shadowMapSamplerMapBind );
 
   WGPUBindGroupLayoutDescriptor bindLayoutDescriptor {
     .nextInChain = nullptr,
@@ -890,9 +897,33 @@ void WGPURenderBackend::InitPipelines()
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicShadowedDirLightBuffer));
 
   // TODO: Replace placeholder 1024 x 1024 dimensions and limit
-  m_dynamicDirLightShadowMapTexture.Init(m_wgpuCore.m_device, 1024, 1024, 32, 4, "Dynamic Direction Light Shadow Maps", "Dynamic Direction Light Shadow Maps Whole", "Dynamic Direction Light Shadow Maps Layer", 3);
+  m_dynamicDirLightShadowMapTexture.Init(
+    m_wgpuCore.m_device, 
+    1024, 
+    1024, 
+    32, 
+    4, 
+    "Dynamic Direction Light Shadow Maps", 
+    "Dynamic Direction Light Shadow Maps Whole", 
+    "Dynamic Direction Light Shadow Maps Layer", 
+    3);
   m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_dynamicDirLightShadowMapTexture));
 
+  m_shadowMapSampler.InitOrUpdate(
+    m_wgpuCore.m_device, 
+    m_wgpuQueue, 
+    WGPUAddressMode_ClampToEdge, 
+    WGPUFilterMode_Nearest, 
+    WGPUFilterMode_Nearest, 
+    WGPUMipmapFilterMode_Nearest, 
+    0.0, 
+    0.0, 
+    WGPUCompareFunction_LessEqual, 
+    1, 
+    "Shadow Map Sampler", 
+    4);
+  m_bindGroup.AddEntryToBindingGroup(static_cast<WGPUBackendBindGroup::IWGPUBackendUniformEntry&>(m_shadowMapSampler));
+  
   m_bindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
   m_depthBindGroup.InitOrUpdateBindGroup(m_wgpuCore.m_device);
     
@@ -1015,7 +1046,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     .m_combined = camSpace,
     .m_view = mainCamView,
     .m_proj = mainCamProj,
-    .m_pos = glm::vec4(state.cameraTransform.position,1),
+    .m_pos = state.cameraTransform.position,
     .m_dirLightCount = (u32)dirShadowData.size()
   };
   m_fixedColorPassDatBuffer.WriteBuffer(m_wgpuQueue, colorPassState);

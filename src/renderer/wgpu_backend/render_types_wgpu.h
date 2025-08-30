@@ -63,11 +63,10 @@ struct WGPUBackendColorPassFixedData
     glm::mat4 m_combined;
     glm::mat4 m_view;
     glm::mat4 m_proj;
-    glm::vec4 m_pos;
+    glm::vec3 m_pos;
 
     // Represents light 
     u32 m_dirLightCount;
-    glm::vec3 buffer;
 };
 
 // Represents a instance of a mesh

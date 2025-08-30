@@ -6,7 +6,7 @@ struct ColorPassFixedData {
     combinedMat : mat4x4<f32>,
     viewMat : mat4x4<f32>,
     projMat : mat4x4<f32>,
-    pos: vec4<f32>,
+    pos: vec3<f32>,
     // Light Data
     dirLightAmount: u32
 }
@@ -41,7 +41,9 @@ struct DynamicShadowedDirLight {
 
 @binding(2) @group(0) var<storage, read> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
 
-@binding(3) @group(0) var dynamicShadowedDirLightStoreStore: texture_2d_array<f32>;
+@binding(3) @group(0) var dynamicShadowedDirLightStoreStore : texture_depth_2d_array;
+
+@binding(4) @group(0) var shadowSampler : sampler_comparison;
 
 
 struct VertexIn {
@@ -73,7 +75,7 @@ fn vtxMain(in : VertexIn) -> ColorPassVertexOut {
 
   out.position = fixedData.combinedMat * worldPos;
   out.color = objStore[in.instance].color.xyz;
-  out.fragToCamPos = fixedData.pos.xyz - worldPos.xyz;
+  out.fragToCamPos = fixedData.pos - worldPos.xyz;
   var nMat = objStore[in.instance].normMat;
   out.normal = normalize(mat3x3(nMat[0].xyz, nMat[1].xyz, nMat[2].xyz) * in.normal);
 

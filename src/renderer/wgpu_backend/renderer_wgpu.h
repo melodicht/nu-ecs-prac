@@ -76,6 +76,7 @@ private:
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData<4>> m_dynamicShadowedDirLightBuffer{ };
+    WGPUBackendSampler m_shadowMapSampler{ };
 
     WGPUBackendArrayBuffer<Vertex> m_meshVertexBuffer{ };
     WGPUBackendArrayBuffer<u32> m_meshIndexBuffer{ };

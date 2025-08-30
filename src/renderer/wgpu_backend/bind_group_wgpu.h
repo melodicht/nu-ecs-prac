@@ -362,5 +362,83 @@ public:
     void WriteBuffer(WGPUQueue& queue, const UniformStruct& data) {
         wgpuQueueWriteBuffer(queue, m_bufferDat, 0, &data, sizeof(UniformStruct));
     }
+};
 
+// Sampler
+class WGPUBackendSampler : public WGPUBackendBindGroup::IWGPUBackendUniformEntry {
+private:
+    // Encapsulated sampler data
+    WGPUSampler m_samplerData = nullptr;
+    WGPUBindGroupEntry m_currentBindGroupEntry;
+    std::vector<std::reference_wrapper<WGPUBackendBindGroup>> m_bindGroups;
+    bool m_inited = false;
+
+    void UpdateRegisteredBindGroups(const WGPUDevice& device, const WGPUQueue& queue) {
+        // Recreates binding group
+        for (std::reference_wrapper<WGPUBackendBindGroup> bindGroup : m_bindGroups) {
+            bindGroup.get().InitOrUpdateBindGroup(device);
+        }
+    }
+
+    // No need to update bind group therefore no change
+    void RegisterBindGroup(WGPUBackendBindGroup& bindGroup) override { m_bindGroups.push_back(bindGroup); }
+
+    WGPUBindGroupEntry GetEntry() override {
+        return m_currentBindGroupEntry;
+    }
+
+public:
+    // Uninitialized uniform buffer
+    WGPUBackendSampler() { }
+
+    ~WGPUBackendSampler() {
+        if (m_samplerData != nullptr) {
+            wgpuSamplerRelease(m_samplerData);
+        }
+    }
+    void InitOrUpdate(
+        const WGPUDevice& device,
+        const WGPUQueue& queue,
+        WGPUAddressMode expandBehavior, 
+        WGPUFilterMode magFilter, 
+        WGPUFilterMode minFilter, 
+        WGPUMipmapFilterMode mipmapFilter, 
+        float lowestMipMap,
+        float greatestMipMap,
+        WGPUCompareFunction compareFunction,
+        u16 maxAnisotropy,
+        const std::string& label,
+        u32 binding
+        ) {
+        WGPUSamplerDescriptor samplerDesc {
+            .nextInChain = nullptr,
+            .label = label.data(),
+            .addressModeU = expandBehavior,
+            .addressModeV = expandBehavior,
+            .addressModeW = expandBehavior,
+            .magFilter = magFilter,
+            .minFilter = minFilter,
+            .mipmapFilter = mipmapFilter,
+            .lodMinClamp = lowestMipMap,
+            .lodMaxClamp = greatestMipMap,
+            .compare = compareFunction,
+            .maxAnisotropy = maxAnisotropy,
+        };
+    
+        m_samplerData = wgpuDeviceCreateSampler(device, &samplerDesc);
+
+        m_currentBindGroupEntry = {
+            .binding = binding,
+            .sampler = m_samplerData
+        };
+
+        m_inited = true;
+        UpdateRegisteredBindGroups(device, queue);
+    }
+
+    // Ensures no copy is made to avoid wgpu object reference conflicts
+    WGPUBackendSampler(const WGPUBackendSampler&) = delete;
+    WGPUBackendSampler& operator=(const WGPUBackendSampler&) = delete;
+    WGPUBackendSampler(WGPUBackendSampler&&) = delete;
+    WGPUBackendSampler& operator=(WGPUBackendSampler&&) = delete;
 };
