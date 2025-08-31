@@ -103,7 +103,10 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         for (var lightIter : u32 = 0 ; lightIter < dynamicShadowedDirLightCascadeAmount ; lightIter++) {
             // Checks if location has been covered by light
             var lightSpacePosition : vec4<f32> = dynamicShadowedDirLightStore[dirIter].lightSpaces[lightIter] * in.worldPos; 
-            lightsUncovered = lightsUncovered * textureSampleCompare(dynamicShadowedDirLightStoreStore, shadowMapSampler, lightSpacePosition.xy / lightSpacePosition.w, dirIter, lightSpacePosition.z / lightSpacePosition.w);
+            lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
+            var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
+            var bias: f32 = max(0.05 * (1.0 - dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction)), 0.005); 
+            lightsUncovered = lightsUncovered * textureSampleCompare(dynamicShadowedDirLightStoreStore, shadowMapSampler, texturePosition.xy, dirIter, texturePosition.z - bias);
         }
         var diffuseIntensity : f32 = lightsUncovered * max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction), 0.0);
         diffuse += diffuseIntensity * dynamicShadowedDirLightStore[dirIter].diffuse;
