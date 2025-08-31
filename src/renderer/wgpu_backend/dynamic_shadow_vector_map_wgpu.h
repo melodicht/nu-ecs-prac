@@ -62,7 +62,7 @@ public:
         auto shadowIter = shadowUpdate.begin();
         while (shadowIter != shadowUpdate.end() && gpuIdsIter != lightIds.end()) {
             if (*gpuIdsIter == GetCPULightID(*shadowIter)) {
-                indices.push_back(std::distance(lightIds.begin(), gpuIdsIter));
+                indices.push_back((int)std::distance(lightIds.begin(), gpuIdsIter));
                 shadowIter++;
             }
             gpuIdsIter++;
@@ -80,15 +80,15 @@ public:
 #include "renderer/wgpu_backend/render_types_wgpu.h"
 #include "renderer/render_backend.h"
 
+// TODO: Change to informed amount
+#define DefaultCascade 1
+
 template <size_t CascadeSize>
 class WGPUBackendDirectionalDynamicShadowMap : public WGPUBackendDynamicShadowVectorMap<
         WGPUBackendDynamicShadowedDirLightData<CascadeSize>,
         DirLightRenderInfo, 
         const glm::mat4x4*,
-        const float,
-        const float, 
-        const float, 
-        const float> {
+        float> {
 protected:
     LightID GetCPULightID(const DirLightRenderInfo& cpuType) override final {
         return cpuType.lightID;
@@ -98,11 +98,8 @@ protected:
         std::vector<DirLightRenderInfo>& cpuType,
         std::vector<int>& cpuToGPUIndices,
         std::vector<WGPUBackendDynamicShadowedDirLightData<CascadeSize>>& output,
-        const glm::mat4x4* camView,
-        const float camAspect,
-        const float camFov, 
-        const float camNear, 
-        const float camFar) override final {
+        const glm::mat4x4* camSpaceMat,
+        float camFar) override final {
 
         // Inserts non light space data into GPU data
         std::vector<glm::mat4x4> lightViews;
@@ -119,25 +116,33 @@ protected:
         // Inserts light space matrix data into GPU data
 
         // TODO: Implement custom functionality for cascade ratios
-        std::vector<glm::mat4x4> m_lightSpaces;
-            std::array<std::array<float, 2>, CascadeSize> cascadeRatios = {{{{0.0f, 0.3f}}, {{0.25f, 0.55f}}, {{0.5f, 0.8f}} , {{0.75f, 1.00f}}}};
-        
-        const float camNearFarDiff = camFar - camNear;
-        float currentCascadeEnd = camNear;
-        float currentCascadeStart = camNear;
+        glm::mat4x4 invertedCamSpace = glm::inverse(*camSpaceMat);
+        float currentCascadeStart;
+        float currentCascadeEnd;
         for (int cascadeIterator = 0; cascadeIterator < CascadeSize; cascadeIterator++)
         {
-            currentCascadeStart = cascadeRatios[cascadeIterator][0] * camNearFarDiff;
-            currentCascadeEnd = cascadeRatios[cascadeIterator][1] * camNearFarDiff;
-            glm::mat4 subProj = glm::perspective(glm::radians(camFov), camAspect,
-                                                    camNear + currentCascadeStart, camNear + currentCascadeEnd);
+            currentCascadeStart = (cascadeIterator/ CascadeSize);
+            currentCascadeEnd = ((cascadeIterator + 1) / CascadeSize);
 
-            std::vector<glm::vec4> corners = GetFrustumCorners(subProj, *camView);
+            std::array<glm::vec4, 8> corners;
+            u8 cornerIter = 0;
+            for (i8 x = -1 ; x <= 1 ; x += 2) {
+                for (i8 y = -1 ; y <= 1 ; y += 2) {
+                    corners[cornerIter] = invertedCamSpace * glm::vec4(x,y,currentCascadeStart,1);
+                    corners[cornerIter] /= corners[cornerIter].w;
+                    cornerIter++;
+                    corners[cornerIter] = (invertedCamSpace * glm::vec4(x,y,currentCascadeEnd,1)) ;
+                    corners[cornerIter] /= corners[cornerIter].w;
+                    cornerIter++;
+                }
+            }
+
             for (int cpuIter = 0; cpuIter < cpuType.size() ; cpuIter++) {
                 f32 minX = std::numeric_limits<f32>::max();
                 f32 maxX = std::numeric_limits<f32>::lowest();
                 f32 minY = std::numeric_limits<f32>::max();
                 f32 maxY = std::numeric_limits<f32>::lowest();
+                f32 minZ = std::numeric_limits<f32>::max();
                 f32 maxZ = std::numeric_limits<f32>::lowest();
 
                 for (const glm::vec4& v : corners) {
@@ -147,10 +152,11 @@ protected:
                     minY = std::min(minY, trf.y);
                     maxY = std::max(maxY, trf.y);
                     maxZ = std::max(maxZ, trf.z);
+                    minZ = std::min(minZ, trf.z);
                 }
 
-                // TODO: Find more specific method for determining maxZ size
-                glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, maxZ - camFar, maxZ);  
+                // TODO: Find more specific method for determining distance from frustum (MinZ)
+                glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);  
                 
                 // Inserts dir light into gpu vector   
                 output[cpuToGPUIndices[cpuIter]].m_lightSpaces[cascadeIterator] = dirProj * lightViews[cpuIter];

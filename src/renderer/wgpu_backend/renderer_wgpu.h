@@ -66,7 +66,7 @@ private:
     WGPUBackendBaseDynamicShadowMapArray m_dynamicDirLightShadowMapTexture;
 
     // CPU-> Gathers into these vector maps -> Copied into buffer
-    WGPUBackendDirectionalDynamicShadowMap<4> m_dynamicShadowedDirLights;
+    WGPUBackendDirectionalDynamicShadowMap<DefaultCascade> m_dynamicShadowedDirLights;
 
     LightID m_dynamicShadowedDirLightNextID = 0;
     
@@ -75,7 +75,7 @@ private:
     WGPUBackendSingleUniformBuffer<WGPUBackendColorPassFixedData>m_fixedColorPassDatBuffer{ };
     WGPUBackendSingleUniformBuffer<glm::mat4x4> m_cameraSpaceBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendObjectData> m_instanceDatBuffer{ };
-    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData<4>> m_dynamicShadowedDirLightBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData<DefaultCascade>> m_dynamicShadowedDirLightBuffer{ };
     WGPUBackendSampler m_shadowMapSampler{ };
 
     WGPUBackendArrayBuffer<Vertex> m_meshVertexBuffer{ };
@@ -108,6 +108,8 @@ private:
     // TODO: Implement spot light and point light
     void PrepareShadowInformation(
         const glm::mat4x4& camView,
+        const glm::mat4x4& camProj,
+        const glm::mat4x4& camCombinedMat,
         const float camAspect,
         const float camFov, 
         const float camNear, 

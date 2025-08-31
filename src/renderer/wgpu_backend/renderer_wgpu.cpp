@@ -176,6 +176,8 @@ void WGPURenderBackend::ErrorCallback(WGPUDevice const * device, WGPUErrorType t
 
 void WGPURenderBackend::PrepareShadowInformation(
   const glm::mat4x4& camView,
+  const glm::mat4x4& camProj,
+  const glm::mat4x4& camCombinedMat,
   const float camAspect,
   const float camFov, 
   const float camNear, 
@@ -183,7 +185,7 @@ void WGPURenderBackend::PrepareShadowInformation(
   std::vector<DirLightRenderInfo>& gotDirLightRenderInfo,
   std::vector<SpotLightRenderInfo>& gotSpotLightRenderInfo,
   std::vector<PointLightRenderInfo>& gotPointLightRenderInfo) {
-    m_dynamicShadowedDirLights.Update(gotDirLightRenderInfo, &camView, camAspect, camFov, camNear, camFar);
+    m_dynamicShadowedDirLights.Update(gotDirLightRenderInfo, &camCombinedMat, camFar);
   }
 
 bool WGPURenderBackend::InitFrame() {
@@ -767,7 +769,7 @@ void WGPURenderBackend::InitPipelines()
   dynamicShadowedDirLightBind.binding = 2;
   dynamicShadowedDirLightBind.visibility = WGPUShaderStage_Fragment;
   dynamicShadowedDirLightBind.buffer.type = WGPUBufferBindingType_ReadOnlyStorage;
-  dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData<4>); // Adjusts for padding
+  dynamicShadowedDirLightBind.buffer.minBindingSize = sizeof(WGPUBackendDynamicShadowedDirLightData<DefaultCascade>); // Adjusts for padding
   bindEntities.push_back( dynamicShadowedDirLightBind );
 
   WGPUBindGroupLayoutEntry dynamicDirLightShadowMapBind = DefaultBindLayoutEntry();
@@ -902,7 +904,7 @@ void WGPURenderBackend::InitPipelines()
     1024, 
     1024, 
     32, 
-    4, 
+    DefaultCascade, 
     "Dynamic Direction Light Shadow Maps", 
     "Dynamic Direction Light Shadow Maps Whole", 
     "Dynamic Direction Light Shadow Maps Layer", 
@@ -918,7 +920,7 @@ void WGPURenderBackend::InitPipelines()
     WGPUMipmapFilterMode_Nearest, 
     0.0, 
     0.0, 
-    WGPUCompareFunction_Less, 
+    WGPUCompareFunction_LessEqual, 
     1, 
     "Shadow Map Sampler", 
     4);
@@ -1017,9 +1019,10 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   float mainCamAspectRatio = (float)m_screenWidth / (float)m_screenHeight;
   glm::mat4x4 mainCamProj = glm::perspective(glm::radians(state.cameraFov), mainCamAspectRatio, state.cameraNear, state.cameraFar);
   glm::mat4x4 mainCamView = GetViewMatrix(&state.cameraTransform);
-
-  // Prepares dynamic shadowed lights to be rendered 
-  PrepareShadowInformation(mainCamView, mainCamAspectRatio, state.cameraFov, state.cameraNear, state.cameraFar, state.dirLights, state.spotLights, state.pointLights);
+  glm::mat4x4 camSpace = mainCamProj * mainCamView;
+    
+  // Prepares dynamic shadowed lights to be rendered
+  PrepareShadowInformation(mainCamView, mainCamProj, camSpace, mainCamAspectRatio, state.cameraFov, state.cameraNear, state.cameraFar, state.dirLights, state.spotLights, state.pointLights);
 
   // >>> Actually begins sending off information to be rendered <<<
 
@@ -1027,20 +1030,19 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
   m_instanceDatBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, objData.data(), (u32)objData.size());
 
   // Begins writing in shadow mapping passes and inserting data for shadowed lights 
-  const std::vector<WGPUBackendDynamicShadowedDirLightData<4>>& dirShadowData = m_dynamicShadowedDirLights.GetShadowData();
+  const std::vector<WGPUBackendDynamicShadowedDirLightData<DefaultCascade>>& dirShadowData = m_dynamicShadowedDirLights.GetShadowData();
   for (u32 dirShadowIdx = 0; dirShadowIdx < dirShadowData.size() ; dirShadowIdx++) {
-    // TODO: Replace 4 with informed amount
-    for (u8 cascadeIter = 0 ; cascadeIter < 4 ; cascadeIter++) {
+    // TODO: Replace DefaultCascade with informed amount
+    for (u8 cascadeIter = 0 ; cascadeIter < DefaultCascade ; cascadeIter++) {
       m_cameraSpaceBuffer.WriteBuffer(m_wgpuQueue, dirShadowData[dirShadowIdx].m_lightSpaces[cascadeIter]);
-      BeginDepthPass(m_dynamicDirLightShadowMapTexture.GetView(dirShadowIdx * 4 + cascadeIter));
+      BeginDepthPass(m_dynamicDirLightShadowMapTexture.GetView(dirShadowIdx * DefaultCascade + cascadeIter));
       DrawObjects(meshCounts);
       EndPass();
     }
   }
 
-  m_dynamicShadowedDirLightBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, dirShadowData.data(), sizeof(WGPUBackendDynamicShadowedDirLightData<4>) * (u32)dirShadowData.size());
+  m_dynamicShadowedDirLightBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, dirShadowData.data(), sizeof(WGPUBackendDynamicShadowedDirLightData<DefaultCascade>) * (u32)dirShadowData.size());
 
-  glm::mat4x4 camSpace = mainCamProj * mainCamView;
   // Sets the 
   WGPUBackendColorPassFixedData colorPassState {
     .m_combined = camSpace,

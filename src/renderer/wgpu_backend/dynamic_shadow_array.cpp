@@ -162,7 +162,7 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     // Create views to link to shadow map
     m_textureData = wgpuDeviceCreateTexture(device, &textureDesc);
     
-    const WGPUTextureViewDescriptor textureViewDesc {
+    WGPUTextureViewDescriptor textureViewDesc {
         .nextInChain = nullptr,
         .label = WGPUBackendUtils::wgpuStr("Dynamic Directional Shadowed Light Texture View"),
         .format = WGPUTextureFormat_Depth32Float,
@@ -176,6 +176,9 @@ void WGPUBackendBaseDynamicShadowMapArray::Init(
     };
 
     m_wholeTextureDataView = wgpuTextureCreateView(m_textureData, &textureViewDesc);
+
+    textureViewDesc.dimension = WGPUTextureViewDimension_2D;
+    textureViewDesc.label = WGPUBackendUtils::wgpuStr(m_layerViewLabel.data());
 
     m_arrayLayerViews.push_back(wgpuTextureCreateView(m_textureData, &textureViewDesc));
 

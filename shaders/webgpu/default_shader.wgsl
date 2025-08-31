@@ -20,7 +20,7 @@ struct ObjData {
 
 // All dynamic directional lights must have a set amount of cascades.
 // TODO: Hopefully we can create a way of modifying this at CPU side with some shader metaprogramming
-const dynamicShadowedDirLightCascadeAmount : u32 = 4;
+const dynamicShadowedDirLightCascadeAmount : u32 = 1;
 
 // TODO: Create specified ambient lighting
 
@@ -103,7 +103,6 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         for (var lightIter : u32 = 0 ; lightIter < dynamicShadowedDirLightCascadeAmount ; lightIter++) {
             // Checks if location has been covered by light
             var lightSpacePosition : vec4<f32> = dynamicShadowedDirLightStore[dirIter].lightSpaces[lightIter] * in.worldPos; 
-            lightSpacePosition.y = lightSpacePosition.y * -1;
             lightsUncovered = lightsUncovered * textureSampleCompare(dynamicShadowedDirLightStoreStore, shadowMapSampler, lightSpacePosition.xy / lightSpacePosition.w, dirIter, lightSpacePosition.z / lightSpacePosition.w);
         }
         var diffuseIntensity : f32 = lightsUncovered * max(dot(in.normal, dynamicShadowedDirLightStore[dirIter].direction), 0.0);
