@@ -34,10 +34,10 @@
 
 #include "renderer/render_types.h"
 
-uint32_t cuboidMesh;
-uint32_t trapMesh;
-uint32_t pyraMesh;
-uint32_t prismMesh;
+MeshID cuboidMesh;
+MeshID trapMesh;
+MeshID pyraMesh;
+MeshID prismMesh;
 
 struct Rigidbody
 {

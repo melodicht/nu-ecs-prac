@@ -215,6 +215,8 @@ target_link_libraries(platform PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND)
 
+add_dependencies(platform game-module)
+
 if (EMSCRIPTEN)
         set_target_properties(platform PROPERTIES SUFFIX ".html")
 elseif (WIN32)
