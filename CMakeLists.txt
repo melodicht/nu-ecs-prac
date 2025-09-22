@@ -122,10 +122,11 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
                 ${VULKAN_SRC_DIR}/renderer_vk.cpp
                 ${VULKAN_SRC_DIR}/VkBootstrap.cpp
                 ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
-        target_link_libraries(vulkan-backend PRIVATE Vulkan::Vulkan)
+        target_link_libraries(vulkan-backend PRIVATE Vulkan::Headers)
         target_link_libraries(vulkan-backend PRIVATE SDL3::SDL3)
         target_link_libraries(vulkan-backend PRIVATE glm::glm)
         target_link_libraries(vulkan-backend PRIVATE imgui)
+        target_compile_definitions(vulkan-backend PRIVATE VK_NO_PROTOTYPES)
         target_include_directories(vulkan-backend PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/include
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
@@ -194,7 +195,7 @@ if(NOT EMSCRIPTEN)
 
                 file(GLOB_RECURSE SHADERS "${SHADERS_IN_DIR}/*.slang")
 
-                set(SLANGC "slangc")
+                set(SLANGC "${CMAKE_CURRENT_SOURCE_DIR}/tools/slang/slangc")
 
                 file(MAKE_DIRECTORY ${SHADERS_OUT_DIR})
 

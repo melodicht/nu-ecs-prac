@@ -526,14 +526,10 @@ SDL_WindowFlags GetRenderWindowFlags()
 // Initialize the rendering API
 void InitRenderer(RenderInitInfo& info)
 {
-    if (volkInitialize() != VK_SUCCESS)
-    {
-        printf("Volk could not initialize!");
-        return;
-    }
+    volkInitializeCustom((PFN_vkGetInstanceProcAddr)SDL_Vulkan_GetVkGetInstanceProcAddr());
 
     // Create Vulkan instance
-    vkb::InstanceBuilder builder;
+    vkb::InstanceBuilder builder{vkGetInstanceProcAddr};
     vkb::Instance vkbInstance = builder
             .set_app_name("Untitled Engine")
             .request_validation_layers()
@@ -543,7 +539,7 @@ void InitRenderer(RenderInitInfo& info)
 
 
     instance = vkbInstance.instance;
-    volkLoadInstance(instance);
+    volkLoadInstanceOnly(instance);
     debugMessenger = vkbInstance.debug_messenger;
 
 
