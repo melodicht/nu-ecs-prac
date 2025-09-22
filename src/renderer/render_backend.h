@@ -1,99 +1,146 @@
 #pragma once
 
+#include "math/skl_math_consts.h"
 #include "render_types.h"
 
 #include <SDL3/SDL.h>
 
-#include <cstdint>
+#include <map>
 
-// Common interface between renderers for systems to call
-// Assumes that a SDL3 surface is being drawn upon
+// Common interface between renderers for systems to call.
+// The interfaces take in Info objects in order to allow for 
+// updates to the inputs of the interface without updates of everything that uses the interface .
+// Assumes that a SDL3 surface is being drawn upon.
 
 // Get the flags that should be added onto the SDL window creation to support this backend
 SDL_WindowFlags GetRenderWindowFlags();
 
 // Sets a SDL window to draw to and initializes the back end
-void InitRenderer(SDL_Window *window, u32 startWidth, u32 startHeight);
+struct RenderInitInfo {
+    // Shared 
+    SDL_Window *window;
+    u32 startWidth;
+    u32 startHeight;
+
+    // Vulkan Specific 
+
+    // WGPU Specific
+};
+void InitRenderer(RenderInitInfo& info);
 
 // Set up the render pipelines
-void InitPipelines(u32 numCascades);
+struct RenderPipelineInitInfo {
+    // Shared 
+
+    // Vulkan Specific
+
+    // WGPU Specific
+};
+void InitPipelines(RenderPipelineInitInfo& info);
 
 // Moves a mesh to the GPU,
 // Returns a uint that represents the mesh's ID
-MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices);
-MeshID UploadMesh(MeshAsset &asset);
+struct RenderUploadMeshInfo {
+    // Shared 
+    Vertex* vertData;
+    u32* idxData;
+    u32 vertSize;
+    u32 idxSize;
 
-// Create a grayscale depth texture that can be used as a depth target
-// and can also be sampled from shaders
-TextureID CreateDepthTexture(u32 width, u32 height);
+    // Vulkan Specific
 
-// Create a depth array texture with the given dimensions and number of layers
-TextureID CreateDepthArray(u32 width, u32 height, u32 layers);
+    // WGPU Specific
+};
+MeshID UploadMesh(RenderUploadMeshInfo& info);
 
-// Create a depth cubemap texture with the given dimensions for each side
-TextureID CreateDepthCubemap(u32 width, u32 height);
+LightID AddDirLight();
+LightID AddSpotLight();
+LightID AddPointLight();
 
-// Destroy the texture at the given TextureID
-void DestroyTexture(TextureID textureID);
+void DestroyDirLight(LightID lightID);
+void DestroySpotLight(LightID lightID);
+void DestroyPointLight(LightID lightID);
 
 // Destroy the mesh at the given MeshID
-void DestroyMesh(MeshID meshID);
+struct RenderDestroyMeshInfo {
+    // Shared 
+    MeshID meshID;
 
-// Add a new camera to the scene. You need multiple cameras
-// if you want to render multiple views in the same frame.
-CameraID AddCamera(u32 viewCount);
+    // Vulkan Specific
 
-// Initialize the frame and begin recording rendering commands
-bool InitFrame();
+    // WGPU Specific
+};
+void DestroyMesh(RenderDestroyMeshInfo& info);
 
-// Begin a depth only rendering pass onto the screen depth image
-// cullMode specifies the face culling mode to use for this pass
-// depthBias specifies whether to apply a bias to the depth test during this pass (to solve shadow acne)
-void BeginDepthPass(CullMode cullMode);
+struct MeshRenderInfo {
+    // Shared
+    glm::mat4 matrix;
+    glm::vec3 rgbColor;
+    MeshID mesh;
 
-// Begin a shadow depth pass onto the given texture
-void BeginShadowPass(TextureID target, CullMode cullMode);
+    // Vulkan Specific
 
-// Begin a multiview shadow depth pass onto the given array texture
-void BeginCascadedPass(TextureID target, CullMode cullMode);
+    // WGPU Specific
+};
 
-// Begin a shadow depth pass onto the given cubemap texture
-void BeginCubemapShadowPass(TextureID target, CullMode cullMode);
+struct DirLightRenderInfo {
+    // Shared
+    LightID lightID;
+    Transform3D transform;
 
-// Begin a color rendering pass
-// cullMode specifies the face culling mode to use for this pass
-// depthBias specifies whether to apply depth bias in this pass
-void BeginColorPass(CullMode cullMode);
+    glm::vec3 diffuse;
+    glm::vec3 specular;
 
-// End the current rendering pass
-void EndPass();
+    // Vulkan Specific
 
-// Draw the current ImGui frame onto the rendered image
-void DrawImGui();
+    // WGPU Specific
+};
 
-// Set the camera to use for rendering with the given ID
-void SetCamera(CameraID id);
+struct SpotLightRenderInfo {
+    LightID lightID;
+    Transform3D transform;
 
-// Update the currently selected camera. viewCount must be equal to the number of views that the selected camera has.
-void UpdateCamera(u32 viewCount, CameraData* views);
+    glm::vec3 diffuse;
+    glm::vec3 specular;
 
-void SetCubemapInfo(glm::vec3 lightPos, f32 farPlane);
+    f32 innerCone;
+    f32 outerCone;
+    f32 range;
+};
 
-// Set scene directional light information to use for rendering
-void SetLights(glm::vec3 ambientLight,
-               u32 dirCount, DirLightData* dirData, LightCascade* dirCascades,
-               u32 spotCount, SpotLightData* spotData,
-               u32 pointCount, PointLightData* pointData);
+struct PointLightRenderInfo {
+    LightID lightID;
+    Transform3D transform;
 
-// Set the mesh currently being rendered to
-void SetMesh(MeshID meshID);
+    glm::vec3 diffuse;
+    glm::vec3 specular;
 
-// Send the object data of the models to render
-void SendObjectData(std::vector<ObjectData>& objects);
+    f32 constant;
+    f32 linear;
+    f32 quadratic;
 
-// End the frame and present it to the screen
-void EndFrame();
+    f32 maxRange;
+};
 
-// Draw multiple objects to the screen whose object data starts at startIndex
-// in the most recently provided object data
-void DrawObjects(int count, int startIndex);
+// Represents the information needed to render a single frame on any renderer
+struct RenderFrameInfo {
+    // Shared
+    Transform3D cameraTransform;
+    std::vector<MeshRenderInfo> &meshes;
+
+    std::vector<DirLightRenderInfo>& dirLights;
+    std::vector<SpotLightRenderInfo>& spotLights;
+    std::vector<PointLightRenderInfo>& pointLights;
+
+    float cameraFov;
+    float cameraNear;
+    float cameraFar;
+
+    // Vulkan Specific
+
+    // WGPU Specific
+};
+
+// Renders a frame using the supplied render state
+// The driving function of the entire renderer.
+void RenderUpdate(RenderFrameInfo& info);

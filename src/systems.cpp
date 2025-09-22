@@ -1,6 +1,6 @@
 class GravitySystem : public System
 {
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    void OnUpdate(Scene *scene, f32 deltaTime)
     {
         for (EntityID ent: SceneView<Rigidbody, GravityComponent>(*scene))
         {
@@ -43,7 +43,7 @@ void scanCollision(CircleCollider *checkCollider, Rigidbody *accessRigid, Transf
 
 class CollisionSystem : public System
 {
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    void OnUpdate(Scene *scene, f32 deltaTime)
     {
         // Forward movement, collision, rendering
         for (EntityID ent: SceneView<Transform3D, Rigidbody, CircleCollider>(*scene))
@@ -116,9 +116,21 @@ class RenderSystem : public System
         ambientLight = {0.1, 0.1, 0.1};
     }
 
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    void OnUpdate(Scene *scene, f32 deltaTime)
     {
         NAMED_TIMED_BLOCK(RenderSystem);
+        // Get the main camera view
+        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
+        if (cameraView.begin() == cameraView.end())
+        {
+            return;
+        }
+
+        EntityID cameraEnt = *cameraView.begin();
+        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
+        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
+
+        std::vector<DirLightRenderInfo> dirLights;
         for (EntityID ent: SceneView<DirLight, Transform3D>(*scene))
         {
             DirLight *l = scene->Get<DirLight>(ent);
@@ -190,136 +202,7 @@ class RenderSystem : public System
             glm::mat4 model = GetTransformMatrix(t);
             MeshComponent *m = scene->Get<MeshComponent>(ent);
             MeshID mesh = m->mesh;
-            ColorComponent *c = scene->Get<ColorComponent>(ent);
-
-            objects[offsets[mesh]++] = {model, glm::vec4(c->r, c->g, c->b, 1.0f)};
-        }
-
-        SendObjectData(objects);
-
-        // Get the main camera view
-
-        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
-        if (cameraView.begin() == cameraView.end())
-        {
-#if SKL_ENABLED_EDITOR
-            DrawImGui();
-#endif
-            EndFrame();
-            return;
-        }
-
-        EntityID cameraEnt = *cameraView.begin();
-        CameraComponent *camera = scene->Get<CameraComponent>(cameraEnt);
-        Transform3D *cameraTransform = scene->Get<Transform3D>(cameraEnt);
-        glm::mat4 view = GetViewMatrix(cameraTransform);
-        f32 aspect = (f32)WINDOW_WIDTH / (f32)WINDOW_HEIGHT;
-
-        glm::mat4 proj = glm::perspective(glm::radians(camera->fov), aspect, camera->nearxx, camera->farxx);
-
-        // Calculate cascaded shadow views
-
-        CameraData dirViews[NUM_CASCADES];
-
-        f32 subFrustumSize = (camera->farxx - camera->nearxx) / NUM_CASCADES;
-
-        f32 currentNear = camera->nearxx;
-
-        std::vector<DirLightData> dirLightData;
-
-        std::vector<LightCascade> cascades;
-
-        u32 startIndex;
-
-        for (EntityID dirEnt: SceneView<DirLight, Transform3D>(*scene))
-        {
-            Transform3D *dirTransform = scene->Get<Transform3D>(dirEnt);
-            DirLight *dirLight = scene->Get<DirLight>(dirEnt);
-            glm::mat4 dirView = GetViewMatrix(dirTransform);
-
-            for (int i = 0; i < NUM_CASCADES; i++)
-            {
-                glm::mat4 subProj = glm::perspective(glm::radians(camera->fov), aspect,
-                                                     currentNear, currentNear + subFrustumSize);
-                currentNear += subFrustumSize;
-
-                f32 minX = std::numeric_limits<f32>::max();
-                f32 maxX = std::numeric_limits<f32>::lowest();
-                f32 minY = std::numeric_limits<f32>::max();
-                f32 maxY = std::numeric_limits<f32>::lowest();
-                f32 minZ = std::numeric_limits<f32>::max();
-                f32 maxZ = std::numeric_limits<f32>::lowest();
-
-                std::vector<glm::vec4> corners = getFrustumCorners(subProj, view);
-
-                for (const glm::vec3& v : corners)
-                {
-                    const glm::vec4 trf = dirView * glm::vec4(v, 1.0);
-                    minX = std::min(minX, trf.x);
-                    maxX = std::max(maxX, trf.x);
-                    minY = std::min(minY, trf.y);
-                    maxY = std::max(maxY, trf.y);
-                    minZ = std::min(minZ, trf.z);
-                    maxZ = std::max(maxZ, trf.z);
-                }
-
-                glm::mat4 dirProj = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-
-                dirViews[i] = {dirView, dirProj, {}};
-
-                cascades.push_back({dirProj * dirView, currentNear});
-            }
-
-            glm::vec3 lightDir = GetForwardVector(dirTransform);
-
-            BeginCascadedPass(dirLight->shadowID, CullMode::BACK);
-
-            SetCamera(dirLight->cameraID);
-            UpdateCamera(NUM_CASCADES, dirViews);
-
-            startIndex = 0;
-            for (std::pair<MeshID, u32> pair: meshCounts)
-            {
-                SetMesh(pair.first);
-                DrawObjects(pair.second, startIndex);
-                startIndex += pair.second;
-            }
-            EndPass();
-
-            dirLightData.push_back({GetForwardVector(dirTransform), dirLight->shadowID,
-                                    dirLight->diffuse, dirLight->specular});
-        }
-
-
-        std::vector<SpotLightData> spotLightData;
-
-        for (EntityID spotEnt: SceneView<SpotLight, Transform3D>(*scene))
-        {
-            Transform3D *spotTransform = scene->Get<Transform3D>(spotEnt);
-            SpotLight *spotLight = scene->Get<SpotLight>(spotEnt);
-
-            glm::mat4 spotView = GetViewMatrix(spotTransform);
-            glm::mat4 spotProj = glm::perspective(glm::radians(spotLight->outerCone * 2), 1.0f, 0.01f, spotLight->range);
-            CameraData spotCamData = {spotView, spotProj, spotTransform->position};
-
-            BeginShadowPass(spotLight->shadowID, CullMode::BACK);
-
-            SetCamera(spotLight->cameraID);
-            UpdateCamera(1, &spotCamData);
-
-            startIndex = 0;
-            for (std::pair<MeshID, u32> pair: meshCounts)
-            {
-                SetMesh(pair.first);
-                DrawObjects(pair.second, startIndex);
-                startIndex += pair.second;
-            }
-            EndPass();
-
-            spotLightData.push_back({spotProj * spotView, spotTransform->position, GetForwardVector(spotTransform),
-                                     spotLight->shadowID, spotLight->diffuse, spotLight->specular,
-                                     cos(glm::radians(spotLight->innerCone)), cos(glm::radians(spotLight->outerCone)),
-                                     spotLight->range});
+            meshInstances.push_back({model, {c->r, c->g, c->b}, mesh});
         }
 
         std::vector<PointLightData> pointLightData;
@@ -402,139 +285,35 @@ class RenderSystem : public System
     }
 };
 
-// TODO(marvin): Figure out a better place to put this, for it is not
-// a system, and too generalisable for it to be a private method on
-// CharacterControllerSystem.
-
-local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
-{
-    // NOTE(marvin): Jolt uses right-hand coordinate system with Y up.
-    JPH::Vec3 result = {};
-    if (input->keysDown["W"])
-    {
-        result = JPH::Vec3(0, 0, 1);
-    }
-    else if (input->keysDown["S"])
-    {
-        result = JPH::Vec3(0, 0, -1);
-    }
-    else if (input->keysDown["D"])
-    {
-        result = JPH::Vec3(-1, 0, 0);
-    }
-    else if (input->keysDown["A"])
-    {
-        result = JPH::Vec3(1, 0, 0);
-    }
-    return result;
-}
-
-class CharacterControllerSystem : public System
-{
-private:
-    JPH::PhysicsSystem *physicsSystem;
-
-    void MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
-                              JPH::Vec3 movementDirection, f32 deltaTime)
-    {
-        characterVirtual.SetLinearVelocity(movementDirection);
-        
-        JPH::Vec3Arg gravity = JPH::Vec3(0, -9.81f, 0);
-        JPH::CharacterVirtual::ExtendedUpdateSettings settings;
-        // NOTE(marvin): I threw in a random number that seems reasonably big... I don't actually know
-        // how much memory ExtendedUpdate needs...
-        JPH::TempAllocatorImpl allocator = JPH::TempAllocatorImpl(1024*1024*2);
-        characterVirtual.ExtendedUpdate(deltaTime,
-                                        gravity,
-                                        settings,
-                                        physicsSystem.GetDefaultBroadPhaseLayerFilter(Layer::MOVING),
-                                        physicsSystem.GetDefaultLayerFilter(Layer::MOVING),
-                                        {},
-                                        {},
-                                        allocator);
-    }
-
-public:
-    CharacterControllerSystem(JPH::PhysicsSystem *ps)
-        : physicsSystem(ps) {}
-    
-    void OnStart(Scene *scene)
-    {
-        
-    }
-
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
-    {
-        NAMED_TIMED_BLOCK(CharacterControllerSystem);
-        SceneView<PlayerCharacter, Transform3D> playerView = SceneView<PlayerCharacter, Transform3D>(*scene);
-        if (playerView.begin() == playerView.end())
-        {
-            return;
-        }
-
-        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
-        if (playerView.begin() == playerView.end())
-        {
-            return;
-        }
-        EntityID playerEnt = *playerView.begin();
-        PlayerCharacter *pc = scene->Get<PlayerCharacter>(playerEnt);
-        JPH::CharacterVirtual *cv = pc->characterVirtual;
-        Transform3D *pt = scene->Get<Transform3D>(playerEnt);
-
-        EntityID cameraEnt = *playerView.begin();
-        Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
-
-        glm::vec3 ip = pt->position;
-        JPH::Vec3 playerPhysicsInitialPosition = JPH::Vec3(-ip.y, ip.z, ip.x);
-        cv->SetPosition(playerPhysicsInitialPosition);
-
-        glm::vec3 ir = pt->rotation;
-        JPH::Quat playerPhysicsInitialRotation = JPH::Quat(-ir.y, ir.z, ir.x, 1.0f).Normalized();
-        cv->SetRotation(playerPhysicsInitialRotation);
-        
-        JPH::Vec3 movementDirection = GetMovementDirectionFromInput(input);
-        MoveCharacterVirtual(*cv, *physicsSystem, movementDirection, deltaTime);
-        
-        // Update player and camera transforms from character virtual's position
-        JPH::Vec3 cp = cv->GetPosition();
-        pt->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
-        #if 0
-        ct->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
-        #endif
-    }
-};
-
 class MovementSystem : public System
 {
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    void OnUpdate(Scene *scene, f32 deltaTime)
     {
-        NAMED_TIMED_BLOCK(MovementSystem);
         for (EntityID ent: SceneView<FlyingMovement, Transform3D>(*scene))
         {
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
             Transform3D *t = scene->Get<Transform3D>(ent);
 
-            t->rotation.z += input->mouseDeltaX * f->turnSpeed;
-            t->rotation.y += input->mouseDeltaY * f->turnSpeed;
+            t->rotation.z += mouseDeltaX * f->turnSpeed;
+            t->rotation.y += mouseDeltaY * f->turnSpeed;
             t->rotation.y = std::min(std::max(t->rotation.y, -90.0f), 90.0f);
 
-            if (input->keysDown["W"])
+            if (keysDown["W"])
             {
                 t->position += GetForwardVector(t) * f->moveSpeed * deltaTime;
             }
 
-            if (input->keysDown["S"])
+            if (keysDown["S"])
             {
                 t->position -= GetForwardVector(t) * f->moveSpeed * deltaTime;
             }
 
-            if (input->keysDown["D"])
+            if (keysDown["D"])
             {
                 t->position += GetRightVector(t) * f->moveSpeed * deltaTime;
             }
 
-            if (input->keysDown["A"])
+            if (keysDown["A"])
             {
                 t->position -= GetRightVector(t) * f->moveSpeed * deltaTime;
             }
@@ -576,9 +355,8 @@ public:
         this->slowStep = slowStep;
     }
 
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
+    void OnUpdate(Scene *scene, f32 deltaTime)
     {
-        NAMED_TIMED_BLOCK(BuilderSystem);
         if (slowStep && timer > 0.0f)
         {
             timer -= deltaTime;
@@ -637,7 +415,7 @@ public:
 
                         pointLightCount++;
 
-                        LOG(pointLightCount);
+                        std::cout << pointLightCount << "\n";
                     }
                 }
 

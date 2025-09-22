@@ -11,9 +11,21 @@ struct ObjData {
     color : vec4<f32>,
 }
 
+struct DynamicShadowedDirLight {
+    direction : vec3<f32>,
+    color : vec3<f32>,
+    intensity : f32,
+    lightSpaceIdxStart : u32, // Defines light space location in relation to lightSpacesStore
+    lightCascadeCount : u32
+}
+
 @binding(0) @group(0) var<uniform> camera : Camera;
 
 @binding(1) @group(0) var<storage> objStore : array<ObjData>; 
+
+@binding(2) @group(0) var<storage> lightSpacesStore : array<mat4x4<f32>>;
+
+@binding(3) @group(0) var<storage> dynamicShadowedDirLightStore : array<DynamicShadowedDirLight>;
 
 
 struct VertexIn {
@@ -24,20 +36,21 @@ struct VertexIn {
     @builtin(instance_index) instance: u32, // Represents which instance within objStore to pull data from
 }
 
-struct VertexOut {
+// Collects translation from a mat4x4 
+fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
+    return vec3<f32>(in[3][0], in[3][1], in[3][2]);
+}
+
+// Default pipeline for color pass 
+struct ColorPassVertexOut {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) camToVertRelPos: vec4<f32>,
 }
 
-// Collects translation
-fn getTranslate(in : mat4x4<f32>) -> vec3<f32> {
-    return vec3<f32>(in[3][0], in[3][1], in[3][2]);
-}
-
 @vertex
-fn vtxMain(in : VertexIn) -> VertexOut {
-  var out : VertexOut;
+fn vtxMain(in : VertexIn) -> ColorPassVertexOut {
+  var out : ColorPassVertexOut;
 
   var worldPos = objStore[in.instance].transform * vec4<f32>(in.position,1);
 
@@ -48,6 +61,6 @@ fn vtxMain(in : VertexIn) -> VertexOut {
 }
 
 @fragment
-fn fsMain(in : VertexOut) -> @location(0) vec4<f32>  {
+fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
     return in.color;
 }

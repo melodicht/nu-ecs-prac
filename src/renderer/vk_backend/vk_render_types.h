@@ -41,6 +41,46 @@ struct VertPushConstants
     VkDeviceAddress vertexAddress;
 };
 
+struct VkDirLightData
+{
+    glm::vec3 direction;
+    u32 shadowIndex;
+
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+};
+
+struct VkSpotLightData
+{
+    glm::mat4 lightSpace;
+
+    glm::vec3 position;
+    glm::vec3 direction;
+    u32 shadowIndex;
+
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+
+    f32 innerCutoff;
+    f32 outerCutoff;
+    f32 range;
+};
+
+struct VkPointLightData
+{
+    glm::vec3 position;
+    u32 shadowIndex;
+
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+
+    f32 constant;
+    f32 linear;
+    f32 quadratic;
+
+    f32 maxRange;
+};
+
 // Represents the direction of the skylight, and the descriptor id of the shadowmap (CPU->GPU)
 struct FragPushConstants
 {
@@ -76,4 +116,17 @@ struct FrameData
     AllocatedBuffer dirCascadeBuffer;
     AllocatedBuffer spotLightBuffer;
     AllocatedBuffer pointLightBuffer;
+};
+
+struct LightEntry
+{
+    u32 cameraIndex;
+    Texture shadowMap;
+};
+
+// Represents one cascade of a cascaded directional light (CPU->GPU)
+struct LightCascade
+{
+    glm::mat4 lightSpace;
+    f32 maxDepth;
 };

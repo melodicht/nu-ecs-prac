@@ -158,7 +158,7 @@ local b32 SDLGameCodeChanged(SDLGameCode *gameCode)
     {
         result = gameCode->fileNewLastWritten_ > gameCode->fileLastWritten;
     }
-    
+
     return result;
 }
 
@@ -166,15 +166,8 @@ void updateLoop(void* appInfo) {
     AppInformation* info = (AppInformation* )appInfo;
     info->last = info->now;
     info->now = SDL_GetPerformanceCounter();
-    f32 deltaTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
 
-    SDLGameCode gameCode = info->gameCode;
-    if (SDLGameCodeChanged(&gameCode))
-    {
-        SDLUnloadGameCode(&gameCode);
-        info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
-        gameCode = info->gameCode;
-    }
+    f32 deltaTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
 
     while (SDL_PollEvent(&info->e))
     {
@@ -202,8 +195,6 @@ void updateLoop(void* appInfo) {
 
     SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
 
-    s32 windowWidth = WINDOW_WIDTH;
-    s32 windowHeight = WINDOW_HEIGHT;
     SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);
 
     // Cut off Imgui until we actually implement a base renderer for WGPU
@@ -212,11 +203,7 @@ void updateLoop(void* appInfo) {
     ImGui::NewFrame();
     #endif
 
-    GameInput gameInput;
-    gameInput.mouseDeltaX = mouseDeltaX;
-    gameInput.mouseDeltaY = mouseDeltaY;
-    gameInput.keysDown = keysDown;
-    gameCode.gameUpdateAndRender(info->scene, gameInput, deltaTime);
+    GameUpdateAndRender(info->scene, info->window, deltaTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;
@@ -260,20 +247,15 @@ int main()
 
     InitRenderer(window, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-    SDLGameCode gameCode = SDLLoadGameCode();
-
-    GameMemory gameMemory = {};
-    gameMemory.getStringId = &GetStringId;
-
     Scene scene;
-    gameCode.gameInitialize(scene, gameMemory);
+    GameInitialize(scene);
 
     SDL_Event e;
     bool playing = true;
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    AppInformation app = AppInformation(window, gameCode, scene, e, playing, now, last);
+    AppInformation app = AppInformation(window, scene, e, playing, now, last);
     #if EMSCRIPTEN
     emscripten_set_main_loop_arg(
         [](void* userData) {
@@ -292,4 +274,3 @@ int main()
     SDL_Quit();
     return 0;
 }
-
