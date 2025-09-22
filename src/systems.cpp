@@ -112,6 +112,8 @@ class RenderSystem : public System
 
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
+        NAMED_TIMED_BLOCK(RenderSystem);
+
         // Get the main camera view
         SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
         if (cameraView.begin() == cameraView.end())
