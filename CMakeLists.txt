@@ -198,6 +198,7 @@ target_link_libraries(game-module PRIVATE
         Jolt)
 target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${JoltPhysics_SOURCE_DIR})
 
 #==============================================================================

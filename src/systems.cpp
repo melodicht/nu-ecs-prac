@@ -151,7 +151,7 @@ class RenderSystem : public System
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
 
             spotLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
-                                  l->innerCone, l->outerCone, l->range});
+                                  l->innerCone, l->outerCone, l->range, true});
         }
 
         std::vector<PointLightRenderInfo> pointLights;
@@ -166,7 +166,7 @@ class RenderSystem : public System
             Transform3D *lTransform = scene->Get<Transform3D>(ent);
 
             pointLights.push_back({l->lightID, *lTransform, l->diffuse, l->specular,
-                                   l->constant, l->linear, l->quadratic, l->maxRange});
+                                   l->constant, l->linear, l->quadratic, l->maxRange, true});
         }
 
         std::vector<MeshRenderInfo> meshInstances;

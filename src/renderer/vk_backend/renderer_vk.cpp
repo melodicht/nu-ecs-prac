@@ -1569,23 +1569,27 @@ void RenderUpdate(RenderFrameInfo& info)
         Transform3D spotTransform = spotInfo.transform;
         glm::mat4 spotView = GetViewMatrix(&spotTransform);
         glm::mat4 spotProj = glm::perspective(glm::radians(spotInfo.outerCone * 2), 1.0f, 0.01f, spotInfo.range);
-        CameraData spotCamData = {spotView, spotProj, spotTransform.position};
-
         LightEntry lightEntry = lights[spotInfo.lightID];
 
-        BeginShadowPass(lightEntry.shadowMap, CullMode::BACK);
-
-        SetCamera(lightEntry.cameraIndex);
-        UpdateCamera(1, &spotCamData);
-
-        startIndex = 0;
-        for (std::pair<MeshID, u32> pair: meshCounts)
+        if (spotInfo.needsUpdate)
         {
-            SetMesh(pair.first);
-            DrawObjects(pair.second, startIndex);
-            startIndex += pair.second;
+            CameraData spotCamData = {spotView, spotProj, spotTransform.position};
+
+            BeginShadowPass(lightEntry.shadowMap, CullMode::BACK);
+
+            SetCamera(lightEntry.cameraIndex);
+            UpdateCamera(1, &spotCamData);
+
+            startIndex = 0;
+            for (std::pair<MeshID, u32> pair: meshCounts)
+            {
+                SetMesh(pair.first);
+                DrawObjects(pair.second, startIndex);
+                startIndex += pair.second;
+            }
+            EndPass();
         }
-        EndPass();
+
 
         spotLightData.push_back({spotProj * spotView, spotTransform.position, GetForwardVector(&spotTransform),
                                  lightEntry.shadowMap.descriptorIndex, spotInfo.diffuse, spotInfo.specular,
@@ -1599,35 +1603,39 @@ void RenderUpdate(RenderFrameInfo& info)
     {
         Transform3D pointTransform = pointInfo.transform;
         glm::vec3 pointPos = pointTransform.position;
-        CameraData pointCamData[6];
-
-        glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.5f, pointInfo.maxRange);
-        glm::mat4 pointViews[6];
-
-        GetPointViews(&pointTransform, pointViews);
-
-        for (int i = 0; i < 6; i++)
-        {
-            pointCamData[i] = {pointViews[i], pointProj, pointPos};
-        }
-
         LightEntry lightEntry = lights[pointInfo.lightID];
 
-        BeginCubemapShadowPass(lightEntry.shadowMap, CullMode::BACK);
-
-        SetCamera(lightEntry.cameraIndex);
-        UpdateCamera(6, pointCamData);
-
-        SetCubemapInfo(pointPos, pointInfo.maxRange);
-
-        startIndex = 0;
-        for (std::pair<MeshID, u32> pair: meshCounts)
+        if (pointInfo.needsUpdate)
         {
-            SetMesh(pair.first);
-            DrawObjects(pair.second, startIndex);
-            startIndex += pair.second;
+            CameraData pointCamData[6];
+
+            glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.5f, pointInfo.maxRange);
+            glm::mat4 pointViews[6];
+
+            GetPointViews(&pointTransform, pointViews);
+
+            for (int i = 0; i < 6; i++)
+            {
+                pointCamData[i] = {pointViews[i], pointProj, pointPos};
+            }
+
+            BeginCubemapShadowPass(lightEntry.shadowMap, CullMode::BACK);
+
+            SetCamera(lightEntry.cameraIndex);
+            UpdateCamera(6, pointCamData);
+
+            SetCubemapInfo(pointPos, pointInfo.maxRange);
+
+            startIndex = 0;
+            for (std::pair<MeshID, u32> pair: meshCounts)
+            {
+                SetMesh(pair.first);
+                DrawObjects(pair.second, startIndex);
+                startIndex += pair.second;
+            }
+            EndPass();
         }
-        EndPass();
+
 
         pointLightData.push_back({pointPos, lightEntry.shadowMap.descriptorIndex,
                                   pointInfo.diffuse, pointInfo.specular,

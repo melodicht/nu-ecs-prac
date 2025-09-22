@@ -106,6 +106,8 @@ struct SpotLightRenderInfo {
     f32 innerCone;
     f32 outerCone;
     f32 range;
+
+    bool needsUpdate;
 };
 
 struct PointLightRenderInfo {
@@ -120,6 +122,8 @@ struct PointLightRenderInfo {
     f32 quadratic;
 
     f32 maxRange;
+
+    bool needsUpdate;
 };
 
 // Represents the information needed to render a single frame on any renderer
