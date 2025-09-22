@@ -32,6 +32,8 @@ CPMAddPackage(
         "ENABLE_ALL_WARNINGS OFF"
       )
 
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/math skl-math)
+
 #==============================================================================
 # SHARED DEPENDENCIES (Between platform, rendering backend, and game)
 #==============================================================================
@@ -41,6 +43,7 @@ target_link_libraries(SHARED_DEPENDENCIES INTERFACE
         SDL3::SDL3
         glm::glm
         imgui
+        skl-math
 )
 
 add_library(RENDERING_BACKEND INTERFACE)
@@ -157,12 +160,13 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
                 ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
         target_link_libraries(vulkan-backend PRIVATE
                 SHARED_DEPENDENCIES
-                Vulkan::Vulkan)
+                Vulkan::Headers)
         target_include_directories(vulkan-backend PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/include
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
                 ${CMAKE_CURRENT_SOURCE_DIR}/src
                 $<BUILD_INTERFACE:${imgui_SOURCE_DIR}>)
+        target_compile_definitions(vulkan-backend PRIVATE VK_NO_PROTOTYPES)
         target_compile_definitions(RENDERING_BACKEND INTERFACE
                 SKL_RENDERER=0
         )

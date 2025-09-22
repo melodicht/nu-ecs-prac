@@ -10,9 +10,9 @@
 #include "asset_utils.cpp"
 #include "renderer/render_backend.h"
 
-#include "math/math_utils.cpp"
-
 #include "ecs.cpp"
+
+#include "math/skl_math_utils.h"
 
 #include "physics.cpp"
 #include "systems.cpp"

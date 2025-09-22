@@ -34,6 +34,9 @@
 
 #include <unordered_map>
 
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_LEFT_HANDED
+
 #include "math/skl_math_consts.h"
 #include "math/skl_math_utils.h"
 

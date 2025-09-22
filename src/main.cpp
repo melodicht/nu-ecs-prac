@@ -29,7 +29,7 @@
 
 #include "asset_types.h"
 #include "renderer/render_backend.h"
-#include "math/math_utils.cpp"
+#include "math/skl_math_utils.h"
 
 #include "main.h"
 
@@ -169,6 +169,14 @@ void updateLoop(void* appInfo) {
 
     f32 deltaTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
 
+    SDLGameCode gameCode = info->gameCode;
+    if (SDLGameCodeChanged(&gameCode))
+    {
+        SDLUnloadGameCode(&gameCode);
+        info->gameCode = SDLLoadGameCode(gameCode.fileNewLastWritten_);
+        gameCode = info->gameCode;
+    }
+
     while (SDL_PollEvent(&info->e))
     {
         // Cut off Imgui until we actually implement a base renderer for WGPU
@@ -195,6 +203,8 @@ void updateLoop(void* appInfo) {
 
     SDL_GetRelativeMouseState(&mouseDeltaX, &mouseDeltaY);
 
+    s32 windowWidth = WINDOW_WIDTH;
+    s32 windowHeight = WINDOW_HEIGHT;
     SDL_GetWindowSize(info->window, &windowWidth, &windowHeight);
 
     // Cut off Imgui until we actually implement a base renderer for WGPU
@@ -203,7 +213,11 @@ void updateLoop(void* appInfo) {
     ImGui::NewFrame();
     #endif
 
-    GameUpdateAndRender(info->scene, info->window, deltaTime);
+    GameInput gameInput;
+    gameInput.mouseDeltaX = mouseDeltaX;
+    gameInput.mouseDeltaY = mouseDeltaY;
+    gameInput.keysDown = keysDown;
+    gameCode.gameUpdateAndRender(info->scene, gameInput, deltaTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;
@@ -245,17 +259,27 @@ int main()
 
     SDL_SetWindowRelativeMouseMode(window, true);
 
-    InitRenderer(window, WINDOW_WIDTH, WINDOW_HEIGHT);
+    RenderInitInfo initDesc {
+            .window = window,
+            .startWidth = WINDOW_WIDTH,
+            .startHeight = WINDOW_HEIGHT
+    };
+    InitRenderer(initDesc);
+
+    SDLGameCode gameCode = SDLLoadGameCode();
+
+    GameMemory gameMemory = {};
+    gameMemory.getStringId = &GetStringId;
 
     Scene scene;
-    GameInitialize(scene);
+    gameCode.gameInitialize(scene, gameMemory);
 
     SDL_Event e;
     bool playing = true;
 
     u64 now = SDL_GetPerformanceCounter();
     u64 last = 0;
-    AppInformation app = AppInformation(window, scene, e, playing, now, last);
+    AppInformation app = AppInformation(window, gameCode, scene, e, playing, now, last);
     #if EMSCRIPTEN
     emscripten_set_main_loop_arg(
         [](void* userData) {
