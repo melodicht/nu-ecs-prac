@@ -466,12 +466,23 @@ public:
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
         NAMED_TIMED_BLOCK(CharacterControllerSystem);
-        EntityID playerEnt = scene->GetFirstEntity<PlayerCharacter, Transform3D>();
+        SceneView<PlayerCharacter, Transform3D> playerView = SceneView<PlayerCharacter, Transform3D>(*scene);
+        if (playerView.begin() == playerView.end())
+        {
+            return;
+        }
+
+        SceneView<CameraComponent, Transform3D> cameraView = SceneView<CameraComponent, Transform3D>(*scene);
+        if (playerView.begin() == playerView.end())
+        {
+            return;
+        }
+        EntityID playerEnt = *playerView.begin();
         PlayerCharacter *pc = scene->Get<PlayerCharacter>(playerEnt);
         JPH::CharacterVirtual *cv = pc->characterVirtual;
         Transform3D *pt = scene->Get<Transform3D>(playerEnt);
 
-        EntityID cameraEnt = scene->GetFirstEntity<CameraComponent, Transform3D>();
+        EntityID cameraEnt = *playerView.begin();
         Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
 
         glm::vec3 ip = pt->position;
@@ -510,7 +521,7 @@ class MovementSystem : public System
 
             if (input->keysDown["W"])
             {
-                t->position += GetForwardVector(t) * f->moveSpeed * deltaTime;
+                t->position += GetForwardVector(t) * f->moveSpeed * 5.0f * deltaTime;
             }
 
             if (input->keysDown["S"])

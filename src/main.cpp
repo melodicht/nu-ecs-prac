@@ -67,7 +67,7 @@ local const char *SDLGetGameCodeSrcFilePath()
 #ifdef PLATFORM_WINDOWS
     result = GAME_CODE_SRC_FILE_NAME ".dll";
 #else
-    result = GAME_CODE_SRC_FILE_NAME ".so";
+    result = "./lib" GAME_CODE_SRC_FILE_NAME ".so";
 #endif
     return result;
 }
@@ -97,7 +97,7 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
 #ifdef PLATFORM_WINDOWS
     gameCodeUseFilePath = GAME_CODE_USE_FILE_NAME ".dll";
 #else
-    gameCodeUseFilePath = GAME_CODE_USE_FILE_NAME ".so";
+    gameCodeUseFilePath = "./lib" GAME_CODE_USE_FILE_NAME ".so";
 #endif
 
     // NOTE(marvin): Need to have a copy for the platform executable
@@ -112,6 +112,7 @@ local SDLGameCode SDLLoadGameCode(SDL_Time newFileLastWritten)
     if (!result.sharedObjectHandle)
     {
         LOG_ERROR("Game code loading failed.");
+        LOG_ERROR(SDL_GetError());
     }
 
     result.gameInitialize = (game_initialize_t *)SDL_LoadFunction(result.sharedObjectHandle, "GameInitialize");
