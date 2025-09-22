@@ -443,7 +443,7 @@ private:
         JPH::CharacterVirtual::ExtendedUpdateSettings settings;
         // NOTE(marvin): I threw in a random number that seems reasonably big... I don't actually know
         // how much memory ExtendedUpdate needs...
-        JPH::TempAllocatorImpl allocator = JPH::TempAllocatorImpl(1024*1024*1024);
+        JPH::TempAllocatorImpl allocator = JPH::TempAllocatorImpl(1024*1024*2);
         characterVirtual.ExtendedUpdate(deltaTime,
                                         gravity,
                                         settings,
@@ -521,7 +521,7 @@ class MovementSystem : public System
 
             if (input->keysDown["W"])
             {
-                t->position += GetForwardVector(t) * f->moveSpeed * 5.0f * deltaTime;
+                t->position += GetForwardVector(t) * f->moveSpeed * deltaTime;
             }
 
             if (input->keysDown["S"])

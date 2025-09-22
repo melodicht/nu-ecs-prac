@@ -420,3 +420,4 @@ build
 /xcodebuild
 /.vscode
 .DS_Store
+/cmake-build-debug-clang
