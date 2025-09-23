@@ -226,6 +226,7 @@ class CharacterControllerSystem : public System
 {
 private:
     JPH::PhysicsSystem *physicsSystem;
+    JPH::TempAllocatorImpl *allocator;
 
     void MoveCharacterVirtual(JPH::CharacterVirtual &characterVirtual, JPH::PhysicsSystem &physicsSystem,
                               JPH::Vec3 movementDirection, f32 deltaTime)
@@ -236,7 +237,6 @@ private:
         JPH::CharacterVirtual::ExtendedUpdateSettings settings;
         // NOTE(marvin): I threw in a random number that seems reasonably big... I don't actually know
         // how much memory ExtendedUpdate needs...
-        JPH::TempAllocatorImpl allocator = JPH::TempAllocatorImpl(1024*1024*2);
         characterVirtual.ExtendedUpdate(deltaTime,
                                         gravity,
                                         settings,
@@ -244,12 +244,15 @@ private:
                                         physicsSystem.GetDefaultLayerFilter(Layer::MOVING),
                                         {},
                                         {},
-                                        allocator);
+                                        *allocator);
     }
 
 public:
     CharacterControllerSystem(JPH::PhysicsSystem *ps)
-            : physicsSystem(ps) {}
+    {
+        physicsSystem = ps;
+        allocator = new JPH::TempAllocatorImpl(1024*1024*16);
+    }
 
     void OnStart(Scene *scene)
     {
