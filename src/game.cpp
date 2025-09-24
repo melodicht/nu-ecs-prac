@@ -141,11 +141,10 @@ GAME_INITIALIZE(GameInitialize)
     cubeTransform->position.z = -8.0f;
     MeshComponent* startCubeMesh = scene.Assign<MeshComponent>(startCube);
     startCubeMesh->mesh = cuboidMesh;
-    ColorComponent* startCubeColor = scene.Assign<ColorComponent>(startCube);
     f32 shade = RandInBetween(0.25f, 0.75f);
-    startCubeColor->r = shade;
-    startCubeColor->g = shade;
-    startCubeColor->b = shade;
+    startCubeMesh->r = shade;
+    startCubeMesh->g = shade;
+    startCubeMesh->b = shade;
 
     EntityID directionalLight = scene.NewEntity();
     Transform3D* lightTransform = scene.Assign<Transform3D>(directionalLight);

@@ -8,6 +8,8 @@ struct MeshAsset
 {
     std::vector<Vertex> vertices;
     std::vector<u32> indices;
+
+    AABB aabb;
 };
 
 struct TextureAsset

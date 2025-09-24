@@ -55,16 +55,14 @@ struct GravityComponent
     float strength; // acceleration
 };
 
-struct ColorComponent
-{
-    f32 r;
-    f32 g;
-    f32 b;
-};
-
 struct MeshComponent
 {
     MeshID mesh;
+    f32 r;
+    f32 g;
+    f32 b;
+
+    bool dirty = true;
 };
 
 struct PlayerCharacter

@@ -21,6 +21,12 @@ struct Vertex
     f32 uvY;
 };
 
+struct AABB
+{
+    glm::vec3 min;
+    glm::vec3 max;
+};
+
 // Represents the transformation data of the objects in the scene (CPU->GPU)
 struct ObjectData
 {

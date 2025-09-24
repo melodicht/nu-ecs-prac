@@ -170,14 +170,14 @@ class RenderSystem : public System
         }
 
         std::vector<MeshRenderInfo> meshInstances;
-        for (EntityID ent: SceneView<MeshComponent, ColorComponent, Transform3D>(*scene))
+        for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
         {
             Transform3D *t = scene->Get<Transform3D>(ent);
             glm::mat4 model = GetTransformMatrix(t);
-            ColorComponent *c = scene->Get<ColorComponent>(ent);
             MeshComponent *m = scene->Get<MeshComponent>(ent);
             MeshID mesh = m->mesh;
-            meshInstances.push_back({model, {c->r, c->g, c->b}, mesh});
+            m->dirty = false;
+            meshInstances.push_back({model, {m->r, m->g, m->b}, mesh});
         }
 
         RenderFrameInfo sendState{
@@ -579,10 +579,9 @@ public:
 
         MeshComponent *m = scene->Assign<MeshComponent>(ent);
         m->mesh = mesh;
-        ColorComponent *c = scene->Assign<ColorComponent>(ent);
         f32 shade = RandInBetween(0.25f, 0.75f);
-        c->r = shade;
-        c->g = shade;
-        c->b = shade;
+        m->r = shade;
+        m->g = shade;
+        m->b = shade;
     }
 };
