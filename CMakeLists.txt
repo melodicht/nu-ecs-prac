@@ -18,6 +18,7 @@ CPMAddPackage("gh:libsdl-org/SDL#release-3.2.12")
 CPMAddPackage("gh:g-truc/glm#1.0.1")
 CPMAddPackage("gh:spnda/fastgltf#v0.8.0")
 CPMAddPackage("gh:ocornut/imgui#v1.91.9b")
+CPMAddPackage("gh:getml/reflect-cpp#v0.21.0")
 
 CPMAddPackage(
     NAME JoltPhysics
@@ -195,6 +196,7 @@ target_link_libraries(game-module PRIVATE
         SHARED_DEPENDENCIES
         RENDERING_BACKEND
         fastgltf::fastgltf
+        reflectcpp::reflectcpp
         Jolt)
 target_include_directories(game-module PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
