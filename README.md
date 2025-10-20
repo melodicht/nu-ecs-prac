@@ -1,9 +1,3 @@
-## Design Notes
-
-- The reason why `u64` is used for EntityID is to avoid narrowing. We use
-  `std::vector::size` for getting unique EntityIDs, which outputs `u64`.
-
-
 # Game-as-a-service Architecture
 
 The game engine uses a game-as-a-service architecture. In this architecture, there are two components: the platform component and the game component. Each must be built separately. The platform component is the main entry point of the program, and dynamically loads the game component. From this point onwards, we shall refer to the "game component" as the game module.
@@ -68,15 +62,29 @@ When there are several translation units in a project, and some of them referenc
 
 
 
+# Building and running the Project
 
+## Prerequisites
 
-# Building the Project (OUTDATED)
-Make sure you have CMAKE and some C++ Compiler installed
+1. Generator: Download Ninja or make
+   - We know Ninja works.
+2. C++ Compiler: On windows, use Clang. On Unix, either gcc or Clang works.
+
+## Steps
+
 1. Clone the project
-2. Create a `/build/` directory
-3. Open a terminal in that `/build/` directory
-4. Run `cmake ../`
-5. Run `make `
-6. Fix the issues that will inevitably ensue from steps 4 and or 5.
+2. To build the build system, in project root:
+   `cmake -B . -G {Generator} -DCMAKE_C_COMPILER={path/to/c/compiler} -DCMAKE_CXX_COMPILER={path/to/cxx/compiler} -DSKL_RENDERER_SYS="Vulkan" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1`
+3. To use the build system that was just generated:
+   `make`
+4. To run the game engine:
+   `untitled-engine.exe`
+
+
+# Design Notes
+
+- The reason why `u64` is used for EntityID is to avoid narrowing. We use
+  `std::vector::size` for getting unique EntityIDs, which outputs `u64`.
+
 
 
