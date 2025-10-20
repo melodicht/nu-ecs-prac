@@ -1,3 +1,22 @@
+% Skyline Engine
+
+# Directory Overview
+
+- `build`: Artifacts of the build process. Delete the contents of this folder and add back in the `.gitkeep` in order to build from scratch.
+- `cmake`: For CMake add-ons and scripts, used by our build process.
+- `data`: The assets for our game, containing models and fonts.
+- `include`: Contains headers of external libraries.
+- `shaders`: Contains shader code.
+  - The root holds `slang` shaders.
+  - `webgpu`: Contains WebGPU shaders.
+- `src`: Contains the source code for the game engine. See the components overview below for more details.
+- `.gitignore`: Files we do not want in our Git repository.
+- `CMakeLists.txt`: The configuration file for CMake, the development tool we rely on for building the game engine.
+- `README.md`: Provides informative and instructional content related to the game engine.
+- `notes.txt`: Notes taken from code walks.
+
+
+
 # Game-as-a-service Architecture
 
 The game engine uses a game-as-a-service architecture. In this architecture, there are two components: the platform component and the game component. Each must be built separately. The platform component is the main entry point of the program, and dynamically loads the game component. From this point onwards, we shall refer to the "game component" as the game module.
