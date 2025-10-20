@@ -14,7 +14,60 @@ Currently, we only have one implementation for the platform component, which use
 
 The greatest benefit of this architecture is that while the game is running, the game module can be replaced with a new game module, also known as hot reloading.
 
+# Single Translation Unit Build / Unity Build
+
+The way build the code is that we essentially concatenate all the C++ files into one giant C++ file and then compile that. Why do this? Because it's faster and simplifies the build process. The trade off is that we lose the ability to enforce encapsulation between C++ files. As in, nothing is stopping one file from reading values from another file.
+
+We call one concatentation of a set of C++ files into one giant C++ file that gets compiled a translation unit.
+
+We have one translation unit per component. That is, one for the platform, and one for the game. That is why the hot reloading works. We can compile the entire game module independently from the platform one.
+
+When there are several translation units in a project, and some of them reference the same C++ file, what this means is the contents of the C++ file will get duplicared across the translation units. This is usually an acceptable cost. Though, when it's not (for other reasons that we won't go into here), it justifies a new translation unit for the shared piece of code. 
+
+
 # Components Overview
+
+- Sub components that are used by both components:
+  - meta_definitions.h
+    - It's meta because we are inserting our own features into the programming language, almost as if we are programming in a variation of C++.
+    - We hvae shorthands for fixed width numerical types.
+    - We split C++'s `static` up to their more specific use-cases
+    - We add built-in "functions" (they are actually macro)
+  - game_platform.h.
+    - It's the interface between the platform module and the game module.
+    - The platform only needs to know the signatures.
+    - The game module actually needs to implement it.
+  - math (our math, not the stdlib one)
+
+
+- Game.cpp is the entry point for the game module.
+  - game.h
+    - game_platform.h (mentioning it here because it is within game.h)
+    - thread_safe_primtives.h
+    - debug.h
+    - GLM
+    - Jolt
+    - renderer
+  - stb_image.h
+  - asset_types.h
+  - asset_utils.cpp
+  - renderer
+  - ecs (form)
+  - physics
+  - systems (substance for ECS)
+
+- main.cpp is the entry point for the platform module.
+  - SDL3
+    - emscripten
+  - imgui.h
+  - asset_types.h
+  - render_backend.h
+
+  - main.h
+
+
+
+
 
 
 # Building the Project (OUTDATED)
