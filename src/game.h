@@ -34,95 +34,9 @@
 
 #include "renderer/render_types.h"
 
+#include "component_def.h"
+
 MeshID cuboidMesh;
 MeshID trapMesh;
 MeshID pyraMesh;
 MeshID prismMesh;
-
-struct Rigidbody
-{
-    float v_x;
-    float v_y;
-};
-
-struct CircleCollider
-{
-    float radius;
-};
-
-struct GravityComponent
-{
-    float strength; // acceleration
-};
-
-struct MeshComponent
-{
-    MeshID mesh;
-    f32 r;
-    f32 g;
-    f32 b;
-
-    bool dirty = true;
-};
-
-struct PlayerCharacter
-{
-    JPH::CharacterVirtual *characterVirtual;
-};
-
-struct CameraComponent
-{
-    float fov;
-    // NOTE(marvin): Why the `xx`? `near` and `far`
-    // alone don't work... a dependency must have
-    // used the name or something.
-    float nearxx;
-    float farxx;
-};
-
-struct FlyingMovement
-{
-    float moveSpeed;
-    float turnSpeed;
-};
-
-struct Plane
-{
-    f32 width;
-    f32 length;
-};
-
-struct DirLight
-{
-    glm::vec3 diffuse;
-    glm::vec3 specular;
-
-    LightID lightID = -1;
-};
-
-struct SpotLight
-{
-    glm::vec3 diffuse;
-    glm::vec3 specular;
-
-    LightID lightID = -1;
-
-    f32 innerCone;
-    f32 outerCone;
-    f32 range;
-};
-
-struct PointLight
-{
-    glm::vec3 diffuse;
-    glm::vec3 specular;
-
-    LightID lightID = -1;
-
-    f32 constant;
-    f32 linear;
-    f32 quadratic;
-
-    f32 maxRange;
-};
-// Centered on the transform position

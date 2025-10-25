@@ -119,8 +119,8 @@ GAME_INITIALIZE(GameInitialize)
     CameraComponent *playerCamera = scene.Assign<CameraComponent>(player);
     FlyingMovement *playerMovement = scene.Assign<FlyingMovement>(player);
     playerCamera->fov = 90.0f;
-    playerCamera->farxx = 5000.0f;
-    playerCamera->nearxx = 0.2f;
+    playerCamera->farPlane = 5000.0f;
+    playerCamera->nearPlane = 0.2f;
     playerMovement->moveSpeed = 200.0f;
     playerMovement->turnSpeed = 0.1f;
     playerTransform->position.x = -2560.0f;

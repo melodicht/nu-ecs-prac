@@ -1,79 +1,3 @@
-class GravitySystem : public System
-{
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
-    {
-        for (EntityID ent: SceneView<Rigidbody, GravityComponent>(*scene))
-        {
-            Rigidbody *rb = scene->Get<Rigidbody>(ent);
-            GravityComponent *gc = scene->Get<GravityComponent>(ent);
-
-            rb->v_y -= gc->strength;
-        }
-    }
-};
-
-// Scans for collision of a single component
-// and edits trajectory of ball otherwise
-void scanCollision(CircleCollider *checkCollider, Rigidbody *accessRigid, Transform3D *accessTransform, Scene &accessScene)
-{
-    for (EntityID ent: SceneView<Transform3D, Rigidbody, CircleCollider>(accessScene))
-    {
-        Transform3D *t = accessScene.Get<Transform3D>(ent);
-        Rigidbody *rb = accessScene.Get<Rigidbody>(ent);
-        CircleCollider *cc = accessScene.Get<CircleCollider>(ent);
-        if (rb != accessRigid)
-        {
-            double diffX = t->position.y - accessTransform->position.y;
-            double diffY = t->position.z - accessTransform->position.z;
-            double distance = sqrt(diffX * diffX + diffY * diffY);
-            if (distance < cc->radius + checkCollider->radius)
-            {
-                double normX = diffX / distance;
-                double normY = diffY / distance;
-                double thisSpeedMag = -sqrt(accessRigid->v_x * accessRigid->v_x + accessRigid->v_y * accessRigid->v_y);
-                accessRigid->v_x = normX * thisSpeedMag;
-                accessRigid->v_y = normY * thisSpeedMag;
-                double speedMag = sqrt(rb->v_x * rb->v_x + rb->v_y * rb->v_y);
-                rb->v_x = normX * speedMag;
-                rb->v_y = normY * speedMag;
-            }
-        }
-    }
-}
-
-class CollisionSystem : public System
-{
-    void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
-    {
-        // Forward movement, collision, rendering
-        for (EntityID ent: SceneView<Transform3D, Rigidbody, CircleCollider>(*scene))
-        {
-            Transform3D *t = scene->Get<Transform3D>(ent);
-            Rigidbody *rb = scene->Get<Rigidbody>(ent);
-            CircleCollider *cc = scene->Get<CircleCollider>(ent);
-            float radius = cc->radius;
-
-            // Not framerate independent for simpler collision logic.
-            t->position.y += rb->v_x;
-            t->position.z += rb->v_y;
-
-            // Collision check x-axis
-            if ((t->position.y - radius) < (WINDOW_WIDTH / -2.0f) || (t->position.y + radius) > (WINDOW_WIDTH / 2.0f))
-            {
-                rb->v_x *= -1;
-            }
-
-            // Collision check y-axis
-            if ((t->position.z - radius) < (WINDOW_HEIGHT / -2.0f) || (t->position.z + radius) > (WINDOW_HEIGHT / 2.0f))
-            {
-                rb->v_y *= -1;
-            }
-
-            scanCollision(cc, rb, t, *scene);
-        }
-    }
-};
-
 std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4& view)
 {
     glm::mat4 inverse = glm::inverse(proj * view);
@@ -187,8 +111,8 @@ class RenderSystem : public System
                 .spotLights = spotLights,
                 .pointLights = pointLights,
                 .cameraFov = camera->fov,
-                .cameraNear = camera->nearxx,
-                .cameraFar = camera->farxx
+                .cameraNear = camera->nearPlane,
+                .cameraFar = camera->farPlane
         };
 
         RenderUpdate(sendState);
