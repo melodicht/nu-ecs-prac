@@ -424,3 +424,4 @@ build/*
 /.vscode
 .DS_Store
 /cmake-build-debug-clang
+/cmake-build-release-clang
