@@ -1,6 +1,10 @@
 // DO NOT INCLUDE!!
 // Include component_def.h instead for the component struct definitions
 
+#ifndef START_COMP_DEFS
+#error Do not include this file directly, include component_def.h instead for the component struct definitions.
+#endif
+
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
 #include <glm/glm.hpp>
