@@ -1,8 +1,22 @@
+#include <string>
+
 #include "component_def.h"
 
-#define START_COMP_DEFS void makeComponentData() {
-#define COMP(name) addComponent<name>("name");
-#define FIELD(type, name, start) addField<type>("name", start)
+template <typename T>
+void AddComponent(const char *name)
+{
+    componentName<T> = name;
+}
+
+template <typename T>
+void AddField(const char *name, T start)
+{
+
+}
+
+#define START_COMP_DEFS void MakeComponentData() {
+#define COMP(name) AddComponent<name>("name");
+#define FIELD(type, name, start) AddField<type>("name", start)
 #define END_COMP_DEFS }
 
 #include "components.h"

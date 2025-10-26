@@ -12,6 +12,8 @@
 
 #include "ecs.cpp"
 
+#include "component_info.cpp"
+
 #include "math/skl_math_utils.h"
 
 #include "physics.cpp"

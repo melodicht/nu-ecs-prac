@@ -170,6 +170,9 @@ struct Scene
     }
 };
 
+template<typename T>
+const char *componentName;
+
 // NOTE(marvin): The reason why this is separated out from the struct
 // is to mirror the prior implementation where it was also separated
 // out from the struct. Honestly, could just integrate it.
@@ -177,5 +180,5 @@ struct Scene
 template<typename T>
 local u32 GetComponentId(Scene *scene)
 {
-    return scene->getComponentStringId(typeid(T).name());
+    return scene->getComponentStringId(componentName<T>);
 }
