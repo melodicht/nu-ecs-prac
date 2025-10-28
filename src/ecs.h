@@ -75,6 +75,36 @@ public:
     virtual ~System() = default;
 };
 
+local u32 numComponents = 0;
+
+template<typename T>
+const char *componentName;
+
+// NOTE(marvin): The reason why this is separated out from the struct
+// is to mirror the prior implementation where it was also separated
+// out from the struct. Honestly, could just integrate it.
+local std::unordered_map<std::string, u32> stringToId;
+
+local u32 MakeComponentId(std::string name)
+{
+    stringToId[name] = numComponents;
+    return numComponents++;
+}
+
+template<typename T>
+local u32 GetComponentId()
+{
+    if (auto search = stringToId.find(componentName<T>);
+            search != stringToId.end())
+    {
+        u64 count = search->second;
+        return count;
+    }
+
+    printf("Invalid component ID\n");
+    exit(1);
+}
+
 /*
  * SCENE DEFINITION
  */
@@ -95,11 +125,6 @@ struct Scene
     std::vector<ComponentPool *> componentPools;
     std::vector<u32> freeIndices;
     std::vector<System *> systems;
-
-    // NOTE(marvin): The definition is on the platform side, and the
-    // platform will pass the function pointer to the game module,
-    // which will initialize this field here.
-    platform_get_string_id_t *getComponentStringId;
 
     void AddSystem(System *sys);
       
@@ -123,7 +148,7 @@ struct Scene
         if (entities[GetEntityIndex(id)].id != id)
             return;
 
-        int componentId = GetComponentId<T>(this);
+        int componentId = GetComponentId<T>();
         // Finds location of component data within the entity component pool and
         // resets, thus removing the component from the entity
         entities[GetEntityIndex(id)].mask.reset(componentId);
@@ -136,15 +161,12 @@ struct Scene
     template<typename T>
     T *Assign(EntityID id)
     {
-        int componentId = GetComponentId<T>(this);
+        int componentId = GetComponentId<T>();
 
-        if (componentPools.size() <= componentId) // Not enough component pool
+        if (numComponents <= componentId) // Invalid component
         {
-            componentPools.resize(componentId + 1, nullptr);
-        }
-        if (componentPools[componentId] == nullptr) // New component, make a new pool
-        {
-            componentPools[componentId] = new ComponentPool(sizeof(T));
+            printf("Invalid component. Components must be defined in components.h\n");
+            exit(1);
         }
 
         // Looks up the component in the pool, and initializes it with placement new
@@ -161,7 +183,7 @@ struct Scene
     template<typename T>
     T *Get(EntityID id)
     {
-        int componentId = GetComponentId<T>(this);
+        int componentId = GetComponentId<T>();
         if (!entities[GetEntityIndex(id)].mask.test(componentId))
             return nullptr;
 
@@ -169,16 +191,3 @@ struct Scene
         return pComponent;
     }
 };
-
-template<typename T>
-const char *componentName;
-
-// NOTE(marvin): The reason why this is separated out from the struct
-// is to mirror the prior implementation where it was also separated
-// out from the struct. Honestly, could just integrate it.
-
-template<typename T>
-local u32 GetComponentId(Scene *scene)
-{
-    return scene->getComponentStringId(componentName<T>);
-}

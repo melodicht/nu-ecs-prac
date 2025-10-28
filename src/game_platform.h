@@ -13,11 +13,6 @@
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
 
-// Associates a unique identifier with the given string.
-// Note how the order of the calls matter!
-#define GET_STRING_ID(name) u32 name(const char *string)
-typedef GET_STRING_ID(platform_get_string_id_t);
-
 struct GameInput
 {
   f32 mouseDeltaX;
@@ -28,7 +23,7 @@ struct GameInput
 
 struct GameMemory
 {
-    platform_get_string_id_t *getStringId;
+    
 };
 
 // NOTE(marvin): Game platform only needs to know about scene, and only system needs to know about game input. Maybe separate out scene.h?
