@@ -1,4 +1,5 @@
-#include <functional>
+#include <toml++/toml.hpp>
+#include <iostream>
 
 #include "component_def.h"
 
@@ -6,60 +7,100 @@ struct FieldInfo
 {
     const char *name;
     size_t size;
-    void (*loadFunc)(char* dest);
+    void (*loadFunc)(char* dest, toml::node*);
 };
 
 struct ComponentInfo
 {
-    void (*loadFunc)(Scene&, EntityID);
+    void (*loadFunc)(Scene&, EntityID, toml::table*, int);
     std::vector<FieldInfo> fields;
 };
 
 std::vector<ComponentInfo> compInfos;
 
 template <typename T>
-void LoadValue(char* dest)
-{
+void LoadValue(char* dest, toml::node* data) = delete;
 
+template <>
+void LoadValue<int>(char* dest, toml::node* data)
+{
+    if (!data->is_integer())
+    {
+        std::cout << "This field must be an integer\n";
+    }
+
+    *(int*)dest = data->as_integer()->get();
 }
 
 template <>
-void LoadValue<int>(char* dest)
+void LoadValue<float>(char* dest, toml::node* data)
 {
+    if (!data->is_number())
+    {
+        std::cout << "This field must be a floating point number\n";
+    }
 
+    *(float*)dest = data->as_floating_point()->get();
 }
 
 template <>
-void LoadValue<float>(char* dest)
+void LoadValue<bool>(char* dest, toml::node* data)
 {
+    if (!data->is_boolean())
+    {
+        std::cout << "This field must be a boolean\n";
+    }
 
+    *(bool*)dest = data->as_boolean()->get();
 }
 
 template <>
-void LoadValue<bool>(char* dest)
+void LoadValue<glm::vec3>(char* dest, toml::node* data)
 {
+    if (!data->is_array())
+    {
+        std::cout << "This field must be an array\n";
+    }
 
-}
+    toml::array* array = data->as_array();
 
-template <>
-void LoadValue<glm::vec3>(char* dest)
-{
+    if (array->size() != 3)
+    {
+        std::cout << "This field must have a length of 3\n";
+    }
 
+    if (!(array[0].is_number() && array[1].is_number() && array[2].is_number()))
+    {
+        std::cout << "The elements of this field must be numbers \n";
+    }
+
+    *(glm::vec3*)dest = {array[0].as_floating_point()->get(),
+                         array[1].as_floating_point()->get(),
+                         array[2].as_floating_point()->get()};
 }
 
 template <typename T>
-void LoadComponent(Scene &scene, EntityID entity)
+void LoadComponent(Scene &scene, EntityID entity, toml::table* compData, int compIndex)
 {
-    T *comp = scene.Assign<T>(entity);
-    LoadValue<T>((char *)comp);
+    char* comp = (char*)scene.Assign<T>(entity);
+    ComponentInfo& compInfo = compInfos[compIndex];
+    for (FieldInfo& field : compInfo.fields)
+    {
+        if (compData->contains(field.name))
+        {
+            field.loadFunc(comp, (*compData)[field.name].node());
+        }
+
+        comp += field.size;
+    }
 }
 
 template <typename T>
 void AddComponent(Scene &scene, const char *name)
 {
     compName<T> = name;
-    u32 id = MakeComponentId(name);
-    scene.componentPools[id] = new ComponentPool(sizeof(T));
+    MakeComponentId(name);
+    scene.componentPools.push_back(new ComponentPool(sizeof(T)));
     compInfos.push_back({LoadComponent<T>});
 }
 
@@ -74,7 +115,7 @@ template <typename T>
 void AddLocalField(const char *name)
 {
     ComponentInfo& compInfo = compInfos[numComponents - 1];
-    compInfo.fields.push_back({name});
+    compInfo.fields.push_back({name, sizeof(T)});
 }
 
 #define COMP(name) AddComponent<name>(scene, "name");
@@ -82,7 +123,8 @@ void AddLocalField(const char *name)
 #define LOCAL_FIELD(type, name, start) AddLocalField<type>("name")
 #define LOCAL_DEF(def)
 
-void RegisterComponents(Scene &scene) {
+void RegisterComponents(Scene &scene)
+{
     AddComponent<Transform3D>(scene, "Transform3D");
     AddField<glm::vec3>("position");
     AddField<glm::vec3>("rotation");
@@ -95,3 +137,37 @@ void RegisterComponents(Scene &scene) {
 #undef FIELD
 #undef LOCAL_FIELD
 #undef LOCAL_DEF
+
+void LoadScene(Scene& scene, const char* filename)
+{
+    toml::table tbl;
+    try
+    {
+        tbl = toml::parse_file(filename);
+        toml::array* entities = tbl["entity"].as_array();
+
+        for (toml::node& entity : *entities)
+        {
+            toml::table* table = entity.as_table();
+            EntityID id = scene.NewEntity();
+
+            for (auto val : *table)
+            {
+                if (!stringToId.contains(val.first.data()))
+                {
+                    std::cout << "Invalid Component: " << val.first.data() <<"\n";
+                    exit(0);
+                }
+
+                int compIndex = stringToId[val.first.data()];
+                ComponentInfo& compInfo = compInfos[compIndex];
+                compInfo.loadFunc(scene, id, val.second.as_table(), compIndex);
+            }
+        }
+
+    }
+    catch (const toml::parse_error& error)
+    {
+        std::cout << error << '\n';
+    }
+}

@@ -29,6 +29,8 @@ GAME_INITIALIZE(GameInitialize)
 {
     RegisterComponents(scene);
 
+    LoadScene(scene, "test.toml");
+
     bool slowStep = false;
     
     MeshAsset cuboidAsset = LoadMeshAsset("models/cube.glb");
