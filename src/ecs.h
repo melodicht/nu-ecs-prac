@@ -78,7 +78,7 @@ public:
 local u32 numComponents = 0;
 
 template<typename T>
-const char *componentName;
+const char *compName;
 
 // NOTE(marvin): The reason why this is separated out from the struct
 // is to mirror the prior implementation where it was also separated
@@ -94,7 +94,7 @@ local u32 MakeComponentId(std::string name)
 template<typename T>
 local u32 GetComponentId()
 {
-    if (auto search = stringToId.find(componentName<T>);
+    if (auto search = stringToId.find(compName<T>);
             search != stringToId.end())
     {
         u64 count = search->second;

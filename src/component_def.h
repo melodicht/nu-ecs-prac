@@ -1,16 +1,16 @@
 #ifndef COMPONENT_DEF_H
 #define COMPONENT_DEF_H
 
-#define START_COMP_DEFS
 #define COMP(name) struct name
 #define FIELD(type, name, start) type name = start
-#define END_COMP_DEFS
+#define LOCAL_FIELD(type, name, start) type name = start
+#define LOCAL_DEF(def) def
 
 #include "components.h"
 
-#undef START_COMP_DEFS
 #undef COMP
 #undef FIELD
-#undef END_COMP_DEFS
+#undef LOCAL_FIELD
+#undef LOCAL_DEF
 
 #endif //COMPONENT_DEF_H

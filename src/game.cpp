@@ -12,9 +12,9 @@
 
 #include "ecs.cpp"
 
-#include "component_info.cpp"
-
 #include "math/skl_math_utils.h"
+
+#include "scene_loader.cpp"
 
 #include "physics.cpp"
 #include "systems.cpp"

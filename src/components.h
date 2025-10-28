@@ -1,7 +1,7 @@
 // DO NOT INCLUDE!!
 // Include component_def.h instead for the component struct definitions
 
-#ifndef START_COMP_DEFS
+#ifndef COMP
 #error Do not include this file directly, include component_def.h instead for the component struct definitions.
 #endif
 
@@ -11,13 +11,13 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "renderer/render_types.h"
+#include "math/skl_math_consts.h"
 
 #include <Jolt/Jolt.h>
 
 #include <Jolt/Physics/Character/CharacterVirtual.h>
 
 // Define the game's components here
-START_COMP_DEFS
 
 COMP(MeshComponent)
 {
@@ -25,12 +25,12 @@ COMP(MeshComponent)
     FIELD(float, r, 0.5);
     FIELD(float, g, 0.5);
     FIELD(float, b, 0.5);
-    FIELD(bool, dirty, true);
+    LOCAL_FIELD(bool, dirty, true);
 };
 
 COMP(PlayerCharacter)
 {
-    FIELD(JPH::CharacterVirtual*, characterVirtual, nullptr);
+    LOCAL_FIELD(JPH::CharacterVirtual*, characterVirtual, nullptr);
 };
 
 COMP(CameraComponent)
@@ -56,14 +56,14 @@ COMP(DirLight)
 {
     FIELD(glm::vec3, diffuse, glm::vec3{1});
     FIELD(glm::vec3, specular, glm::vec3{1});
-    FIELD(LightID, lightID, -1);
+    LOCAL_FIELD(LightID, lightID, -1);
 };
 
 COMP(SpotLight)
 {
     FIELD(glm::vec3, diffuse, glm::vec3{1});
     FIELD(glm::vec3, specular, glm::vec3{1});
-    FIELD(LightID, lightID, -1);
+    LOCAL_FIELD(LightID, lightID, -1);
 
     FIELD(float, innerCone, 30);
     FIELD(float, outerCone, 45);
@@ -74,7 +74,7 @@ COMP(PointLight)
 {
     FIELD(glm::vec3, diffuse, glm::vec3{1});
     FIELD(glm::vec3, specular, glm::vec3{1});
-    FIELD(LightID, lightID, -1);
+    LOCAL_FIELD(LightID, lightID, -1);
 
     FIELD(float, constant, 1);
     FIELD(float, linear, 0.25);
@@ -82,5 +82,3 @@ COMP(PointLight)
 
     FIELD(float, maxRange, 20);
 };
-
-END_COMP_DEFS
