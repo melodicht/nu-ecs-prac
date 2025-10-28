@@ -69,14 +69,14 @@ void LoadValue<glm::vec3>(char* dest, toml::node* data)
         std::cout << "This field must have a length of 3\n";
     }
 
-    if (!(array[0].is_number() && array[1].is_number() && array[2].is_number()))
+    if (!((*array)[0].is_floating_point() && (*array)[1].is_floating_point() && (*array)[2].is_floating_point()))
     {
-        std::cout << "The elements of this field must be numbers \n";
+        std::cout << "The elements of this field must be floating point numbers\n";
     }
 
-    *(glm::vec3*)dest = {array[0].as_floating_point()->get(),
-                         array[1].as_floating_point()->get(),
-                         array[2].as_floating_point()->get()};
+    *(glm::vec3*)dest = {(*array)[0].as_floating_point()->get(),
+                         (*array)[1].as_floating_point()->get(),
+                         (*array)[2].as_floating_point()->get()};
 }
 
 template <typename T>
@@ -118,9 +118,9 @@ void AddLocalField(const char *name)
     compInfo.fields.push_back({name, sizeof(T)});
 }
 
-#define COMP(name) AddComponent<name>(scene, "name");
-#define FIELD(type, name, start) AddField<type>("name")
-#define LOCAL_FIELD(type, name, start) AddLocalField<type>("name")
+#define COMP(name) AddComponent<name>(scene, #name);
+#define FIELD(type, name, start) AddField<type>(#name)
+#define LOCAL_FIELD(type, name, start) AddLocalField<type>(#name)
 #define LOCAL_DEF(def)
 
 void RegisterComponents(Scene &scene)
