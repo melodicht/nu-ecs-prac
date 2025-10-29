@@ -162,7 +162,7 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
                 SHARED_DEPENDENCIES
                 Vulkan::Headers)
         if (APPLE)
-            target_link_libraries(vulkan-backend PRIVATE Vulkan::MoltenVK)
+            target_link_libraries(vulkan-backend PRIVATE Vulkan::Vulkan)
         endif()
         target_include_directories(vulkan-backend PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/include
