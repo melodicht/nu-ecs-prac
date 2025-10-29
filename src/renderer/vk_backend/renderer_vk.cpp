@@ -16,7 +16,9 @@
 
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
-
+#if defined(__APPLE__)
+#define VK_USE_PLATFORM_MACOS_MVK
+#endif
 #define VOLK_IMPLEMENTATION
 #include <vulkan/volk.h>
 
