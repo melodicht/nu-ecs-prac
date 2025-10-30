@@ -138,13 +138,10 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
 
 
 [[vk::binding(0,0)]]
-Sampler2DShadow[] shadowMaps;
+__DynamicResource<__DynamicResourceKind.General> textures[];
 
-[[vk::binding(0,0)]]
-Sampler2DArrayShadow[] shadowArrays;
-
-[[vk::binding(0,0)]]
-SamplerCubeShadow[] shadowCubemaps;
+[[vk::binding(1,0)]]
+SamplerComparisonState shadowSampler;
 
 [shader("fragment")]
 float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
@@ -188,8 +185,7 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += shadowArrays[dirLight.shadowID].SampleCmp(float3(lightPosScaled.xy, cascade),
-                                                                                lightPosScaled.z, int2(x, y)) / 9;
+                unshadowed += textures[dirLight.shadowID].asOpaqueDescriptor<Texture2DArray>().SampleCmp(shadowSampler, float3(lightPosScaled.xy, cascade), lightPosScaled.z, int2(x, y)) / 9;
             }
         }
 
@@ -218,8 +214,7 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += shadowMaps[spotLight.shadowID].SampleCmp(lightPosScaled.xy,
-                                                                       lightPosScaled.z, int2(x, y)) / 9;
+                unshadowed += textures[spotLight.shadowID].asOpaqueDescriptor<Texture2D>().SampleCmp(shadowSampler, lightPosScaled.xy, lightPosScaled.z, int2(x, y)) / 9;
             }
         }
 
@@ -248,7 +243,7 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 
         float sampleDepth = length(offsetPos) / pointLight.maxRange;
 
-        float unshadowed = shadowCubemaps[pointLight.shadowID].SampleCmp(offsetLightDir, sampleDepth);
+        float unshadowed = textures[pointLight.shadowID].asOpaqueDescriptor<TextureCube>().SampleCmp(shadowSampler, offsetLightDir, sampleDepth);
 
         float distance = length(lightVec);
         float attenuation = 1.0 / (pointLight.constant + (pointLight.linear * distance) + (pointLight.quadratic * distance * distance));

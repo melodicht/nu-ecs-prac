@@ -136,14 +136,10 @@ if(${SKL_RENDER_SYS} STREQUAL "Default")
 # Checks if selected option is available for current device, throws error if not
 else()
         message("Checking for api support on current machine...")
-        # Web and Apple simply do not work with anything outside of WebGPU
+        # Web simply does not work with anything outside of WebGPU
         if(EMSCRIPTEN)
                 if(NOT ${SKL_RENDER_SYS} STREQUAL "WebGPU")
                         message(FATAL_ERROR "Web builds need to use WebGPU backend")
-                endif()
-        elseif(APPLE)
-                if(NOT ${SKL_RENDER_SYS} STREQUAL "WebGPU")
-                        message(FATAL_ERROR "Apple devices currently only support WebGPU backends")
                 endif()
         endif()
 endif()
