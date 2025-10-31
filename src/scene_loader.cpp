@@ -69,9 +69,9 @@ void LoadValue<glm::vec3>(char* dest, toml::node* data)
         std::cout << "This field must have a length of 3\n";
     }
 
-    LoadValue<float>(dest, &(*array)[0]);
-    LoadValue<float>(dest + sizeof(float), &(*array)[1]);
-    LoadValue<float>(dest + (2 * sizeof(float)), &(*array)[2]);
+    LoadValue<float>(dest, array->get(0));
+    LoadValue<float>(dest + sizeof(float), array->get(1));
+    LoadValue<float>(dest + (2 * sizeof(float)), array->get(2));
 }
 
 template <typename T>
