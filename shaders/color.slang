@@ -138,13 +138,10 @@ VertexOutput vertexMain(uint vertexID : SV_VertexID,
 
 
 [[vk::binding(0,0)]]
-Sampler2DShadow[] shadowMaps;
+__DynamicResource<__DynamicResourceKind.General> textures[];
 
-[[vk::binding(0,0)]]
-Sampler2DArrayShadow[] shadowArrays;
-
-[[vk::binding(0,0)]]
-SamplerCubeShadow[] shadowCubemaps;
+[[vk::binding(1,0)]]
+SamplerComparisonState shadowSampler;
 
 [shader("fragment")]
 float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
@@ -182,14 +179,15 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
         float3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
         float3 lightPosScaled = float3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
 
+        Texture2DArray cascadedMap = textures[dirLight.shadowID].asOpaqueDescriptor<Texture2DArray>();
+
         float unshadowed = 0;
 
         for (int x = -1; x <= 1; x++)
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += shadowArrays[dirLight.shadowID].SampleCmp(float3(lightPosScaled.xy, cascade),
-                                                                                lightPosScaled.z, int2(x, y)) / 9;
+                unshadowed += cascadedMap.SampleCmp(shadowSampler, float3(lightPosScaled.xy, cascade), lightPosScaled.z, int2(x, y)) / 9;
             }
         }
 
@@ -212,14 +210,15 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
         float3 lightPosNorm = (lightRelPos.xyz / lightRelPos.w);
         float3 lightPosScaled = float3(lightPosNorm.xy * 0.5 + 0.5, lightPosNorm.z);
 
+        Texture2D map = textures[spotLight.shadowID].asOpaqueDescriptor<Texture2D>();
+
         float unshadowed = 0;
 
         for (int x = -1; x <= 1; x++)
         {
             for (int y = -1; y <= 1; y++)
             {
-                unshadowed += shadowMaps[spotLight.shadowID].SampleCmp(lightPosScaled.xy,
-                                                                       lightPosScaled.z, int2(x, y)) / 9;
+                unshadowed += map.SampleCmp(shadowSampler, lightPosScaled.xy, lightPosScaled.z, int2(x, y)) / 9;
             }
         }
 
@@ -248,7 +247,9 @@ float4 fragmentMain(CoarseVertex vertData : CoarseVertex) : SV_Target
 
         float sampleDepth = length(offsetPos) / pointLight.maxRange;
 
-        float unshadowed = shadowCubemaps[pointLight.shadowID].SampleCmp(offsetLightDir, sampleDepth);
+        TextureCube cubemap = textures[pointLight.shadowID].asOpaqueDescriptor<TextureCube>();
+
+        float unshadowed = cubemap.SampleCmp(shadowSampler, offsetLightDir, sampleDepth);
 
         float distance = length(lightVec);
         float attenuation = 1.0 / (pointLight.constant + (pointLight.linear * distance) + (pointLight.quadratic * distance * distance));

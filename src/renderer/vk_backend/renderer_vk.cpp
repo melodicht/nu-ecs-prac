@@ -16,7 +16,9 @@
 
 #include <SDL3/SDL_surface.h>
 #include <SDL3/SDL_vulkan.h>
-
+#if defined(__APPLE__)
+#define VK_USE_PLATFORM_MACOS_MVK
+#endif
 #define VOLK_IMPLEMENTATION
 #include <vulkan/volk.h>
 
@@ -98,6 +100,8 @@ TextureID currentTexID;
 std::unordered_map<TextureID,Texture> textures;
 LightID currentLightID;
 std::unordered_map<LightID,LightEntry> lights;
+
+VkSampler shadowSampler;
 
 u32 currentCamIndex;
 u32 mainCamIndex;
@@ -218,25 +222,15 @@ Texture CreateDepthTexture(u32 width, u32 height)
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
 
-    VkSampler sampler;
-
-    VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.compareEnable = VK_TRUE;
-    samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
-
     VkDescriptorImageInfo imageInfo{};
     imageInfo.imageView = depthTexView;
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.sampler = sampler;
 
     VkWriteDescriptorSet descriptorWrite{};
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrite.descriptorCount = 1;
     descriptorWrite.dstArrayElement = currentTexID;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     descriptorWrite.dstSet = texDescriptorSet;
     descriptorWrite.dstBinding = 0;
     descriptorWrite.pImageInfo = &imageInfo;
@@ -245,7 +239,6 @@ Texture CreateDepthTexture(u32 width, u32 height)
 
     texture.texture = depthTexture;
     texture.imageView = depthTexView;
-    texture.sampler = sampler;
     texture.extent = {width, height};
     texture.descriptorIndex = currentTexID;
 
@@ -281,25 +274,15 @@ Texture CreateDepthArray(u32 width, u32 height, u32 layers)
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
 
-    VkSampler sampler;
-
-    VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.compareEnable = VK_TRUE;
-    samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
-
     VkDescriptorImageInfo imageInfo{};
     imageInfo.imageView = depthTexView;
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.sampler = sampler;
 
     VkWriteDescriptorSet descriptorWrite{};
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrite.descriptorCount = 1;
     descriptorWrite.dstArrayElement = currentTexID;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     descriptorWrite.dstSet = texDescriptorSet;
     descriptorWrite.dstBinding = 0;
     descriptorWrite.pImageInfo = &imageInfo;
@@ -308,7 +291,6 @@ Texture CreateDepthArray(u32 width, u32 height, u32 layers)
 
     texture.texture = depthTexture;
     texture.imageView = depthTexView;
-    texture.sampler = sampler;
     texture.extent = {width, height};
     texture.descriptorIndex = currentTexID;
 
@@ -345,25 +327,15 @@ Texture CreateDepthCubemap(u32 width, u32 height)
 
     VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthTexView));
 
-    VkSampler sampler;
-
-    VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.compareEnable = VK_TRUE;
-    samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    vkCreateSampler(device, &samplerInfo, nullptr, &sampler);
-
     VkDescriptorImageInfo imageInfo{};
     imageInfo.imageView = depthTexView;
     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.sampler = sampler;
 
     VkWriteDescriptorSet descriptorWrite{};
     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     descriptorWrite.descriptorCount = 1;
     descriptorWrite.dstArrayElement = currentTexID;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     descriptorWrite.dstSet = texDescriptorSet;
     descriptorWrite.dstBinding = 0;
     descriptorWrite.pImageInfo = &imageInfo;
@@ -372,7 +344,6 @@ Texture CreateDepthCubemap(u32 width, u32 height)
 
     texture.texture = depthTexture;
     texture.imageView = depthTexView;
-    texture.sampler = sampler;
     texture.extent = {width, height};
     texture.descriptorIndex = currentTexID;
 
@@ -773,35 +744,44 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VkPipelineShaderStageCreateInfo cubemapShaderStages[] = {cubemapVertStageInfo, cubemapFragStageInfo};
 
     // Set up descriptor pool and set for textures
-    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 512}};
+    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 1}};
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo{};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     descriptorPoolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT
                                | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT;
     descriptorPoolInfo.maxSets = 1;
-    descriptorPoolInfo.poolSizeCount = 1;
+    descriptorPoolInfo.poolSizeCount = 2;
     descriptorPoolInfo.pPoolSizes = poolSizes;
 
     VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 
     VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
     VkDescriptorSetLayoutBinding texBinding{};
-    texBinding.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    texBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     texBinding.descriptorCount = 512;
     texBinding.binding = 0;
     texBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     texBinding.pImmutableSamplers = nullptr;
 
+    VkDescriptorSetLayoutBinding samplerBinding{};
+    samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    samplerBinding.descriptorCount = 1;
+    samplerBinding.binding = 1;
+    samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    samplerBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutBinding bindings[2] = {texBinding, samplerBinding};
+
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
     bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-    bindingFlagsInfo.bindingCount = 1;
+    bindingFlagsInfo.bindingCount = 2;
     bindingFlagsInfo.pBindingFlags = &bindingFlags;
 
     VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo{};
     descriptorLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptorLayoutInfo.bindingCount = 1;
-    descriptorLayoutInfo.pBindings = &texBinding;
+    descriptorLayoutInfo.bindingCount = 2;
+    descriptorLayoutInfo.pBindings = bindings;
     descriptorLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
     descriptorLayoutInfo.pNext = &bindingFlagsInfo;
 
@@ -815,6 +795,25 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     VK_CHECK(vkAllocateDescriptorSets(device, &descriptorAllocInfo, &texDescriptorSet));
 
+    VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+    samplerInfo.compareEnable = VK_TRUE;
+    samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    vkCreateSampler(device, &samplerInfo, nullptr, &shadowSampler);
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.sampler = shadowSampler;
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    descriptorWrite.dstSet = texDescriptorSet;
+    descriptorWrite.dstBinding = 1;
+    descriptorWrite.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
 
     // Create render pipeline layouts
 

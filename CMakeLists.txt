@@ -138,14 +138,10 @@ if(${SKL_RENDER_SYS} STREQUAL "Default")
 # Checks if selected option is available for current device, throws error if not
 else()
         message("Checking for api support on current machine...")
-        # Web and Apple simply do not work with anything outside of WebGPU
+        # Web simply does not work with anything outside of WebGPU
         if(EMSCRIPTEN)
                 if(NOT ${SKL_RENDER_SYS} STREQUAL "WebGPU")
                         message(FATAL_ERROR "Web builds need to use WebGPU backend")
-                endif()
-        elseif(APPLE)
-                if(NOT ${SKL_RENDER_SYS} STREQUAL "WebGPU")
-                        message(FATAL_ERROR "Apple devices currently only support WebGPU backends")
                 endif()
         endif()
 endif()
@@ -163,6 +159,9 @@ if(${SKL_RENDER_SYS} STREQUAL "Vulkan")
         target_link_libraries(vulkan-backend PRIVATE
                 SHARED_DEPENDENCIES
                 Vulkan::Headers)
+        if (APPLE)
+            target_link_libraries(vulkan-backend PRIVATE Vulkan::Vulkan)
+        endif()
         target_include_directories(vulkan-backend PRIVATE
                 ${CMAKE_CURRENT_SOURCE_DIR}/include
                 ${CMAKE_CURRENT_SOURCE_DIR}/include/vulkan
