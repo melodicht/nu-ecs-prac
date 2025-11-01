@@ -336,7 +336,7 @@ public:
                 {
                     // Build antenna
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
-                    BuildPart(scene, ent, t, cuboidMesh, {antennaWidth, antennaWidth, antennaHeight});
+                    BuildPart(scene, ent, t, LoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
                     t->position.z -= antennaWidth / 2;
 
                     if (pointLightCount < 256)
@@ -396,7 +396,7 @@ public:
                     }
 
                     f32 trapHeight = RandInBetween(trapHeightMin, trapHeightMax);
-                    BuildPart(scene, ent, t, trapMesh, {plane->length, plane->width, trapHeight});
+                    BuildPart(scene, ent, t, LoadMeshAsset("trap"), {plane->length, plane->width, trapHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
@@ -418,7 +418,7 @@ public:
                     }
 
                     f32 pyraHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    BuildPart(scene, ent, t, pyraMesh, {plane->length, plane->width, pyraHeight});
+                    BuildPart(scene, ent, t, LoadMeshAsset("pyra"), {plane->length, plane->width, pyraHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
@@ -432,7 +432,7 @@ public:
                     }
 
                     f32 prismHeight = RandInBetween(roofHeightMin, roofHeightMax);
-                    BuildPart(scene, ent, t, prismMesh, {plane->length, plane->width, prismHeight});
+                    BuildPart(scene, ent, t, LoadMeshAsset("prism"), {plane->length, plane->width, prismHeight});
 
                     scene->Remove<Plane>(ent);
                     break;
@@ -444,7 +444,7 @@ public:
                 {
                     // Build Cuboid
                     f32 cuboidHeight = RandInBetween(cuboidHeightMin, cuboidHeightMax);
-                    BuildPart(scene, ent, t, cuboidMesh, {plane->length, plane->width, cuboidHeight});
+                    BuildPart(scene, ent, t, LoadMeshAsset("cube"), {plane->length, plane->width, cuboidHeight});
 
                     EntityID newPlane = scene->NewEntity();
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);

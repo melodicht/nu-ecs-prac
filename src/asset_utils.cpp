@@ -12,8 +12,14 @@ struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec
 
 std::unordered_map<std::string, MeshID> meshIDs;
 
-MeshAsset LoadMeshAsset(std::filesystem::path path)
+MeshID LoadMeshAsset(std::string name)
 {
+    if (meshIDs.contains(name))
+    {
+        return meshIDs[name];
+    }
+
+    std::filesystem::path path = "models/" + name + ".glb";
     fastgltf::Expected<fastgltf::GltfDataBuffer> dataFile = fastgltf::GltfDataBuffer::FromPath(path);
     fastgltf::GltfDataBuffer data;
     if (dataFile)
@@ -22,7 +28,7 @@ MeshAsset LoadMeshAsset(std::filesystem::path path)
     }
     else
     {
-        return {};
+        return -1;
     }
 
     constexpr auto gltfOptions = fastgltf::Options::LoadExternalBuffers;
@@ -30,14 +36,14 @@ MeshAsset LoadMeshAsset(std::filesystem::path path)
     fastgltf::Asset gltf;
     fastgltf::Parser parser{};
 
-    fastgltf::Expected<fastgltf::Asset> load = parser.loadGltfBinary(data, path.parent_path());
+    fastgltf::Expected<fastgltf::Asset> load = parser.loadGltfBinary(data, path.parent_path(), gltfOptions);
     if (load)
     {
         gltf = std::move(load.get());
     }
     else
     {
-        return {};
+        return -1;
     }
 
     fastgltf::Mesh mesh = gltf.meshes[0];
@@ -45,7 +51,6 @@ MeshAsset LoadMeshAsset(std::filesystem::path path)
 
     for (fastgltf::Primitive &p : mesh.primitives)
     {
-        u32 startIndex = asset.vertices.size();
         fastgltf::Accessor& indexAccessor = gltf.accessors[p.indicesAccessor.value()];
         asset.indices.reserve(asset.indices.size() + indexAccessor.count);
         fastgltf::iterateAccessor<u32>(gltf, indexAccessor, [&](u32 index)
@@ -72,25 +77,16 @@ MeshAsset LoadMeshAsset(std::filesystem::path path)
         });
     }
 
-    return asset;
-}
+    RenderUploadMeshInfo info{};
+    info.vertData = asset.vertices.data();
+    info.vertSize = asset.vertices.size();
+    info.idxData = asset.indices.data();
+    info.idxSize = asset.indices.size();
 
-void LoadMeshes()
-{
-    for (const std::filesystem::directory_entry& file : std::filesystem::recursive_directory_iterator("models"))
-    {
-        MeshAsset asset = LoadMeshAsset(file.path());
+    MeshID id = UploadMesh(info);
+    meshIDs[name] = id;
 
-        RenderUploadMeshInfo uploadInfo
-        {
-                .vertData = asset.vertices.data(),
-                .idxData = asset.indices.data(),
-                .vertSize = (u32)asset.vertices.size(),
-                .idxSize = (u32)asset.indices.size()
-        };
-
-        meshIDs[file.path().stem().string()] = UploadMesh(uploadInfo);
-    }
+    return id;
 }
 
 TextureAsset LoadTextureAsset(const char *path)

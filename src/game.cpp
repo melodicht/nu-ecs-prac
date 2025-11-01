@@ -29,15 +29,9 @@ GAME_INITIALIZE(GameInitialize)
 {
     RegisterComponents(scene);
 
-    LoadMeshes();
     LoadScene(scene, "scenes/test.toml");
 
     bool slowStep = false;
-
-    cuboidMesh = meshIDs["cube"];
-    trapMesh = meshIDs["trap"];
-    pyraMesh = meshIDs["pyra"];
-    prismMesh = meshIDs["prism"];
 
     // NOTE(marvin): Initialising the physics system.
     JPH::RegisterDefaultAllocator();

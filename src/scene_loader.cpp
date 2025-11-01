@@ -114,7 +114,7 @@ void LoadComponent<MeshComponent>(Scene &scene, EntityID entity, toml::table* co
         std::cout << "Invalid mesh name\n";
     }
 
-    comp->mesh = meshIDs[meshPath];
+    comp->mesh = LoadMeshAsset(meshPath);
 
     if (compData->contains("color"))
     {

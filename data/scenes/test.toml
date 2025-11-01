@@ -1,0 +1,18 @@
+[[entity]]
+[entity.Transform3D]
+[entity.CameraComponent]
+[entity.FlyingMovement]
+
+[[entity]]
+[entity.Transform3D]
+position = [5.0, 0.0, 0.0]
+[entity.MeshComponent]
+mesh = "pyra"
+color = [0.2, 0.2, 0.6]
+
+[[entity]]
+[entity.Transform3D]
+rotation = [0.0, 30.0, 30.0]
+[entity.DirLight]
+diffuse = [1.0, 1.0, 1.0]
+specular = [1.0, 1.0, 1.0]

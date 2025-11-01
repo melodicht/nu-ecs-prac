@@ -35,8 +35,3 @@
 #include "renderer/render_types.h"
 
 #include "component_def.h"
-
-MeshID cuboidMesh;
-MeshID trapMesh;
-MeshID pyraMesh;
-MeshID prismMesh;
