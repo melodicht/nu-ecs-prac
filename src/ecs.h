@@ -132,6 +132,8 @@ struct Scene
 
     void UpdateSystems(GameInput *input, f32 deltaTime);
 
+    void AddComponentPool(size_t size);
+
     // Adds a new entity to this vector of entities, and returns its
     // ID. Can only support 2^64 entities without ID conflicts.
     EntityID NewEntity();

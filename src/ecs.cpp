@@ -76,6 +76,11 @@ void Scene::UpdateSystems(GameInput *input, f32 deltaTime)
     }
 }
 
+void Scene::AddComponentPool(size_t size)
+{
+    componentPools.push_back(new ComponentPool(size));
+}
+
 EntityID Scene::NewEntity()
 {
     // std::vector::size runs in constant time.

@@ -127,7 +127,7 @@ void AddComponent(Scene &scene, const char *name)
 {
     compName<T> = name;
     MakeComponentId(name);
-    scene.componentPools.push_back(new ComponentPool(sizeof(T)));
+    scene.AddComponentPool(sizeof(T));
     compInfos.push_back({LoadComponent<T>});
 }
 
