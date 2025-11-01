@@ -7,7 +7,7 @@
 [entity.Transform3D]
 position = [5.0, 0.0, 0.0]
 [entity.MeshComponent]
-mesh = "pyra"
+mesh = "trap"
 color = [0.2, 0.2, 0.6]
 
 [[entity]]

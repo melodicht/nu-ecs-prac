@@ -276,9 +276,9 @@ if(NOT EMSCRIPTEN)
         endif()
 
         # Imports other resources into build
-        add_custom_command(TARGET platform PRE_LINK
-                COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${BUILD_DIR}
-        )
+        add_custom_target(copy_data ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_CURRENT_SOURCE_DIR}/data" ${BUILD_DIR})
+
+        add_dependencies(platform copy_data)
 
 # Preloads files for emscripten
 else()
