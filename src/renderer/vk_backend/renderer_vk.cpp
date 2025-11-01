@@ -102,6 +102,7 @@ LightID currentLightID;
 std::unordered_map<LightID,LightEntry> lights;
 
 VkSampler shadowSampler;
+VkSampler textureSampler;
 
 u32 currentCamIndex;
 u32 mainCamIndex;
@@ -123,8 +124,7 @@ MeshID UploadMesh(u32 vertCount, Vertex* vertices, u32 indexCount, u32* indices)
                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     mesh.vertBuffer = CreateBuffer(device, allocator, vertSize,
-                                    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                    | VK_BUFFER_USAGE_TRANSFER_DST_BIT
+                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT
                                     | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                     0,
                                     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -185,8 +185,7 @@ u32 CreateCameraBuffer(u32 viewCount)
     {
         frames[i].cameraBuffers.push_back(CreateBuffer(device, allocator,
                                                        sizeof(CameraData) * viewCount,
-                                                       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                                       | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                        VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                        | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT));
@@ -352,10 +351,89 @@ Texture CreateDepthCubemap(u32 width, u32 height)
     return texture;
 }
 
+TextureID UploadTexture(RenderUploadTextureInfo& info)
+{
+    AllocatedImage texImage = CreateImage(allocator,
+                                          VK_FORMAT_R8G8B8A8_UNORM, 0,
+                                          VK_IMAGE_USAGE_TRANSFER_DST_BIT
+                                          | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                          {info.width, info.height, 1}, 1,
+                                          VMA_MEMORY_USAGE_GPU_ONLY,
+                                          VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+
+    VkImageView texView;
+
+    VkImageViewCreateInfo texViewInfo{};
+    texViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    texViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    texViewInfo.format = VK_FORMAT_R8G8B8A8_UNORM;
+    texViewInfo.image = texImage.image;
+    texViewInfo.subresourceRange.baseMipLevel = 0;
+    texViewInfo.subresourceRange.levelCount = 1;
+    texViewInfo.subresourceRange.baseArrayLayer = 0;
+    texViewInfo.subresourceRange.layerCount = 1;
+    texViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+    VK_CHECK(vkCreateImageView(device, &texViewInfo, nullptr, &texView));
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageView = texView;
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.dstArrayElement = currentTexID;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    descriptorWrite.dstSet = texDescriptorSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.pImageInfo = &imageInfo;
+
+    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+
+    size_t dataSize = info.width * info.height * 4;
+    AllocatedBuffer uploadBuffer = CreateBuffer(device, allocator, dataSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+    void* uploadData;
+    vmaMapMemory(allocator, uploadBuffer.allocation, &uploadData);
+    memcpy(uploadData, info.pixelData, dataSize);
+    vmaUnmapMemory(allocator, uploadBuffer.allocation);
+
+    VkCommandBuffer commandBuffer = BeginImmediateCommands(device, mainCommandPool);
+
+    TransitionImage(commandBuffer, texImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    VkBufferImageCopy copyRegion = {};
+    copyRegion.bufferOffset = 0;
+    copyRegion.bufferRowLength = 0;
+    copyRegion.bufferImageHeight = 0;
+
+    copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    copyRegion.imageSubresource.mipLevel = 0;
+    copyRegion.imageSubresource.baseArrayLayer = 0;
+    copyRegion.imageSubresource.layerCount = 1;
+    copyRegion.imageExtent = {info.width, info.height, 1};
+
+    vkCmdCopyBufferToImage(commandBuffer, uploadBuffer.buffer, texImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+    TransitionImage(commandBuffer, texImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    EndImmediateCommands(device, graphicsQueue, mainCommandPool, commandBuffer);
+
+    DestroyBuffer(allocator, uploadBuffer);
+    auto iter = textures.emplace(currentTexID, Texture());
+    Texture& texture = iter.first->second;
+
+    texture.texture = texImage;
+    texture.imageView = texView;
+    texture.extent = {info.width, info.height};
+    texture.descriptorIndex = currentTexID;
+
+    return currentTexID++;
+}
+
 void DestroyTexture(TextureID texID)
 {
     Texture& texture = textures[texID];
-    vkDestroySampler(device, texture.sampler, nullptr);
     vkDestroyImageView(device, texture.imageView, nullptr);
     DestroyImage(allocator, texture.texture);
     textures.erase(texID);
@@ -661,43 +739,37 @@ VkPipelineShaderStageCreateInfo CreateStageInfo(VkShaderStageFlagBits shaderStag
 
 void InitPipelines(RenderPipelineInitInfo& info)
 {
-
     // Create object and light buffers
     for (int i = 0; i < NUM_FRAMES; i++)
     {
         frames[i].objectBuffer = CreateBuffer(device, allocator,
                                               sizeof(ObjectData) * 4096,
-                                              VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                              | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                               VMA_ALLOCATION_CREATE_MAPPED_BIT
                                               | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                               VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
         frames[i].dirLightBuffer = CreateBuffer(device, allocator,
                                                 sizeof(VkDirLightData) * 4,
-                                                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                                | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                 VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                 | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         frames[i].dirCascadeBuffer = CreateBuffer(device, allocator,
                                                   sizeof(LightCascade) * NUM_CASCADES * 4,
-                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                                  | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                   VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                   | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         frames[i].spotLightBuffer = CreateBuffer(device, allocator,
                                                  sizeof(VkSpotLightData) * 256,
-                                                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                                 | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                  VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                  | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
         frames[i].pointLightBuffer = CreateBuffer(device, allocator,
                                                   sizeof(VkPointLightData) * 256,
-                                                  VK_BUFFER_USAGE_STORAGE_BUFFER_BIT
-                                                  | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                                   VMA_ALLOCATION_CREATE_MAPPED_BIT
                                                   | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
                                                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
@@ -744,7 +816,7 @@ void InitPipelines(RenderPipelineInitInfo& info)
     VkPipelineShaderStageCreateInfo cubemapShaderStages[] = {cubemapVertStageInfo, cubemapFragStageInfo};
 
     // Set up descriptor pool and set for textures
-    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 1}};
+    VkDescriptorPoolSize poolSizes[] = {{VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 512}, {VK_DESCRIPTOR_TYPE_SAMPLER, 2}};
 
     VkDescriptorPoolCreateInfo descriptorPoolInfo{};
     descriptorPoolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -756,7 +828,8 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     VK_CHECK(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 
-    VkDescriptorBindingFlags bindingFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+    VkDescriptorBindingFlags bindlessFlags = VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT;
+    VkDescriptorBindingFlags bindingFlags[3] = {bindlessFlags, 0, 0};
     VkDescriptorSetLayoutBinding texBinding{};
     texBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     texBinding.descriptorCount = 512;
@@ -764,23 +837,26 @@ void InitPipelines(RenderPipelineInitInfo& info)
     texBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
     texBinding.pImmutableSamplers = nullptr;
 
-    VkDescriptorSetLayoutBinding samplerBinding{};
-    samplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-    samplerBinding.descriptorCount = 1;
-    samplerBinding.binding = 1;
-    samplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-    samplerBinding.pImmutableSamplers = nullptr;
+    VkDescriptorSetLayoutBinding shadowSamplerBinding{};
+    shadowSamplerBinding.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    shadowSamplerBinding.descriptorCount = 1;
+    shadowSamplerBinding.binding = 1;
+    shadowSamplerBinding.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    shadowSamplerBinding.pImmutableSamplers = nullptr;
 
-    VkDescriptorSetLayoutBinding bindings[2] = {texBinding, samplerBinding};
+    VkDescriptorSetLayoutBinding textureSamplerBinding = shadowSamplerBinding;
+    textureSamplerBinding.binding = 2;
+
+    VkDescriptorSetLayoutBinding bindings[3] = {texBinding, shadowSamplerBinding, textureSamplerBinding};
 
     VkDescriptorSetLayoutBindingFlagsCreateInfo bindingFlagsInfo{};
     bindingFlagsInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO;
-    bindingFlagsInfo.bindingCount = 2;
-    bindingFlagsInfo.pBindingFlags = &bindingFlags;
+    bindingFlagsInfo.bindingCount = 3;
+    bindingFlagsInfo.pBindingFlags = bindingFlags;
 
     VkDescriptorSetLayoutCreateInfo descriptorLayoutInfo{};
     descriptorLayoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptorLayoutInfo.bindingCount = 2;
+    descriptorLayoutInfo.bindingCount = 3;
     descriptorLayoutInfo.pBindings = bindings;
     descriptorLayoutInfo.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
     descriptorLayoutInfo.pNext = &bindingFlagsInfo;
@@ -795,25 +871,40 @@ void InitPipelines(RenderPipelineInitInfo& info)
 
     VK_CHECK(vkAllocateDescriptorSets(device, &descriptorAllocInfo, &texDescriptorSet));
 
-    VkSamplerCreateInfo samplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-    samplerInfo.magFilter = VK_FILTER_LINEAR;
-    samplerInfo.minFilter = VK_FILTER_LINEAR;
-    samplerInfo.compareEnable = VK_TRUE;
-    samplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
-    vkCreateSampler(device, &samplerInfo, nullptr, &shadowSampler);
+    VkSamplerCreateInfo shadowSamplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    shadowSamplerInfo.magFilter = VK_FILTER_LINEAR;
+    shadowSamplerInfo.minFilter = VK_FILTER_LINEAR;
+    shadowSamplerInfo.compareEnable = VK_TRUE;
+    shadowSamplerInfo.compareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+    vkCreateSampler(device, &shadowSamplerInfo, nullptr, &shadowSampler);
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.sampler = shadowSampler;
+    VkDescriptorImageInfo shadowSamplerDescInfo{};
+    shadowSamplerDescInfo.sampler = shadowSampler;
 
-    VkWriteDescriptorSet descriptorWrite{};
-    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    descriptorWrite.descriptorCount = 1;
-    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
-    descriptorWrite.dstSet = texDescriptorSet;
-    descriptorWrite.dstBinding = 1;
-    descriptorWrite.pImageInfo = &imageInfo;
+    VkWriteDescriptorSet shadowSamplerWrite{};
+    shadowSamplerWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    shadowSamplerWrite.descriptorCount = 1;
+    shadowSamplerWrite.descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER;
+    shadowSamplerWrite.dstSet = texDescriptorSet;
+    shadowSamplerWrite.dstBinding = 1;
+    shadowSamplerWrite.pImageInfo = &shadowSamplerDescInfo;
 
-    vkUpdateDescriptorSets(device, 1, &descriptorWrite, 0, nullptr);
+    VkSamplerCreateInfo textureSamplerInfo = { .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    textureSamplerInfo.magFilter = VK_FILTER_NEAREST;
+    textureSamplerInfo.minFilter = VK_FILTER_NEAREST;
+    textureSamplerInfo.compareEnable = VK_FALSE;
+    vkCreateSampler(device, &textureSamplerInfo, nullptr, &textureSampler);
+
+    VkDescriptorImageInfo textureSamplerDescInfo{};
+    textureSamplerDescInfo.sampler = textureSampler;
+
+    VkWriteDescriptorSet textureSamplerWrite = shadowSamplerWrite;
+    textureSamplerWrite.dstBinding = 2;
+    textureSamplerWrite.pImageInfo = &textureSamplerDescInfo;
+
+    VkWriteDescriptorSet samplerWrites[2] = {shadowSamplerWrite, textureSamplerWrite};
+
+    vkUpdateDescriptorSets(device, 2, samplerWrites, 0, nullptr);
 
     // Create render pipeline layouts
 
@@ -1472,9 +1563,10 @@ void RenderUpdate(RenderFrameInfo& info)
     {
         glm::mat4 model = meshInfo.matrix;
         MeshID mesh = meshInfo.mesh;
+        TextureID tex = meshInfo.texture;
         glm::vec3 color = meshInfo.rgbColor;
 
-        objects[offsets[mesh]++] = {model, glm::vec4(color.r, color.g, color.b, 1.0f)};
+        objects[offsets[mesh]++] = {model, tex, glm::vec4(color.r, color.g, color.b, 1.0f)};
     }
 
     SendObjectData(objects);

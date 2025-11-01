@@ -22,7 +22,8 @@
 COMP(MeshComponent)
 {
     FIELD(MeshID, mesh, -1);
-    FIELD(glm::vec3, color, glm::vec3{0.5f});
+    FIELD(TextureID, texture, -1);
+    FIELD(glm::vec3, color, glm::vec3{1.0f});
     LOCAL_FIELD(bool, dirty, true);
 };
 

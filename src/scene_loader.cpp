@@ -109,16 +109,25 @@ void LoadComponent<MeshComponent>(Scene &scene, EntityID entity, toml::table* co
 
     std::string meshPath = meshData->as_string()->get();
 
-    if (!meshIDs.contains(meshPath))
-    {
-        std::cout << "Invalid mesh name\n";
-    }
-
     comp->mesh = LoadMeshAsset(meshPath);
+
+    if (compData->contains("texture"))
+    {
+        toml::node* texData = compData->get("texture");
+
+        if (!texData->is_string())
+        {
+            std::cout << "This field must be a string\n";
+        }
+
+        std::string texPath = texData->as_string()->get();
+
+        comp->texture = LoadTextureAsset(texPath);
+    }
 
     if (compData->contains("color"))
     {
-        LoadValue<glm::vec3>(((char*)comp) + sizeof(MeshID), compData->get("color"));
+        LoadValue<glm::vec3>(((char*)comp) + sizeof(MeshID) + sizeof(TextureID), compData->get("color"));
     }
 }
 

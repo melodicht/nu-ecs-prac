@@ -7,8 +7,8 @@
 [entity.Transform3D]
 position = [5.0, 0.0, 0.0]
 [entity.MeshComponent]
-mesh = "trap"
-color = [0.2, 0.2, 0.6]
+mesh = "cube"
+texture = "diamond_ore"
 
 [[entity]]
 [entity.Transform3D]

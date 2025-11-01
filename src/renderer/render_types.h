@@ -31,6 +31,7 @@ struct AABB
 struct ObjectData
 {
     glm::mat4 model;
+    TextureID texture;
     glm::vec4 color;
 };
 

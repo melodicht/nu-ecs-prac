@@ -11,6 +11,7 @@ template <>
 struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec2, f32> {};
 
 std::unordered_map<std::string, MeshID> meshIDs;
+std::unordered_map<std::string, TextureID> texIDs;
 
 MeshID LoadMeshAsset(std::string name)
 {
@@ -89,18 +90,33 @@ MeshID LoadMeshAsset(std::string name)
     return id;
 }
 
-TextureAsset LoadTextureAsset(const char *path)
+TextureID LoadTextureAsset(std::string name)
 {
+    if (texIDs.contains(name))
+    {
+        return meshIDs[name];
+    }
+
+    std::filesystem::path path = "textures/" + name + ".png";
+
     int width, height, channels;
 
-    stbi_uc* imageData = stbi_load(path, &width, &height, &channels, STBI_rgb_alpha);
+    stbi_uc* imageData = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
     TextureAsset asset{};
     asset.width = width;
     asset.height = height;
-    asset.pixels = std::vector<u32>((width * height * channels) / sizeof(u32));
+    asset.pixels = std::vector<u32>((width * height * 4) / sizeof(u32));
 
     memcpy(asset.pixels.data(), imageData, asset.pixels.size() * sizeof(u32));
     stbi_image_free(imageData);
 
-    return asset;
+    RenderUploadTextureInfo info{};
+    info.width = asset.width;
+    info.height = asset.height;
+    info.pixelData = asset.pixels.data();
+
+    TextureID id = UploadTexture(info);
+    texIDs[name] = id;
+
+    return id;
 }
