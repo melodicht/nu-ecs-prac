@@ -101,7 +101,7 @@ class RenderSystem : public System
             MeshComponent *m = scene->Get<MeshComponent>(ent);
             MeshID mesh = m->mesh;
             m->dirty = false;
-            meshInstances.push_back({model, {m->r, m->g, m->b}, mesh});
+            meshInstances.push_back({model, m->color, mesh});
         }
 
         RenderFrameInfo sendState{
@@ -504,8 +504,6 @@ public:
         MeshComponent *m = scene->Assign<MeshComponent>(ent);
         m->mesh = mesh;
         f32 shade = RandInBetween(0.25f, 0.75f);
-        m->r = shade;
-        m->g = shade;
-        m->b = shade;
+        m->color = {shade, shade, shade};
     }
 };

@@ -22,9 +22,7 @@
 COMP(MeshComponent)
 {
     FIELD(MeshID, mesh, -1);
-    FIELD(float, r, 0.5);
-    FIELD(float, g, 0.5);
-    FIELD(float, b, 0.5);
+    FIELD(glm::vec3, color, glm::vec3{0.5f});
     LOCAL_FIELD(bool, dirty, true);
 };
 

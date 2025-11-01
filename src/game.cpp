@@ -6,9 +6,9 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include "renderer/render_backend.h"
 #include "asset_types.h"
 #include "asset_utils.cpp"
-#include "renderer/render_backend.h"
 
 #include "ecs.cpp"
 
@@ -29,47 +29,15 @@ GAME_INITIALIZE(GameInitialize)
 {
     RegisterComponents(scene);
 
-    LoadScene(scene, "scenes/main.toml");
+    LoadMeshes();
+    LoadScene(scene, "scenes/test.toml");
 
     bool slowStep = false;
-    
-    MeshAsset cuboidAsset = LoadMeshAsset("models/cube.glb");
-    MeshAsset trapAsset = LoadMeshAsset("models/trap.glb");
-    MeshAsset pyraAsset = LoadMeshAsset("models/pyra.glb");
-    MeshAsset prismAsset = LoadMeshAsset("models/prism.glb");
-    
-    RenderUploadMeshInfo cuboidAssetDesc {
-        .vertData = cuboidAsset.vertices.data(),
-        .idxData = cuboidAsset.indices.data(),
-        .vertSize = (u32)cuboidAsset.vertices.size(),
-        .idxSize = (u32)cuboidAsset.indices.size()
-    };
 
-    RenderUploadMeshInfo trapAssetDesc {
-        .vertData = trapAsset.vertices.data(),
-        .idxData = trapAsset.indices.data(),
-        .vertSize = (u32)trapAsset.vertices.size(),
-        .idxSize = (u32)trapAsset.indices.size()
-    };
-
-    RenderUploadMeshInfo pyraAssetDesc {
-        .vertData = pyraAsset.vertices.data(),
-        .idxData = pyraAsset.indices.data(),
-        .vertSize = (u32)pyraAsset.vertices.size(),
-        .idxSize =(u32) pyraAsset.indices.size()
-    };
-
-    RenderUploadMeshInfo prismAssetDesc {
-        .vertData = prismAsset.vertices.data(),
-        .idxData = prismAsset.indices.data(),
-        .vertSize = (u32)prismAsset.vertices.size(),
-        .idxSize = (u32)prismAsset.indices.size()
-    };
-
-    cuboidMesh = UploadMesh(cuboidAssetDesc);
-    trapMesh = UploadMesh(trapAssetDesc);
-    pyraMesh = UploadMesh(pyraAssetDesc);
-    prismMesh = UploadMesh(prismAssetDesc);
+    cuboidMesh = meshIDs["cube"];
+    trapMesh = meshIDs["trap"];
+    pyraMesh = meshIDs["pyra"];
+    prismMesh = meshIDs["prism"];
 
     // NOTE(marvin): Initialising the physics system.
     JPH::RegisterDefaultAllocator();

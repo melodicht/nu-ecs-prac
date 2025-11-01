@@ -35,7 +35,7 @@ void LoadValue<int>(char* dest, toml::node* data)
 template <>
 void LoadValue<float>(char* dest, toml::node* data)
 {
-    if (!data->is_number())
+    if (!data->is_floating_point())
     {
         std::cout << "This field must be a floating point number\n";
     }
@@ -83,10 +83,42 @@ void LoadComponent(Scene &scene, EntityID entity, toml::table* compData, int com
     {
         if (compData->contains(field.name))
         {
-            field.loadFunc(comp, (*compData)[field.name].node());
+            field.loadFunc(comp, compData->get(field.name));
         }
 
         comp += field.size;
+    }
+}
+
+template <>
+void LoadComponent<MeshComponent>(Scene &scene, EntityID entity, toml::table* compData, int compIndex)
+{
+    MeshComponent* comp = scene.Assign<MeshComponent>(entity);
+
+    if (!compData->contains("mesh"))
+    {
+        std::cout << "Must specify a mesh\n";
+    }
+
+    toml::node* meshData = compData->get("mesh");
+
+    if (!meshData->is_string())
+    {
+        std::cout << "This field must be a string\n";
+    }
+
+    std::string meshPath = meshData->as_string()->get();
+
+    if (!meshIDs.contains(meshPath))
+    {
+        std::cout << "Invalid mesh name\n";
+    }
+
+    comp->mesh = meshIDs[meshPath];
+
+    if (compData->contains("color"))
+    {
+        LoadValue<glm::vec3>(((char*)comp) + sizeof(MeshID), compData->get("color"));
     }
 }
 

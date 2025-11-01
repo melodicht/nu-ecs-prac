@@ -10,6 +10,8 @@ struct fastgltf::ElementTraits<glm::vec3> : fastgltf::ElementTraitsBase<glm::vec
 template <>
 struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec3, AccessorType::Vec2, f32> {};
 
+std::unordered_map<std::string, MeshID> meshIDs;
+
 MeshAsset LoadMeshAsset(std::filesystem::path path)
 {
     fastgltf::Expected<fastgltf::GltfDataBuffer> dataFile = fastgltf::GltfDataBuffer::FromPath(path);
@@ -71,6 +73,24 @@ MeshAsset LoadMeshAsset(std::filesystem::path path)
     }
 
     return asset;
+}
+
+void LoadMeshes()
+{
+    for (const std::filesystem::directory_entry& file : std::filesystem::recursive_directory_iterator("models"))
+    {
+        MeshAsset asset = LoadMeshAsset(file.path());
+
+        RenderUploadMeshInfo uploadInfo
+        {
+                .vertData = asset.vertices.data(),
+                .idxData = asset.indices.data(),
+                .vertSize = (u32)asset.vertices.size(),
+                .idxSize = (u32)asset.indices.size()
+        };
+
+        meshIDs[file.path().stem().string()] = UploadMesh(uploadInfo);
+    }
 }
 
 TextureAsset LoadTextureAsset(const char *path)
