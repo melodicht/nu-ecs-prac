@@ -55,7 +55,7 @@ When there are several translation units in a project, and some of them referenc
 
 
 - Game.cpp is the entry point for the game module.
-  - game.h
+  - game.h (holds the components of the ECS)
     - game_platform.h (mentioning it here because it is within game.h)
     - thread_safe_primtives.h
     - debug.h
