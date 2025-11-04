@@ -403,7 +403,15 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
 
     VkCommandBuffer commandBuffer = BeginImmediateCommands(device, mainCommandPool);
 
-    TransitionImage(commandBuffer, texImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(texImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 
     VkBufferImageCopy copyRegion = {};
     copyRegion.bufferOffset = 0;
@@ -417,7 +425,8 @@ TextureID UploadTexture(RenderUploadTextureInfo& info)
     copyRegion.imageExtent = {info.width, info.height, 1};
 
     vkCmdCopyBufferToImage(commandBuffer, uploadBuffer.buffer, texImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-    TransitionImage(commandBuffer, texImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    imageBarrier = ImageBarrier(texImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
     EndImmediateCommands(device, graphicsQueue, mainCommandPool, commandBuffer);
 
     DestroyBuffer(allocator, uploadBuffer);
