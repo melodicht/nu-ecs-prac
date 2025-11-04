@@ -55,7 +55,7 @@ When there are several translation units in a project, and some of them referenc
 
 
 - Game.cpp is the entry point for the game module.
-  - game.h
+  - game.h (holds the components of the ECS)
     - game_platform.h (mentioning it here because it is within game.h)
     - thread_safe_primtives.h
     - debug.h
@@ -89,6 +89,9 @@ When there are several translation units in a project, and some of them referenc
 1. Generator: Download Ninja or make
    - We know Ninja works.
 2. C++ Compiler: On windows, use Clang. On Unix, either gcc or Clang works.
+3. Vulkan:
+   - https://vulkan.lunarg.com/sdk/home
+   - Install the latest version. As of writing this, we know that 1.4.328.1 works.
 
 ## Steps
 

@@ -93,6 +93,7 @@ bool resize = false;
 u32 currentIndexCount;
 
 VkPipelineLayout *currentLayout;
+std::vector<VkImageMemoryBarrier2> imageBarriers;
 
 MeshID currentMeshID;
 std::unordered_map<MeshID,Mesh> meshes;
@@ -1155,6 +1156,9 @@ bool InitFrame()
 #if SKL_ENABLED_EDITOR
     ImGui_ImplVulkan_NewFrame();
 #endif
+
+    imageBarriers.clear();
+
     //Set up commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
@@ -1184,8 +1188,6 @@ bool InitFrame()
     beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
     VK_CHECK(vkBeginCommandBuffer(cmd, &beginInfo));
-
-    TransitionImage(cmd, swapImages[swapIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     return true;
 }
@@ -1251,6 +1253,17 @@ void BeginShadowPass(Texture target, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
+
     VkExtent2D extent = target.extent;
 
     //set dynamic viewport and scissor
@@ -1268,11 +1281,24 @@ void BeginShadowPass(Texture target, CullMode cullMode)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, shadowPipeline);
     currentLayout = &depthPipelineLayout;
+
+    imageBarriers.push_back(ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
 }
 
 void BeginCascadedPass(Texture target, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
 
     VkExtent2D extent = target.extent;
 
@@ -1291,11 +1317,24 @@ void BeginCascadedPass(Texture target, CullMode cullMode)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cascadedPipeline);
     currentLayout = &depthPipelineLayout;
+
+    imageBarriers.push_back(ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
 }
 
 void BeginCubemapShadowPass(Texture target, CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
 
     VkExtent2D extent = target.extent;
 
@@ -1314,11 +1353,24 @@ void BeginCubemapShadowPass(Texture target, CullMode cullMode)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubemapPipeline);
     currentLayout = &cubemapPipelineLayout;
+
+    imageBarriers.push_back(ImageBarrier(target.texture.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL));
 }
 
 void BeginColorPass(CullMode cullMode)
 {
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
+
+    imageBarriers.push_back(ImageBarrier(swapImages[swapIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL));
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = imageBarriers.size();
+    depInfo.pImageMemoryBarriers = imageBarriers.data();
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
 
     //set dynamic viewport and scissor
     VkViewport viewport = {};
@@ -1486,7 +1538,16 @@ void EndFrame()
     // End dynamic rendering and commands
     VkCommandBuffer& cmd = frames[frameNum].commandBuffer;
 
-    TransitionImage(cmd, swapImages[swapIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    VkImageMemoryBarrier2 imageBarrier = ImageBarrier(swapImages[swapIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
 
     VK_CHECK(vkEndCommandBuffer(cmd));
 
