@@ -1256,6 +1256,8 @@ void BeginDepthPass(CullMode cullMode)
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPipeline);
     currentLayout = &depthPipelineLayout;
+
+    imageBarriers.push_back(ImageBarrier(depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL));
 }
 
 void BeginShadowPass(Texture target, CullMode cullMode)
