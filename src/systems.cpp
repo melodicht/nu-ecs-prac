@@ -324,15 +324,16 @@ public:
 
             if (plane->width <= 16.0f || plane->length <= 16.0f || (plane->width / plane->length) >= 128 || (plane->length / plane->width) >= 128)
             {
-                if (RandInBetween(0.0f, 1.0f) > 0.9375f)
+                if (RandInBetween(0.0f, 1.0f) > 0.975f)
                 {
                     // Build antenna
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
                     BuildPart(scene, ent, t, LoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
                     t->position.z -= antennaWidth / 2;
 
-                    if (pointLightCount < 256)
+                    if (pointLightCount < 64)
                     {
+                        printf("%d\n", pointLightCount);
                         EntityID pointLight = scene->NewEntity();
                         Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
                         *pointTransform = *t;
