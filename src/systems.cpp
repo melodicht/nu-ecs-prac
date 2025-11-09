@@ -127,19 +127,19 @@ local JPH::Vec3 GetMovementDirectionFromInput(GameInput *input)
 {
     // NOTE(marvin): Jolt uses right-hand coordinate system with Y up.
     JPH::Vec3 result = {};
-    if (input->keysDown["W"])
+    if (input->keysDown.contains("W"))
     {
         result = JPH::Vec3(0, 0, 1);
     }
-    else if (input->keysDown["S"])
+    else if (input->keysDown.contains("S"))
     {
         result = JPH::Vec3(0, 0, -1);
     }
-    else if (input->keysDown["D"])
+    else if (input->keysDown.contains("D"))
     {
         result = JPH::Vec3(-1, 0, 0);
     }
-    else if (input->keysDown["A"])
+    else if (input->keysDown.contains("A"))
     {
         result = JPH::Vec3(1, 0, 0);
     }
@@ -239,22 +239,22 @@ class MovementSystem : public System
             t->rotation.y += input->mouseDeltaY * f->turnSpeed;
             t->rotation.y = std::min(std::max(t->rotation.y, -90.0f), 90.0f);
 
-            if (input->keysDown["W"])
+            if (input->keysDown.contains("W"))
             {
                 t->position += GetForwardVector(t) * f->moveSpeed * deltaTime;
             }
 
-            if (input->keysDown["S"])
+            if (input->keysDown.contains("S"))
             {
                 t->position -= GetForwardVector(t) * f->moveSpeed * deltaTime;
             }
 
-            if (input->keysDown["D"])
+            if (input->keysDown.contains("D"))
             {
                 t->position += GetRightVector(t) * f->moveSpeed * deltaTime;
             }
 
-            if (input->keysDown["A"])
+            if (input->keysDown.contains("A"))
             {
                 t->position -= GetRightVector(t) * f->moveSpeed * deltaTime;
             }

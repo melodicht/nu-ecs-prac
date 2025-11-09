@@ -9,6 +9,7 @@
 #include <bitset>   // For ECS
 #include <unordered_map>
 #include <string>
+#include <set>
 
 #define WINDOW_WIDTH 1600
 #define WINDOW_HEIGHT 1200
@@ -18,7 +19,7 @@ struct GameInput
   f32 mouseDeltaX;
   f32 mouseDeltaY;
 
-  std::unordered_map<std::string, bool> keysDown;
+  std::set<std::string> keysDown;
 };
 
 struct GameMemory

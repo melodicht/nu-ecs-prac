@@ -40,7 +40,7 @@
 #define GAME_CODE_SRC_FILE_NAME "game-module"
 #define GAME_CODE_USE_FILE_NAME "game-module-locked"
 
-global_variable std::unordered_map<std::string, bool> keysDown;
+global_variable std::set<std::string> keysDown;
 global_variable f32 mouseDeltaX = 0;
 global_variable f32 mouseDeltaY = 0;
 
@@ -176,10 +176,10 @@ void updateLoop(void* appInfo) {
                 {
                     info->playing = false;
                 }
-                keysDown[SDL_GetKeyName(info->e.key.key)] = true;
+                keysDown.insert(SDL_GetKeyName(info->e.key.key));
                 break;
             case SDL_EVENT_KEY_UP:
-                keysDown[SDL_GetKeyName(info->e.key.key)] = false;
+                keysDown.erase(SDL_GetKeyName(info->e.key.key));
                 break;
         }
     }
