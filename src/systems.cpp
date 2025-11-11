@@ -333,7 +333,6 @@ public:
 
                     if (pointLightCount < 64)
                     {
-                        printf("%d\n", pointLightCount);
                         EntityID pointLight = scene->NewEntity();
                         Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
                         *pointTransform = *t;
