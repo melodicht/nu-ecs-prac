@@ -29,7 +29,6 @@ struct Texture
 {
     AllocatedImage texture;
     VkImageView imageView;
-    VkSampler sampler;
     VkExtent2D extent;
     u32 descriptorIndex;
 };

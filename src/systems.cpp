@@ -27,13 +27,6 @@ std::vector<glm::vec4> getFrustumCorners(const glm::mat4& proj, const glm::mat4&
 
 class RenderSystem : public System
 {
-    void OnStart(Scene *scene)
-    {
-        RenderPipelineInitInfo initDesc {};
-
-        InitPipelines(initDesc);
-    }
-
     void OnUpdate(Scene *scene, GameInput *input, f32 deltaTime)
     {
         NAMED_TIMED_BLOCK(RenderSystem);
@@ -99,9 +92,8 @@ class RenderSystem : public System
             Transform3D *t = scene->Get<Transform3D>(ent);
             glm::mat4 model = GetTransformMatrix(t);
             MeshComponent *m = scene->Get<MeshComponent>(ent);
-            MeshID mesh = m->mesh;
             m->dirty = false;
-            meshInstances.push_back({model, m->color, mesh});
+            meshInstances.push_back({model, m->color, m->mesh, m->texture});
         }
 
         RenderFrameInfo sendState{
@@ -341,6 +333,7 @@ public:
 
                     if (pointLightCount < 64)
                     {
+                        printf("%d\n", pointLightCount);
                         EntityID pointLight = scene->NewEntity();
                         Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
                         *pointTransform = *t;

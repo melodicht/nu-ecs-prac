@@ -53,6 +53,14 @@ struct RenderUploadMeshInfo {
 };
 MeshID UploadMesh(RenderUploadMeshInfo& info);
 
+struct RenderUploadTextureInfo {
+    u32 width;
+    u32 height;
+    u32* pixelData;
+};
+
+TextureID UploadTexture(RenderUploadTextureInfo& info);
+
 LightID AddDirLight();
 LightID AddSpotLight();
 LightID AddPointLight();
@@ -77,6 +85,7 @@ struct MeshRenderInfo {
     glm::mat4 matrix;
     glm::vec3 rgbColor;
     MeshID mesh;
+    TextureID texture;
 
     // Vulkan Specific
 

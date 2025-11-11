@@ -29,6 +29,9 @@ GAME_INITIALIZE(GameInitialize)
 {
     RegisterComponents(scene);
 
+    RenderPipelineInitInfo initDesc {};
+    InitPipelines(initDesc);
+
     LoadScene(scene, "scenes/city.toml");
 
     bool slowStep = false;
