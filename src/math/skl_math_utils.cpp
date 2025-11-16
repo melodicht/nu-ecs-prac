@@ -60,14 +60,19 @@ glm::mat4 Transform3D::GetWorldTransform()
         return this->worldTransform;
     }
 
-    glm::mat4 parentSpace = this->parent->GetWorldTransform();
-
     glm::quat aroundX = glm::angleAxis(glm::radians(this->rotation.x), glm::vec3(1.0, 0.0, 0.0));
     glm::quat aroundY = glm::angleAxis(glm::radians(this->rotation.y), glm::vec3(0.0, 1.0, 0.0));
     glm::quat aroundZ = glm::angleAxis(glm::radians(this->rotation.z), glm::vec3(0.0, 0.0, 1.0));
     glm::mat4 rotationMat = glm::mat4_cast(aroundZ * aroundY * aroundX);
 
     this->dirty = false;
+
+    glm::mat4 parentSpace = glm::identity<glm::mat4>();
+
+    if (parent != nullptr)
+    {
+        parentSpace = this->parent->GetWorldTransform();
+    }
 
     return parentSpace * glm::scale(glm::translate(glm::mat4(1.0f), this->position) * rotationMat, this->scale);
 }
@@ -132,6 +137,19 @@ void Transform3D::SetParent(Transform3D *newParent)
     }
 
     this->parent = newParent;
+}
+
+Transform3D::~Transform3D()
+{
+    if (this->parent != nullptr)
+    {
+        this->parent->children.erase(this);
+    }
+
+    for (Transform3D *child : children)
+    {
+        child->parent = nullptr;
+    }
 }
 
 // Generates a random float in the inclusive range of the two given

@@ -26,7 +26,7 @@ private:
     Transform3D *parent;
     std::unordered_set<Transform3D *> children;
     glm::mat4 worldTransform;
-    bool dirty;
+    bool dirty = true;
 
     void MarkDirty();
 
@@ -46,4 +46,6 @@ public:
     glm::mat4 GetViewMatrix();
     void GetPointViews(glm::mat4 *views);
     void SetParent(Transform3D *newParent);
+
+    ~Transform3D();
 };
