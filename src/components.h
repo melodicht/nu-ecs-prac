@@ -11,7 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include "renderer/render_types.h"
-#include "math/skl_math_consts.h"
+#include "math/skl_math_types.h"
 
 #include <Jolt/Jolt.h>
 
@@ -24,7 +24,6 @@ COMP(MeshComponent)
     FIELD(MeshID, mesh, -1);
     FIELD(TextureID, texture, -1);
     FIELD(glm::vec3, color, glm::vec3{1.0f});
-    LOCAL_FIELD(bool, dirty, true);
 };
 
 COMP(PlayerCharacter)

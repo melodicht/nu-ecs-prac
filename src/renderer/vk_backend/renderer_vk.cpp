@@ -39,7 +39,7 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
 
-#include "math/skl_math_consts.h"
+#include "math/skl_math_types.h"
 #include "math/skl_math_utils.h"
 
 // Vulkan structures
@@ -1644,7 +1644,7 @@ void RenderUpdate(RenderFrameInfo& info)
     SendObjectData(objects);
 
     Transform3D cameraTransform = info.cameraTransform;
-    glm::mat4 view = GetViewMatrix(&cameraTransform);
+    glm::mat4 view = cameraTransform.GetViewMatrix();
     f32 aspect = (f32)swapExtent.width / (f32)swapExtent.height;
 
     glm::mat4 proj = glm::perspective(glm::radians(info.cameraFov), aspect, info.cameraNear, info.cameraFar);
@@ -1666,7 +1666,7 @@ void RenderUpdate(RenderFrameInfo& info)
         f32 currentNear = info.cameraNear;
 
         Transform3D dirTransform = dirInfo.transform;
-        glm::mat4 dirView = GetViewMatrix(&dirTransform);
+        glm::mat4 dirView = dirTransform.GetViewMatrix();
 
         for (int i = 0; i < NUM_CASCADES; i++)
         {
@@ -1701,7 +1701,7 @@ void RenderUpdate(RenderFrameInfo& info)
             cascades.push_back({dirProj * dirView, currentNear});
         }
 
-        glm::vec3 lightDir = GetForwardVector(&dirTransform);
+        glm::vec3 lightDir = dirTransform.GetForwardVector();
 
         LightEntry lightEntry = lights[dirInfo.lightID];
 
@@ -1719,7 +1719,7 @@ void RenderUpdate(RenderFrameInfo& info)
         }
         EndPass();
 
-        dirLightData.push_back({GetForwardVector(&dirTransform),
+        dirLightData.push_back({dirTransform.GetForwardVector(),
                                 lightEntry.shadowMap.descriptorIndex,
                                 dirInfo.diffuse, dirInfo.specular});
     }
@@ -1730,13 +1730,13 @@ void RenderUpdate(RenderFrameInfo& info)
     for (SpotLightRenderInfo spotInfo : info.spotLights)
     {
         Transform3D spotTransform = spotInfo.transform;
-        glm::mat4 spotView = GetViewMatrix(&spotTransform);
+        glm::mat4 spotView = spotTransform.GetViewMatrix();
         glm::mat4 spotProj = glm::perspective(glm::radians(spotInfo.outerCone * 2), 1.0f, 0.01f, spotInfo.range);
         LightEntry lightEntry = lights[spotInfo.lightID];
 
         if (spotInfo.needsUpdate)
         {
-            CameraData spotCamData = {spotView, spotProj, spotTransform.position};
+            CameraData spotCamData = {spotView, spotProj, spotTransform.GetLocalPosition()};
 
             BeginShadowPass(lightEntry.shadowMap, CullMode::BACK);
 
@@ -1754,7 +1754,7 @@ void RenderUpdate(RenderFrameInfo& info)
         }
 
 
-        spotLightData.push_back({spotProj * spotView, spotTransform.position, GetForwardVector(&spotTransform),
+        spotLightData.push_back({spotProj * spotView, spotTransform.GetLocalPosition(), spotTransform.GetForwardVector(),
                                  lightEntry.shadowMap.descriptorIndex, spotInfo.diffuse, spotInfo.specular,
                                  cosf(glm::radians(spotInfo.innerCone)), cosf(glm::radians(spotInfo.outerCone)),
                                  spotInfo.range});
@@ -1765,7 +1765,7 @@ void RenderUpdate(RenderFrameInfo& info)
     for (PointLightRenderInfo pointInfo : info.pointLights)
     {
         Transform3D pointTransform = pointInfo.transform;
-        glm::vec3 pointPos = pointTransform.position;
+        glm::vec3 pointPos = pointTransform.GetLocalPosition();
         LightEntry lightEntry = lights[pointInfo.lightID];
 
         if (pointInfo.needsUpdate)
@@ -1775,7 +1775,7 @@ void RenderUpdate(RenderFrameInfo& info)
             glm::mat4 pointProj = glm::perspective(glm::radians(90.0f), 1.0f, 0.5f, pointInfo.maxRange);
             glm::mat4 pointViews[6];
 
-            GetPointViews(&pointTransform, pointViews);
+            pointTransform.GetPointViews(pointViews);
 
             for (int i = 0; i < 6; i++)
             {
@@ -1809,7 +1809,7 @@ void RenderUpdate(RenderFrameInfo& info)
     BeginDepthPass(CullMode::BACK);
 
     SetCamera(mainCamIndex);
-    CameraData mainCamData = {view, proj, cameraTransform.position};
+    CameraData mainCamData = {view, proj, cameraTransform.GetLocalPosition()};
     UpdateCamera(1, &mainCamData);
 
     startIndex = 0;

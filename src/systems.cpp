@@ -90,9 +90,8 @@ class RenderSystem : public System
         for (EntityID ent: SceneView<MeshComponent, Transform3D>(*scene))
         {
             Transform3D *t = scene->Get<Transform3D>(ent);
-            glm::mat4 model = GetTransformMatrix(t);
+            glm::mat4 model = t->GetWorldTransform();
             MeshComponent *m = scene->Get<MeshComponent>(ent);
-            m->dirty = false;
             meshInstances.push_back({model, m->color, m->mesh, m->texture});
         }
 
@@ -197,11 +196,11 @@ public:
         EntityID cameraEnt = *playerView.begin();
         Transform3D *ct = scene->Get<Transform3D>(cameraEnt);
 
-        glm::vec3 ip = pt->position;
+        glm::vec3 ip = pt->GetLocalPosition();
         JPH::Vec3 playerPhysicsInitialPosition = JPH::Vec3(-ip.y, ip.z, ip.x);
         cv->SetPosition(playerPhysicsInitialPosition);
 
-        glm::vec3 ir = pt->rotation;
+        glm::vec3 ir = pt->GetLocalRotation();
         JPH::Quat playerPhysicsInitialRotation = JPH::Quat(-ir.y, ir.z, ir.x, 1.0f).Normalized();
         cv->SetRotation(playerPhysicsInitialRotation);
 
@@ -210,7 +209,7 @@ public:
 
         // Update player and camera transforms from character virtual's position
         JPH::Vec3 cp = cv->GetPosition();
-        pt->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
+        pt->GetLocalPosition() = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
 #if 0
         ct->position = glm::vec3(cp.GetZ(), -cp.GetX(), cp.GetY());
 #endif
@@ -227,28 +226,28 @@ class MovementSystem : public System
             FlyingMovement *f = scene->Get<FlyingMovement>(ent);
             Transform3D *t = scene->Get<Transform3D>(ent);
 
-            t->rotation.z += input->mouseDeltaX * f->turnSpeed;
-            t->rotation.y += input->mouseDeltaY * f->turnSpeed;
-            t->rotation.y = std::min(std::max(t->rotation.y, -90.0f), 90.0f);
+            t->AddLocalRotation({0, 0, input->mouseDeltaX * f->turnSpeed});
+            t->AddLocalRotation({0, input->mouseDeltaY * f->turnSpeed, 0});
+            t->SetLocalRotation({t->GetLocalRotation().x, std::min(std::max(t->GetLocalRotation().y, -90.0f), 90.0f), t->GetLocalRotation().z});
 
             if (input->keysDown.contains("W"))
             {
-                t->position += GetForwardVector(t) * f->moveSpeed * deltaTime;
+                t->AddLocalPosition(t->GetForwardVector() * f->moveSpeed * deltaTime);
             }
 
             if (input->keysDown.contains("S"))
             {
-                t->position -= GetForwardVector(t) * f->moveSpeed * deltaTime;
+                t->AddLocalPosition(t->GetForwardVector() * -f->moveSpeed * deltaTime);
             }
 
             if (input->keysDown.contains("D"))
             {
-                t->position += GetRightVector(t) * f->moveSpeed * deltaTime;
+                t->AddLocalPosition(t->GetRightVector() * f->moveSpeed * deltaTime);
             }
 
             if (input->keysDown.contains("A"))
             {
-                t->position -= GetRightVector(t) * f->moveSpeed * deltaTime;
+                t->AddLocalPosition(t->GetRightVector() * -f->moveSpeed * deltaTime);
             }
         }
     }
@@ -329,14 +328,14 @@ public:
                     // Build antenna
                     f32 antennaHeight = RandInBetween(antennaHeightMin, antennaHeightMax);
                     BuildPart(scene, ent, t, LoadMeshAsset("cube"), {antennaWidth, antennaWidth, antennaHeight});
-                    t->position.z -= antennaWidth / 2;
+                    t->AddLocalPosition({0, 0, -antennaWidth / 2});
 
                     if (pointLightCount < 64)
                     {
                         EntityID pointLight = scene->NewEntity();
                         Transform3D* pointTransform = scene->Assign<Transform3D>(pointLight);
                         *pointTransform = *t;
-                        pointTransform->position.z += antennaHeight / 2;
+                        pointTransform->AddLocalPosition({0, 0, antennaWidth / 2});
                         PointLight* pointLightComponent = scene->Assign<PointLight>(pointLight);
                         f32 red = RandInBetween(0.8, 1.0);
                         pointLightComponent->diffuse = {red, 0.6, 0.25};
@@ -376,7 +375,7 @@ public:
                     plane->width = width;
                     plane->length = length;
 
-                    t->rotation.z += glm::degrees(angle);
+                    t->AddLocalRotation({0, 0, glm::degrees(angle)});
                     break;
                 }
             case 1:
@@ -394,7 +393,7 @@ public:
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
                     Plane *p = scene->Assign<Plane>(newPlane);
                     *newT = *t;
-                    newT->position.z += trapHeight / 2;
+                    newT->AddLocalPosition({0, 0, trapHeight / 2});
                     p->width = plane->width / 2;
                     p->length = plane->length / 2;
 
@@ -442,7 +441,7 @@ public:
                     Transform3D *newT = scene->Assign<Transform3D>(newPlane);
                     Plane *p = scene->Assign<Plane>(newPlane);
                     *newT = *t;
-                    newT->position.z += cuboidHeight / 2;
+                    newT->AddLocalPosition({0, 0, cuboidHeight / 2});
                     *p = *plane;
 
                     scene->Remove<Plane>(ent);
@@ -468,8 +467,8 @@ public:
                         plane->length = divisible * ratio;
                         p->length = divisible * (1.0f - ratio);
 
-                        t->position -= GetForwardVector(t) * ((old - plane->length) * 0.5f);
-                        newT->position += GetForwardVector(newT) * ((old - p->length) * 0.5f);
+                        t->AddLocalPosition(glm::normalize(t->GetForwardVector()) * ((old - plane->length) * -0.5f));
+                        newT->AddLocalPosition(glm::normalize(newT->GetForwardVector()) * ((old - p->length) * 0.5f));
                     }
                     else
                     {
@@ -480,8 +479,8 @@ public:
                         plane->width = divisible * ratio;
                         p->width = divisible * (1.0f - ratio);
 
-                        t->position -= GetRightVector(t) * ((old - plane->width) * 0.5f);
-                        newT->position += GetRightVector(newT) * ((old - p->width) * 0.5f);
+                        t->AddLocalPosition(glm::normalize(t->GetRightVector()) * ((old - plane->width) * -0.5f));
+                        newT->AddLocalPosition(glm::normalize(newT->GetRightVector()) * ((old - p->width) * 0.5f));
                     }
                 }
             }
@@ -490,8 +489,8 @@ public:
 
     void BuildPart(Scene *scene, EntityID ent, Transform3D *t, uint32_t mesh, glm::vec3 scale)
     {
-        t->position.z += scale.z / 2;
-        t->scale = scale;
+        t->AddLocalPosition({0, 0, scale.z / 2});
+        t->SetLocalScale(scale);
 
         MeshComponent *m = scene->Assign<MeshComponent>(ent);
         m->mesh = mesh;

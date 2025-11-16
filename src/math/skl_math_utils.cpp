@@ -2,32 +2,76 @@
 
 #include <random>
 
-glm::mat4 GetRotationMatrix(Transform3D *transform)
+glm::vec3 Transform3D::GetLocalPosition()
 {
-    glm::quat aroundX = glm::angleAxis(glm::radians(transform->rotation.x), glm::vec3(1.0, 0.0, 0.0));
-    glm::quat aroundY = glm::angleAxis(glm::radians(transform->rotation.y), glm::vec3(0.0, 1.0, 0.0));
-    glm::quat aroundZ = glm::angleAxis(glm::radians(transform->rotation.z), glm::vec3(0.0, 0.0, 1.0));
-    return glm::mat4_cast(aroundZ * aroundY * aroundX);
+    return this->position;
+}
+void Transform3D::SetLocalPosition(glm::vec3 newPos)
+{
+    this->position = newPos;
+    MarkDirty();
+}
+void Transform3D::AddLocalPosition(glm::vec3 offset)
+{
+    this->position += offset;
+    MarkDirty();
+}
+glm::vec3 Transform3D::GetLocalRotation()
+{
+    return rotation;
+}
+void Transform3D::SetLocalRotation(glm::vec3 newRot)
+{
+    this->rotation = newRot;
+    MarkDirty();
+}
+void Transform3D::AddLocalRotation(glm::vec3 offset)
+{
+    this->rotation += offset;
+    MarkDirty();
+}
+glm::vec3 Transform3D::GetLocalScale()
+{
+    return this->scale;
+}
+void Transform3D::SetLocalScale(glm::vec3 newScale)
+{
+    this->scale = newScale;
+    MarkDirty();
 }
 
-glm::mat4 GetTransformMatrix(Transform3D *transform)
+void Transform3D::MarkDirty()
 {
-    return glm::scale(glm::translate(glm::mat4(1.0f), transform->position) * GetRotationMatrix(transform), transform->scale);
+    this->dirty = true;
+    for (Transform3D *child : children)
+    {
+        child->MarkDirty();
+    }
 }
 
-glm::vec3 GetForwardVector(Transform3D *transform)
+glm::mat4 Transform3D::GetWorldTransform()
 {
-    return GetRotationMatrix(transform) * glm::vec4(1.0, 0.0, 0.0, 1.0);
+    glm::quat aroundX = glm::angleAxis(glm::radians(this->rotation.x), glm::vec3(1.0, 0.0, 0.0));
+    glm::quat aroundY = glm::angleAxis(glm::radians(this->rotation.y), glm::vec3(0.0, 1.0, 0.0));
+    glm::quat aroundZ = glm::angleAxis(glm::radians(this->rotation.z), glm::vec3(0.0, 0.0, 1.0));
+    glm::mat4 rotationMat = glm::mat4_cast(aroundZ * aroundY * aroundX);
+
+    return glm::scale(glm::translate(glm::mat4(1.0f), this->position) * rotationMat, this->scale);
 }
 
-glm::vec3 GetRightVector(Transform3D *transform)
+glm::vec3 Transform3D::GetForwardVector()
 {
-    return GetRotationMatrix(transform) * glm::vec4(0.0, 1.0, 0.0, 1.0);
+    return GetWorldTransform() * glm::vec4(1.0, 0.0, 0.0, 0.0);
 }
 
-glm::vec3 GetUpVector(Transform3D *transform)
+glm::vec3 Transform3D::GetRightVector()
 {
-    return GetRotationMatrix(transform) * glm::vec4(0.0, 0.0, 1.0, 1.0);
+    return GetWorldTransform() * glm::vec4(0.0, 1.0, 0.0, 0.0);
+}
+
+glm::vec3 Transform3D::GetUpVector()
+{
+    return GetWorldTransform() * glm::vec4(0.0, 0.0, 1.0, 0.0);
 }
 
 glm::mat4 MakeViewMatrix(glm::vec3 forward, glm::vec3 right, glm::vec3 up, glm::vec3 position)
@@ -44,27 +88,27 @@ glm::mat4 MakeViewMatrix(glm::vec3 forward, glm::vec3 right, glm::vec3 up, glm::
     return view;
 }
 
-glm::mat4 GetViewMatrix(Transform3D *transform)
+glm::mat4 Transform3D::GetViewMatrix()
 {
-    glm::vec3 forward = GetForwardVector(transform);
-    glm::vec3 right = GetRightVector(transform);
-    glm::vec3 up = GetUpVector(transform);
+    glm::vec3 forward = GetForwardVector();
+    glm::vec3 right = GetRightVector();
+    glm::vec3 up = GetUpVector();
 
-    return MakeViewMatrix(forward, right, up, transform->position);
+    return MakeViewMatrix(forward, right, up, this->position);
 }
 
-void GetPointViews(Transform3D *transform, glm::mat4 *views)
+void Transform3D::GetPointViews(glm::mat4 *views)
 {
     glm::vec3 forward = {1, 0, 0};
     glm::vec3 right = {0, 1, 0};
     glm::vec3 up = {0, 0, 1};
 
-    views[0] = MakeViewMatrix(forward, -up, right, transform->position);
-    views[1] = MakeViewMatrix(-forward, up, right, transform->position);
-    views[2] = MakeViewMatrix(right, forward, -up, transform->position);
-    views[3] = MakeViewMatrix(-right, forward, up, transform->position);
-    views[4] = MakeViewMatrix(up, forward, right, transform->position);
-    views[5] = MakeViewMatrix(-up, -forward, right, transform->position);
+    views[0] = MakeViewMatrix(forward, -up, right, this->position);
+    views[1] = MakeViewMatrix(-forward, up, right, this->position);
+    views[2] = MakeViewMatrix(right, forward, -up, this->position);
+    views[3] = MakeViewMatrix(-right, forward, up, this->position);
+    views[4] = MakeViewMatrix(up, forward, right, this->position);
+    views[5] = MakeViewMatrix(-up, -forward, right, this->position);
 }
 
 // Generates a random float in the inclusive range of the two given

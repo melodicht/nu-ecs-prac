@@ -1,6 +1,6 @@
 #pragma once
 
-#include "skl_math_consts.h"
+#include "skl_math_types.h"
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #define GLM_FORCE_LEFT_HANDED
@@ -13,19 +13,7 @@ glm::vec3 GetArbitraryOrthogonal(const glm::vec3& vec);
 
 glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& right);
 
-glm::mat4 GetRotationMatrix(Transform3D *transform);
 
-glm::mat4 GetTransformMatrix(Transform3D *transform);
-
-glm::vec3 GetForwardVector(Transform3D *transform);
-
-glm::vec3 GetRightVector(Transform3D *transform);
-
-glm::vec3 GetUpVector(Transform3D *transform);
-
-glm::mat4 GetViewMatrix(Transform3D *transform);
-
-void GetPointViews(Transform3D *transform, glm::mat4 *views);
 // Generates a random float in the inclusive range of the two given
 // floats.
 f32 RandInBetween(f32 LO, f32 HI);
