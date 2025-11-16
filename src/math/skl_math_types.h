@@ -6,7 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-#include <vector>
+#include <unordered_set>
 
 // This represents constants/typedefs often used throughout program
 // Really any compile time math concept
@@ -24,7 +24,7 @@ private:
     glm::vec3 rotation;
     glm::vec3 scale = glm::vec3(1);
     Transform3D *parent;
-    std::vector<Transform3D *> children;
+    std::unordered_set<Transform3D *> children;
     glm::mat4 worldTransform;
     bool dirty;
 
@@ -45,4 +45,5 @@ public:
     glm::vec3 GetUpVector();
     glm::mat4 GetViewMatrix();
     void GetPointViews(glm::mat4 *views);
+    void SetParent(Transform3D *newParent);
 };

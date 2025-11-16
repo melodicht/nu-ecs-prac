@@ -42,21 +42,34 @@ void Transform3D::SetLocalScale(glm::vec3 newScale)
 
 void Transform3D::MarkDirty()
 {
-    this->dirty = true;
-    for (Transform3D *child : children)
+    if (!this->dirty)
     {
-        child->MarkDirty();
+        this->dirty = true;
+        for (Transform3D *child : children)
+        {
+            child->MarkDirty();
+        }
     }
+
 }
 
 glm::mat4 Transform3D::GetWorldTransform()
 {
+    if (!this->dirty)
+    {
+        return this->worldTransform;
+    }
+
+    glm::mat4 parentSpace = this->parent->GetWorldTransform();
+
     glm::quat aroundX = glm::angleAxis(glm::radians(this->rotation.x), glm::vec3(1.0, 0.0, 0.0));
     glm::quat aroundY = glm::angleAxis(glm::radians(this->rotation.y), glm::vec3(0.0, 1.0, 0.0));
     glm::quat aroundZ = glm::angleAxis(glm::radians(this->rotation.z), glm::vec3(0.0, 0.0, 1.0));
     glm::mat4 rotationMat = glm::mat4_cast(aroundZ * aroundY * aroundX);
 
-    return glm::scale(glm::translate(glm::mat4(1.0f), this->position) * rotationMat, this->scale);
+    this->dirty = false;
+
+    return parentSpace * glm::scale(glm::translate(glm::mat4(1.0f), this->position) * rotationMat, this->scale);
 }
 
 glm::vec3 Transform3D::GetForwardVector()
@@ -109,6 +122,16 @@ void Transform3D::GetPointViews(glm::mat4 *views)
     views[3] = MakeViewMatrix(-right, forward, up, this->position);
     views[4] = MakeViewMatrix(up, forward, right, this->position);
     views[5] = MakeViewMatrix(-up, -forward, right, this->position);
+}
+
+void Transform3D::SetParent(Transform3D *newParent)
+{
+    if (this->parent != nullptr)
+    {
+        this->parent->children.erase(this);
+    }
+
+    this->parent = newParent;
 }
 
 // Generates a random float in the inclusive range of the two given
