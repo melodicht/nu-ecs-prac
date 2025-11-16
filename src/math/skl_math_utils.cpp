@@ -55,26 +55,26 @@ void Transform3D::MarkDirty()
 
 glm::mat4 Transform3D::GetWorldTransform()
 {
-    if (!this->dirty)
+    if (this->dirty)
     {
-        return this->worldTransform;
+        glm::quat aroundX = glm::angleAxis(glm::radians(this->rotation.x), glm::vec3(1.0, 0.0, 0.0));
+        glm::quat aroundY = glm::angleAxis(glm::radians(this->rotation.y), glm::vec3(0.0, 1.0, 0.0));
+        glm::quat aroundZ = glm::angleAxis(glm::radians(this->rotation.z), glm::vec3(0.0, 0.0, 1.0));
+        glm::mat4 rotationMat = glm::mat4_cast(aroundZ * aroundY * aroundX);
+
+        this->dirty = false;
+
+        glm::mat4 parentSpace = glm::identity<glm::mat4>();
+
+        this->worldTransform = glm::scale(glm::translate(glm::mat4(1.0f), this->position) * rotationMat, this->scale);
+
+        if (parent != nullptr)
+        {
+            this->worldTransform = this->parent->GetWorldTransform() * this->worldTransform;
+        }
     }
 
-    glm::quat aroundX = glm::angleAxis(glm::radians(this->rotation.x), glm::vec3(1.0, 0.0, 0.0));
-    glm::quat aroundY = glm::angleAxis(glm::radians(this->rotation.y), glm::vec3(0.0, 1.0, 0.0));
-    glm::quat aroundZ = glm::angleAxis(glm::radians(this->rotation.z), glm::vec3(0.0, 0.0, 1.0));
-    glm::mat4 rotationMat = glm::mat4_cast(aroundZ * aroundY * aroundX);
-
-    this->dirty = false;
-
-    glm::mat4 parentSpace = glm::identity<glm::mat4>();
-
-    if (parent != nullptr)
-    {
-        parentSpace = this->parent->GetWorldTransform();
-    }
-
-    return parentSpace * glm::scale(glm::translate(glm::mat4(1.0f), this->position) * rotationMat, this->scale);
+    return this->worldTransform;
 }
 
 glm::vec3 Transform3D::GetForwardVector()
