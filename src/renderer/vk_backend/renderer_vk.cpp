@@ -595,7 +595,7 @@ void InitRenderer(RenderInitInfo& info)
     // Create Vulkan instance
     vkb::InstanceBuilder builder{vkGetInstanceProcAddr};
     vkb::Instance vkbInstance = builder
-            .set_app_name("Untitled Engine")
+            .set_app_name("Skyline Engine")
             .request_validation_layers()
             .use_default_debug_messenger()
             .require_api_version(1, 3)

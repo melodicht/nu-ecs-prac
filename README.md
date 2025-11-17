@@ -101,7 +101,7 @@ When there are several translation units in a project, and some of them referenc
 3. To use the build system that was just generated:
    `make`
 4. To run the game engine:
-   `untitled-engine.exe`
+   `skyline-engine.exe`
 
 
 # Design Notes
