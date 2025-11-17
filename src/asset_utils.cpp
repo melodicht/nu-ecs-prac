@@ -13,7 +13,7 @@ struct fastgltf::ElementTraits<glm::vec2> : fastgltf::ElementTraitsBase<glm::vec
 std::unordered_map<std::string, MeshID> meshIDs;
 std::unordered_map<std::string, TextureID> texIDs;
 
-MeshID LoadMeshAsset(std::string name)
+PLATFORM_LOAD_MESH_ASSET(LoadMeshAsset)
 {
     if (meshIDs.contains(name))
     {
@@ -90,7 +90,7 @@ MeshID LoadMeshAsset(std::string name)
     return id;
 }
 
-TextureID LoadTextureAsset(std::string name)
+PLATFORM_LOAD_TEXTURE_ASSET(LoadTextureAsset)
 {
     if (texIDs.contains(name))
     {

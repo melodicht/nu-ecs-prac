@@ -109,7 +109,7 @@ void LoadComponent<MeshComponent>(Scene &scene, EntityID entity, toml::table* co
 
     std::string meshPath = meshData->as_string()->get();
 
-    comp->mesh = LoadMeshAsset(meshPath);
+    comp->mesh = globalPlatformAPI.platformLoadMeshAsset(meshPath);
 
     if (compData->contains("texture"))
     {
@@ -122,7 +122,7 @@ void LoadComponent<MeshComponent>(Scene &scene, EntityID entity, toml::table* co
 
         std::string texPath = texData->as_string()->get();
 
-        comp->texture = LoadTextureAsset(texPath);
+        comp->texture = globalPlatformAPI.platformLoadTextureAsset(texPath);
     }
 
     if (compData->contains("color"))

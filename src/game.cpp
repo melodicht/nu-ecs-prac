@@ -8,11 +8,13 @@
 #include "stb_image.h"
 #include "renderer/render_backend.h"
 #include "asset_types.h"
-#include "asset_utils.cpp"
 
 #include "ecs.cpp"
 
 #include "math/skl_math_utils.h"
+
+
+global_variable PlatformAPI globalPlatformAPI;
 
 #include "scene_loader.cpp"
 
@@ -28,6 +30,8 @@ __declspec(dllexport)
 GAME_INITIALIZE(GameInitialize)
 {
     RegisterComponents(scene);
+
+    globalPlatformAPI = platformAPI;
 
     RenderPipelineInitInfo initDesc {};
     InitPipelines(initDesc);
