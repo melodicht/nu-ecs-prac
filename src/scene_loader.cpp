@@ -7,7 +7,7 @@ struct FieldInfo
 {
     const char *name;
     size_t size;
-    void (*loadFunc)(char* dest, toml::node*);
+    void (*loadFunc)(char*, toml::node*);
 };
 
 struct ComponentInfo
@@ -17,6 +17,7 @@ struct ComponentInfo
 };
 
 std::vector<ComponentInfo> compInfos;
+std::unordered_map<std::string, EntityID> entityNames;
 
 template <typename T>
 void LoadValue(char* dest, toml::node* data) = delete;
@@ -180,12 +181,12 @@ void LoadScene(Scene& scene, const char* filename)
     try
     {
         tbl = toml::parse_file(filename);
-        toml::array* entities = tbl["entity"].as_array();
 
-        for (toml::node& entity : *entities)
+        for (auto entity : tbl)
         {
-            toml::table* table = entity.as_table();
+            toml::table* table = entity.second.as_table();
             EntityID id = scene.NewEntity();
+            entityNames[entity.first.data()] = id;
 
             for (auto val : *table)
             {
@@ -200,6 +201,7 @@ void LoadScene(Scene& scene, const char* filename)
                 compInfo.loadFunc(scene, id, val.second.as_table(), compIndex);
             }
         }
+
 
     }
     catch (const toml::parse_error& error)
