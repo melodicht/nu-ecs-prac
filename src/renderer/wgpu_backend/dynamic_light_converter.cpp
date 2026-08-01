@@ -7,12 +7,16 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
+// When near plane needs to be near 0
+// but not at 0
+const static float arbitrary_near = 0.1f;
+
 // NOTE: THIS ASSUMES A SYMMETRIC PERSPECTIVE MATRIX IS USED FOR PROJECTION
 // This prepares gpu side directional lights.
 // Light spaces are added on per cascade, 
 // (i.e. if lightSpacesCascadeCount == 2 and cpuType comprised of {a,b} then the added lightSpaces would be {(a cascade 1), (b cascade 1), (a cascade 2), (b cascade 2)})
 std::vector<WGPUBackendDynamicShadowedDirLightData> DynamicLightConverter::ConvertDirLights(
-    std::vector<DirLightRenderInfo>& cpuType,
+    const std::vector<DirLightRenderInfo>& cpuType,
     std::vector<glm::mat4x4>& lightSpacesOutput,
     const glm::mat4x4& camPerspectiveMat,
     const glm::mat4x4& camViewMat,
@@ -85,7 +89,7 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> DynamicLightConverter::Conve
     invertedLightRots.reserve(cpuType.size());
 
     // Inserts non light space data into GPU data
-    for (DirLightRenderInfo& cpuDat : cpuType) {
+    for (const DirLightRenderInfo& cpuDat : cpuType) {
         WGPUBackendDynamicShadowedDirLightData gpuDat{ };
         gpuDat.m_color = cpuDat.diffuse; // TODO currently the color is a bit of an approximation
         gpuDat.m_direction = cpuDat.transform->GetForwardVector();
@@ -142,18 +146,22 @@ local glm::mat4x4 lookAtHelper(glm::vec3 location, glm::vec3 forward, glm::vec3 
 
 // Converts cpu point lights to gpu side point lights.
 std::vector<WGPUBackendDynamicShadowedPointLightData> DynamicLightConverter::ConvertPointLights(
-    std::vector<PointLightRenderInfo>& cpuType,
+    const std::vector<PointLightRenderInfo>& cpuType,
     std::vector<glm::mat4x4>& lightSpacesOutput,
     s32 shadowHeight,
     s32 shadowWidth) {
 
     std::vector<WGPUBackendDynamicShadowedPointLightData> ret{ };
     ret.reserve(cpuType.size());
-    for (PointLightRenderInfo& cpuDat : cpuType) {
+    for (const PointLightRenderInfo& cpuDat : cpuType) {
         glm::vec3 lightPos = cpuDat.transform->GetWorldPosition();
 
         // Calculates cube map 
-        glm::mat4x4 proj = glm::perspective(glm::radians(90.0f), (f32)shadowWidth/(f32)shadowHeight, 0.1f, cpuDat.radius);
+        glm::mat4x4 proj = glm::perspective(
+            glm::radians(90.0f), 
+            (f32)shadowWidth/(f32)shadowHeight, 
+            arbitrary_near, 
+            cpuDat.radius);
         // X faces
         lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 1, 0, 0}, { 0, 1, 0}));
         lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, {-1, 0, 0}, { 0, 1, 0}));
@@ -176,20 +184,29 @@ std::vector<WGPUBackendDynamicShadowedPointLightData> DynamicLightConverter::Con
     return ret;
 }
 
-std::vector<WGPUBackendDynamicShadowedSpotLightData> DynamicLightConverter::ConvertSpotLights(std::vector<SpotLightRenderInfo>& cpuType) {
+std::vector<WGPUBackendDynamicShadowedSpotLightData> DynamicLightConverter::ConvertSpotLights(
+    const std::vector<SpotLightRenderInfo>& cpuType,
+    std::vector<glm::mat4x4>& lightSpacesOutput) {
     std::vector<WGPUBackendDynamicShadowedSpotLightData> ret{ };
     ret.reserve(cpuType.size());
 
-    for (SpotLightRenderInfo& cpuDat : cpuType) {
+    for (const SpotLightRenderInfo& cpuDat : cpuType) {
+        float innerRadianCutoff = glm::radians(cpuDat.innerCone);
+        float outerRadianCutoff = glm::radians(cpuDat.outerCone);
+        // Assigns GPU side information
         WGPUBackendDynamicShadowedSpotLightData gpuDat{ };
-
         gpuDat.m_color = cpuDat.diffuse;
-        gpuDat.m_penumbraCutoff = cpuDat.innerCone;
+        gpuDat.m_penumbraCosCutoff = std::cos(innerRadianCutoff);
         gpuDat.m_direction = cpuDat.transform->GetForwardVector();
-        gpuDat.m_outerCutoff = cpuDat.outerCone;
+        gpuDat.m_outerCosCutoff = std::cos(outerRadianCutoff);
         gpuDat.m_position = cpuDat.transform->GetWorldPosition();
-
+        gpuDat.m_range = cpuDat.range;
+        gpuDat.m_falloff = cpuDat.falloff;
         ret.push_back(gpuDat);
+
+        // Assigns lightspace 
+        lightSpacesOutput.push_back(glm::perspective(outerRadianCutoff * 2, 1.0f, arbitrary_near, gpuDat.m_range));
     }
+    
     return ret;
 } 

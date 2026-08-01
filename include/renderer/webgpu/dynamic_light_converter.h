@@ -28,7 +28,7 @@ public:
     // Light spaces are added on per cascade, 
     // (i.e. if lightSpacesCascadeCount == 2 and cpuType comprised of {a,b} then the added lightSpaces would be {(a cascade 1), (b cascade 1), (a cascade 2), (b cascade 2)})
     std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
-        std::vector<DirLightRenderInfo>& cpuType,
+        const std::vector<DirLightRenderInfo>& cpuType,
         std::vector<glm::mat4x4>& lightSpacesOutput,
         const glm::mat4x4& camPerspectiveMat,
         const glm::mat4x4& camViewMat,
@@ -40,10 +40,12 @@ public:
 
     // Converts cpu point lights to gpu side point lights.
     std::vector<WGPUBackendDynamicShadowedPointLightData> ConvertPointLights(
-        std::vector<PointLightRenderInfo>& cpuType,
+        const std::vector<PointLightRenderInfo>& cpuType,
         std::vector<glm::mat4x4>& lightSpacesOutput,
         s32 shadowHeight,
         s32 shadowWidth);
 
-    std::vector<WGPUBackendDynamicShadowedSpotLightData> ConvertSpotLights(std::vector<SpotLightRenderInfo>& cpuType);
+    std::vector<WGPUBackendDynamicShadowedSpotLightData> ConvertSpotLights(
+        const std::vector<SpotLightRenderInfo>& cpuType,
+        std::vector<glm::mat4x4>& lightSpacesOutput);
 };

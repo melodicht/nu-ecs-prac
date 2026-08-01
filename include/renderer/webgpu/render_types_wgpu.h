@@ -67,12 +67,7 @@ struct WGPUBackendColorPassUniforms
     u32 m_dirLightCount{ 0 };
     u32 m_pointLightCount{ 0 };
     u32 m_spotLightCount{ 0 };
-    u32 m_dirLightCascadeCount{ 0 };
-
-    // Represents PCF information
-    u32 m_dirLightMapPixelDimension{ 0 };
-    u32 m_pointLightMapPixelDimension{ 0 };
-    u32 m_padding1{ 0 };
+    u32 m_padding{ 0 };
     u32 m_padding2{ 0 };
 };
 
@@ -101,7 +96,7 @@ struct WGPUBackendObjectData {
 // Represents a single shadowed directional light
 struct WGPUBackendDynamicShadowedDirLightData {
     glm::vec3 m_color{ 0 };
-    f32 m_padding{ 0 }; // Fill with useful stuff later
+    f32 m_pixelToWorldRatio{ 0 };
     glm::vec3 m_direction{ 0 };
     f32 m_padding2{ 0 };
 };
@@ -109,11 +104,13 @@ struct WGPUBackendDynamicShadowedDirLightData {
 // Represents a single shadowed spot light
 struct WGPUBackendDynamicShadowedSpotLightData {
     glm::vec3 m_color{ 0 };
-    f32 m_penumbraCutoff{ 0 };
+    f32 m_penumbraCosCutoff{ 0 };
     glm::vec3 m_position{ 0 };
-    f32 m_outerCutoff{ 0 };
+    f32 m_outerCosCutoff{ 0 };
     glm::vec3 m_direction{ 0 };
-    f32 m_padding{ 0 }; // Fill with useful stuff later
+    f32 m_range { 0 };
+    glm::vec3 m_padding { 0 }; // Fill with useful data later
+    f32 m_falloff { 0 };
 };
 
 // Represents a single shadowed point light

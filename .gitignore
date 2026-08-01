@@ -418,7 +418,7 @@ build/*
 build-release/*
 !build-release/.gitkeep
 
-
+/shaderbin
 /webbin
 /build_external
 /build-external

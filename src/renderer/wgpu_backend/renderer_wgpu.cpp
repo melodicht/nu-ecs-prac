@@ -1541,11 +1541,10 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
       DefaultDirLightDim,
       state.cameraNear,
       state.cameraFar);
+  const std::vector<WGPUBackendDynamicShadowedSpotLightData> shadowedSpotLightData = 
+    m_lightProcessor.ConvertSpotLights(state.spotLights, dirLightSpaces);
   const std::vector<WGPUBackendDynamicShadowedPointLightData> shadowedPointLightData = 
     m_lightProcessor.ConvertPointLights(state.pointLights, pointLightSpaces, DefaultPointLightDim, DefaultPointLightDim);
-  const std::vector<WGPUBackendDynamicShadowedSpotLightData> shadowedSpotLightData = 
-    m_lightProcessor.ConvertSpotLights(state.spotLights);
-
   // >>> Actually begins sending off information to be rendered <<<
   // Sends in the attributes of individual mesh instances
   m_instanceDatBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, objData.data(), (u32)objData.size());
@@ -1572,10 +1571,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     .m_pos = state.cameraTransform->GetWorldPosition(),
     .m_dirLightCount = (u32)shadowedDirLightData.size(),
     .m_pointLightCount = (u32)shadowedPointLightData.size(),
-    .m_spotLightCount = (u32)shadowedSpotLightData.size(),
-    .m_dirLightCascadeCount = DefaultCascadeCount,
-    .m_dirLightMapPixelDimension = DefaultDirLightDim,
-    .m_pointLightMapPixelDimension = DefaultPointLightDim
+    .m_spotLightCount = (u32)shadowedSpotLightData.size()
   };
   m_colorPassUniformBuffer.WriteBuffer(m_wgpuQueue, colorPassState);
 

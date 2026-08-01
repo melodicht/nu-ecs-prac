@@ -29,7 +29,7 @@ struct ColorFixedUniforms {
     // PCF Data
     dirLightMapDimension: u32,
     pointLightMapDimension: u32,
-    pcfRange: u32
+    pcfRange: u32,
 }
 
 // Represents the data that differentiates each instance of the same mesh
@@ -42,18 +42,20 @@ struct ObjData {
 // Represents a single directional light with shadows and a potential to change pos/dir over time.
 struct DynamicShadowedDirLight {
     color : vec3<f32>,
-    padding : f32, // Fill with useful stuff later
+    pixelToWorldRatio : f32, 
     direction : vec3<f32>,
     padding2 : f32, // Fill with useful stuff later
 }
 
 struct DynamicShadowedSpotLight {
     color : vec3<f32>,
-    penumbraCutoff : f32,
+    penumbraCosCutoff : f32,
     position : vec3<f32>,
-    outerCutoff : f32,
+    outerCosCutoff : f32,
     direction : vec3<f32>,
-    padding : f32   
+    range : f32,
+    padding : vec3<f32>,
+    falloff : f32
 }
 
 struct DynamicShadowedPointLight {
@@ -249,40 +251,48 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
             &colorData);
     }
 
-    // var spotLightSpaceIdx : u32 = colorFixedUniforms.dirLightCascadeCount * colorUniforms.dirLightAmount;
-    // for (var spotIter : u32 = 0 ; spotIter < colorUniforms.spotLightAmount ; spotIter++) {
-    //     // Same logic of shadowing light spaces
-    //     // Finds whether lights were uncovered or not
-    //     var lightSpacePosition : vec4<f32> = lightsSpacesStore[spotLightSpaceIdx] * (in.worldPos);
-    //     lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
+    var spotLightSpaceIdx : u32 = colorFixedUniforms.dirLightCascadeCount * colorUniforms.dirLightAmount;
+    for (var spotIter : u32 = 0 ; spotIter < colorUniforms.spotLightAmount ; spotIter++) {
+        // Same logic of shadowing light spaces
+        // Finds whether lights were uncovered or not
+        var lightSpacePosition : vec4<f32> = lightsSpacesStore[spotLightSpaceIdx] * (in.worldPos);
+        lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
 
-    //     var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
-    //     var lightsUncovered : f32  = pcfCompare(
-    //         shadowedDirLightMap, 
-    //         shadowMapSampler, 
-    //         texturePosition.xy, 
-    //         spotIter, 
-    //         texturePosition.z,
-    //         colorFixedUniforms.pcfRange,
-    //         colorFixedUniforms.dirLightMapDimension);
+        var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
 
-    //     var spotlight : DynamicShadowedSpotLight = shadowedSpotLightStore[spotIter];
+        var spotlight : DynamicShadowedSpotLight = shadowedSpotLightStore[spotIter];
 
-    //     var fragToSpotLightDir : vec3<f32> = spotlight.position - in.worldPos;
-    //     var theta: f32 = dot(fragToSpotLightDir, normalize(-spotlight.direction));
+        // Factors theta into lighting
+        var thetaIntensity : f32 = 0;
+        let fragToSpotLightDir : vec3<f32> = spotlight.position - normalWorldPos.xyz;
+        let fragToSpotLightDirNorm : vec3<f32> = normalize(fragToSpotLightDir);
+        var theta: f32 = dot(fragToSpotLightDirNorm, normalize(-spotlight.direction));
+        if (theta > spotlight.outerCosCutoff) {
+            var epsilon : f32 = spotlight.penumbraCosCutoff - spotlight.outerCosCutoff;
+            thetaIntensity = clamp((theta - spotlight.outerCosCutoff) / epsilon, 0.0, 1.0);
+        }
 
-    //     var intensity : f32 = 0;
-    //     if (theta < shadowedPointLightStore[spotIter].outerCutoff) {
-    //         var epsilon : f32 = spotLight.penumbraCutoff - spotLight.outerCutoff;
-    //         intensity = clamp((theta - spotLight.outerCutOff) / epsilon, 0.0, 1.0);
-            
-    //     }
+        // Factors distance into lighting 
+        var distanceIntensity : f32 = 0;
+        let fragToLightDist : f32 = length(fragToSpotLightDir); 
+        if (fragToLightDist < spotlight.range) {
+            let sqrtDist : f32 = sqrt(fragToLightDist/spotlight.range);
+            let attenuationModifier : f32 = sqrt(1 - sqrtDist)/ (1 + spotlight.falloff * sqrtDist);
+            distanceIntensity = attenuationModifier;
+        }
+        
 
-    //     // In this model diffuse and specular both have the same intensity 
-    //     // TODO: If the model doesn't 
-    //     overall = spotLight.diffuse + spotLight
-    //     spotLightSpaceIdx += 1;
-    // }
+        addBrdf(
+            spotlight.color * (distanceIntensity * thetaIntensity),
+            viewDir,
+            fragToSpotLightDirNorm,
+            in.normal,
+            matData,
+            &colorData
+        );
+
+        spotLightSpaceIdx += 1;
+    }
 
     for (var pointIter : u32 = 0 ; pointIter < colorUniforms.pointLightAmount ; pointIter++) {
         //Creates copy
