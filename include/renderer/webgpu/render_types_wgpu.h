@@ -78,7 +78,7 @@ struct WGPUBackendColorPassFixedUniforms {
     // PCF Data
     u32 m_dirLightMapPixelDimension{ 0 };
     u32 m_pointLightMapPixelDimension{ 0 };
-    u32 m_pcfRange{ 0 };
+    f32 m_pcfRange{ 0.0f };
 };
 
 struct WGPUBackendPointUniforms

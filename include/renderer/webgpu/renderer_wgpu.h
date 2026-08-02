@@ -94,7 +94,7 @@ private:
     WGPUBackendSingleUniformBuffer<WGPUBackendColorPassFixedUniforms> m_colorPassFixedUniformBuffer{ };
 
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedDirLightData> m_dynamicShadowedDirLightBuffer{ };
-    WGPUBackendSingleStorageArrayBuffer<f32>  m_shadowCascadesPixelToWorldRatioBuffer{ };
+    WGPUBackendSingleStorageArrayBuffer<f32>  m_shadowCascadesWorldToTexCoordRatioBuffer{ };
     WGPUBackendDynamicUniformBuffer<WGPUBackendDynamicShadowedPointLightData> m_dynamicShadowedPointLightBuffer{ };
     WGPUBackendSingleStorageArrayBuffer<WGPUBackendDynamicShadowedSpotLightData> m_dynamicShadowedSpotLightBuffer{ };
 

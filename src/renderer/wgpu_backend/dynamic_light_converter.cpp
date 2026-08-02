@@ -18,6 +18,7 @@ const static float arbitrary_near = 0.1f;
 std::vector<WGPUBackendDynamicShadowedDirLightData> DynamicLightConverter::ConvertDirLights(
     const std::vector<DirLightRenderInfo>& cpuType,
     std::vector<glm::mat4x4>& lightSpacesOutput,
+    std::vector<f32>& worldToTexCoordRatio,
     const glm::mat4x4& camPerspectiveMat,
     const glm::mat4x4& camViewMat,
     const std::vector<f32>& cascadeRatios,
@@ -73,12 +74,14 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> DynamicLightConverter::Conve
             f32 adjustedDivisionEnd = divisionEnd + cascadeBleed;
             f32 midRange = (lastRange + divisionEnd)/2;
 
-            m_cascadeRadii.push_back(
-                glm::distance( 
+            f32 newRadii = glm::distance( 
                     nearCornerPoint + (nearToFarCorner * adjustedDivisionEnd),
-                    nearMidPoint + (nearToFarMid * midRange)));
+                    nearMidPoint + (nearToFarMid * midRange));
+            m_cascadeRadii.push_back( newRadii );
 
             lastRange = divisionEnd;
+
+            worldToTexCoordRatio.push_back(1.0f / (2.0f * newRadii));
         }
     }
 

@@ -18,7 +18,7 @@ private:
     // Stored to prevent constant resizing of maps
     glm::mat4x4 m_prevPerspective{ NAN };
     std::vector<float> m_prevCascadeRatios{ NAN };
-    std::vector<float> m_cascadeRadii{};
+    std::vector<float> m_cascadeRadii{}; 
     glm::vec3 m_prevScale{NAN, NAN, NAN}; 
     f32 m_prevBleed{ NAN };
     f32 m_nearPlaneDistance{ NAN };
@@ -30,6 +30,7 @@ public:
     std::vector<WGPUBackendDynamicShadowedDirLightData> ConvertDirLights(
         const std::vector<DirLightRenderInfo>& cpuType,
         std::vector<glm::mat4x4>& lightSpacesOutput,
+        std::vector<f32>& worldToTexCoordRatio,
         const glm::mat4x4& camPerspectiveMat,
         const glm::mat4x4& camViewMat,
         const std::vector<float>& cascadeRatios,

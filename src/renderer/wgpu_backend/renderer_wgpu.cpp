@@ -857,7 +857,7 @@ void WGPURenderBackend::InitPipelines()
       WGPUShaderStage_Fragment,
       WGPUBufferBindingType_ReadOnlyStorage, sizeof(WGPUBackendDynamicShadowedDirLightData));
     
-    WGPUBindGroupLayoutEntry shadowCascadesPixelToWorldRatioBind = CreateBufferEntry(
+    WGPUBindGroupLayoutEntry shadowCascadesWorldToTexCoordRatioBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
       WGPUBufferBindingType_ReadOnlyStorage, sizeof(f32));
 
@@ -936,7 +936,7 @@ void WGPURenderBackend::InitPipelines()
     InsertEntry(colorBindEntries, colorPassUniformBind,0);
     InsertEntry(colorBindEntries, colorPassFixedUniformBind,1);
     InsertEntry(colorBindEntries, dynamicShadowedDirLightBind, 2);
-    InsertEntry(colorBindEntries, shadowCascadesPixelToWorldRatioBind, 3);
+    InsertEntry(colorBindEntries, shadowCascadesWorldToTexCoordRatioBind, 3);
     InsertEntry(colorBindEntries, dynamicShadowedSpotLightBind, 4);
     InsertEntry(colorBindEntries, dynamicShadowedPointLightBind, 5);
     InsertEntry(colorBindEntries, dynamicShadowLightSpacesBind, 6);
@@ -1317,7 +1317,7 @@ void WGPURenderBackend::InitPipelines()
     m_colorPassUniformBuffer.Init(m_wgpuCore.m_device, "Color Pass Uniforms Buffer");
     m_colorPassFixedUniformBuffer.Init(m_wgpuCore.m_device, "Color Pass Fixed Uniforms Buffer");
     m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", m_defaultArrayMax);
-    m_shadowCascadesPixelToWorldRatioBuffer.Init(m_wgpuCore.m_device, "Shadow Cascades Pixel Ratio Buffer", m_defaultArrayMax);
+    m_shadowCascadesWorldToTexCoordRatioBuffer.Init(m_wgpuCore.m_device, "Shadow Cascades Pixel Ratio Buffer", m_defaultArrayMax);
     m_dynamicShadowedPointLightBuffer.Init(m_wgpuCore.m_device, m_dynamicUniformStrideSize, "Dynamic Shadowed Point Light Buffer", m_defaultArrayMax);
     m_dynamicShadowedSpotLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Dir Light Buffer", m_defaultArrayMax);
     m_dynamicShadowLightSpaces.Init(m_wgpuCore.m_device, "Dynamic Shadow Light Spaces", m_defaultArrayMax);
@@ -1414,7 +1414,7 @@ void WGPURenderBackend::InitPipelines()
     m_colorPassUniformBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 0);
     m_colorPassFixedUniformBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 1);
     m_dynamicShadowedDirLightBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 2);
-    m_shadowCascadesPixelToWorldRatioBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 3);
+    m_shadowCascadesWorldToTexCoordRatioBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 3);
     m_dynamicShadowedSpotLightBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 4);
     m_dynamicShadowedPointLightBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 5);
     m_dynamicShadowLightSpaces.RegisterBindGroup(&m_defaultColorPassBindGroup, 6);
@@ -1447,7 +1447,7 @@ void WGPURenderBackend::InitPipelines()
     .m_dirLightCascadeCount = DefaultCascadeCount,
     .m_dirLightMapPixelDimension = DefaultDirLightDim,
     .m_pointLightMapPixelDimension = DefaultPointLightDim,
-    .m_pcfRange = 2
+    .m_pcfRange = 0.005f
   };
   m_colorPassFixedUniformBuffer.WriteBuffer(m_wgpuQueue, uniforms);
 
@@ -1533,6 +1533,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     
   // Prepares dynamic shadowed lights to be rendered
   std::vector<glm::mat4x4> dirLightSpaces;
+  std::vector<f32> dirShadowWorldToTexCoordRatios;
   std::vector<glm::mat4x4> pointLightSpaces;
 
   // TODO: Make cascade ratios more adjustable
@@ -1541,6 +1542,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
     m_lightProcessor.ConvertDirLights(
       state.dirLights, 
       dirLightSpaces, 
+      dirShadowWorldToTexCoordRatios,
       mainCamProj, 
       mainCamView,
       cascadeRatios,
@@ -1565,6 +1567,11 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
 
   // Begins writing in dynamic lights
   m_dynamicShadowedDirLightBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, shadowedDirLightData);
+
+  // If ratios are empty that means no difference has been logged in radii
+  if (!dirShadowWorldToTexCoordRatios.empty()) {
+    m_shadowCascadesWorldToTexCoordRatioBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, dirShadowWorldToTexCoordRatios);
+  }
 
   m_dynamicShadowedPointLightBuffer.WriteBuffer(m_wgpuCore.m_device, m_wgpuQueue, shadowedPointLightData);
 
