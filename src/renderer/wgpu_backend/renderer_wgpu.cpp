@@ -856,6 +856,10 @@ void WGPURenderBackend::InitPipelines()
     WGPUBindGroupLayoutEntry dynamicShadowedDirLightBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
       WGPUBufferBindingType_ReadOnlyStorage, sizeof(WGPUBackendDynamicShadowedDirLightData));
+    
+    WGPUBindGroupLayoutEntry shadowCascadesPixelToWorldRatioBind = CreateBufferEntry(
+      WGPUShaderStage_Fragment,
+      WGPUBufferBindingType_ReadOnlyStorage, sizeof(f32));
 
     WGPUBindGroupLayoutEntry dynamicShadowedSpotLightBind = CreateBufferEntry(
       WGPUShaderStage_Fragment,
@@ -932,14 +936,15 @@ void WGPURenderBackend::InitPipelines()
     InsertEntry(colorBindEntries, colorPassUniformBind,0);
     InsertEntry(colorBindEntries, colorPassFixedUniformBind,1);
     InsertEntry(colorBindEntries, dynamicShadowedDirLightBind, 2);
-    InsertEntry(colorBindEntries, dynamicShadowedPointLightBind, 3);
+    InsertEntry(colorBindEntries, shadowCascadesPixelToWorldRatioBind, 3);
     InsertEntry(colorBindEntries, dynamicShadowedSpotLightBind, 4);
-    InsertEntry(colorBindEntries, dynamicShadowLightSpacesBind, 5);
-    InsertEntry(colorBindEntries, dynamicShadowMapTexturesBind, 6);
+    InsertEntry(colorBindEntries, dynamicShadowedPointLightBind, 5);
+    InsertEntry(colorBindEntries, dynamicShadowLightSpacesBind, 6);
     InsertEntry(colorBindEntries, dynamicShadowMapTexturesBind, 7);
-    InsertEntry(colorBindEntries, dynamicPointLightShadowMapBind, 8);
-    InsertEntry(colorBindEntries, dynamicDirLightCascadeRatiosBind, 9);   
-    InsertEntry(colorBindEntries, shadowMapSamplerMapBind, 10);
+    InsertEntry(colorBindEntries, dynamicShadowMapTexturesBind, 8);
+    InsertEntry(colorBindEntries, dynamicPointLightShadowMapBind, 9);
+    InsertEntry(colorBindEntries, dynamicDirLightCascadeRatiosBind, 10);   
+    InsertEntry(colorBindEntries, shadowMapSamplerMapBind, 11);
 
     InsertEntry(shadowMapBindEntries, shadowMapUniformsBind, 0);
     InsertEntry(shadowMapBindEntries, dynamicShadowLightSpacesBind, 1);
@@ -1312,6 +1317,7 @@ void WGPURenderBackend::InitPipelines()
     m_colorPassUniformBuffer.Init(m_wgpuCore.m_device, "Color Pass Uniforms Buffer");
     m_colorPassFixedUniformBuffer.Init(m_wgpuCore.m_device, "Color Pass Fixed Uniforms Buffer");
     m_dynamicShadowedDirLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Direction Light Buffer", m_defaultArrayMax);
+    m_shadowCascadesPixelToWorldRatioBuffer.Init(m_wgpuCore.m_device, "Shadow Cascades Pixel Ratio Buffer", m_defaultArrayMax);
     m_dynamicShadowedPointLightBuffer.Init(m_wgpuCore.m_device, m_dynamicUniformStrideSize, "Dynamic Shadowed Point Light Buffer", m_defaultArrayMax);
     m_dynamicShadowedSpotLightBuffer.Init(m_wgpuCore.m_device, "Dynamic Shadowed Dir Light Buffer", m_defaultArrayMax);
     m_dynamicShadowLightSpaces.Init(m_wgpuCore.m_device, "Dynamic Shadow Light Spaces", m_defaultArrayMax);
@@ -1408,14 +1414,15 @@ void WGPURenderBackend::InitPipelines()
     m_colorPassUniformBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 0);
     m_colorPassFixedUniformBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 1);
     m_dynamicShadowedDirLightBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 2);
-    m_dynamicShadowedPointLightBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 3);
+    m_shadowCascadesPixelToWorldRatioBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 3);
     m_dynamicShadowedSpotLightBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 4);
-    m_dynamicShadowLightSpaces.RegisterBindGroup(&m_defaultColorPassBindGroup, 5);
-    m_dynamicDirLightShadowMapTexture.RegisterBindGroup(&m_defaultColorPassBindGroup, 6);
-    m_dynamicSpotLightShadowMapTexture.RegisterBindGroup(&m_defaultColorPassBindGroup, 7);
-    m_dynamicPointLightShadowMapTexture.RegisterBindGroup(&m_defaultColorPassBindGroup, 8);
-    m_dynamicShadowedDirLightCascadeRatiosBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 9);
-    m_shadowMapSampler.RegisterBindGroup(&m_defaultColorPassBindGroup, 10);
+    m_dynamicShadowedPointLightBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 5);
+    m_dynamicShadowLightSpaces.RegisterBindGroup(&m_defaultColorPassBindGroup, 6);
+    m_dynamicDirLightShadowMapTexture.RegisterBindGroup(&m_defaultColorPassBindGroup, 7);
+    m_dynamicSpotLightShadowMapTexture.RegisterBindGroup(&m_defaultColorPassBindGroup, 8);
+    m_dynamicPointLightShadowMapTexture.RegisterBindGroup(&m_defaultColorPassBindGroup, 9);
+    m_dynamicShadowedDirLightCascadeRatiosBuffer.RegisterBindGroup(&m_defaultColorPassBindGroup, 10);
+    m_shadowMapSampler.RegisterBindGroup(&m_defaultColorPassBindGroup, 11);
 
     m_pointDepthPassUniformBuffer.RegisterBindGroupAsDynamicUniform(&m_pointDepthBindGroup, 0);
     m_dynamicShadowedPointLightBuffer.RegisterBindGroupAsDynamicUniform(&m_pointDepthBindGroup, 1);

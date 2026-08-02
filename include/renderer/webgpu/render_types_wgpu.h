@@ -96,7 +96,7 @@ struct WGPUBackendObjectData {
 // Represents a single shadowed directional light
 struct WGPUBackendDynamicShadowedDirLightData {
     glm::vec3 m_color{ 0 };
-    f32 m_pixelToWorldRatio{ 0 };
+    f32 m_padding{ 0 };
     glm::vec3 m_direction{ 0 };
     f32 m_padding2{ 0 };
 };

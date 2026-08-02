@@ -42,7 +42,7 @@ struct ObjData {
 // Represents a single directional light with shadows and a potential to change pos/dir over time.
 struct DynamicShadowedDirLight {
     color : vec3<f32>,
-    pixelToWorldRatio : f32, 
+    padding : f32, // Fill
     direction : vec3<f32>,
     padding2 : f32, // Fill with useful stuff later
 }
@@ -79,14 +79,15 @@ struct DynamicShadowedPointLightPadded {
 @binding(0) @group(1) var<uniform> colorUniforms : ColorUniforms;
 @binding(1) @group(1) var<uniform> colorFixedUniforms : ColorFixedUniforms;
 @binding(2) @group(1) var<storage, read> shadowedDirLightStore : array<DynamicShadowedDirLight>;
+@binding(3) @group(1) var<storage, read> shadowCascadesPixelToWorldRatio : array<f32>;
 @binding(4) @group(1) var<storage, read> shadowedSpotLightStore : array<DynamicShadowedSpotLight>;
-@binding(3) @group(1) var<storage, read> shadowedPointLightStore : array<DynamicShadowedPointLightPadded>;
-@binding(5) @group(1) var<storage, read> lightsSpacesStore : array<mat4x4<f32>>;
-@binding(6) @group(1) var shadowedDirLightMap: texture_depth_2d_array;
-@binding(7) @group(1) var shadowedSpotLightMap: texture_depth_2d_array;
-@binding(8) @group(1) var shadowedPointLightMap: texture_depth_cube_array;
-@binding(9) @group(1) var<storage, read> dirLightCascadeViewSpaceCutoffs : array<f32>;
-@binding(10) @group(1) var shadowMapSampler : sampler_comparison;
+@binding(5) @group(1) var<storage, read> shadowedPointLightStore : array<DynamicShadowedPointLightPadded>;
+@binding(6) @group(1) var<storage, read> lightsSpacesStore : array<mat4x4<f32>>;
+@binding(7) @group(1) var shadowedDirLightMap: texture_depth_2d_array;
+@binding(8) @group(1) var shadowedSpotLightMap: texture_depth_2d_array;
+@binding(9) @group(1) var shadowedPointLightMap: texture_depth_cube_array;
+@binding(10) @group(1) var<storage, read> dirLightCascadeViewSpaceCutoffs : array<f32>;
+@binding(11) @group(1) var shadowMapSampler : sampler_comparison;
 
 struct VertexIn {
     @location(0) position: vec3<f32>,
