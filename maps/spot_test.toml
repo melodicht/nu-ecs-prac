@@ -60,10 +60,3 @@ scale = [0.5, 3.0, 1.0]
 mesh = "prism"
 color = [0.8, 0.0, 0.0]
 scale = [2.0, 2.0, 2.0]
-
-[prism.Transform3D]
-position = [2.5, 1.0, 0.0]
-parent = "camera"
-[prism.MeshComponent]
-mesh = "prism"
-color = [0.8, 0.0, 0.0]

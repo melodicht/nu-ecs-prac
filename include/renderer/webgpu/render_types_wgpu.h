@@ -71,14 +71,26 @@ struct WGPUBackendColorPassUniforms
     u32 m_padding2{ 0 };
 };
 
+/*
+struct ColorFixedUniforms {
+    // PCF Data
+    pcfSamplePattern: array<vec2<f32>, 32>,
+    pcfSampleRate: u32,
+    pcfRange: f32, // Replace later when run out of padding room
+    // Light information
+    dirLightCascadeCount: u32,
+
+    padding: u32,*/
 struct WGPUBackendColorPassFixedUniforms {
+    // PCF Data
+    std::array<glm::vec2, 32> m_pcfSamplePattern{ };
+    u32 m_pcfSampleRate{ 0 };
+    f32 m_pcfRange{ 0.0f };
+
     // Light Data
     u32 m_dirLightCascadeCount{ 0 };
 
-    // PCF Data
     u32 padding { 0 };
-    u32 padding2 { 0 };
-    f32 m_pcfRange{ 0.0f };
 };
 
 struct WGPUBackendPointUniforms

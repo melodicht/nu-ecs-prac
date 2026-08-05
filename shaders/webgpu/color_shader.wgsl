@@ -1,5 +1,8 @@
 // TODO: Better explore alternatives in alignment, maybe we could merge in different variables to reduce waste due to alignment
 
+// TODO: Replace with WESL logic
+const dynamicShadowedPointLightIntegerOffset = [<int><POINT_LIGHT_PADDING><68>];
+
 // Math functionality
 struct orthonormalBasis {
     up: vec3<f32>,
@@ -23,13 +26,14 @@ struct ColorUniforms {
 // Uniform variables in color pass completely controlled by renderer 
 // that almost never update
 struct ColorFixedUniforms {
+    // PCF Data
+    pcfSamplePattern: array<vec2<f32>, 32>,
+    pcfSampleRate: u32,
+    pcfRange: f32, // Replace later when run out of padding room
     // Light information
     dirLightCascadeCount: u32,
 
-    // PCF Data
     padding: u32,
-    padding2: u32,
-    pcfRange: f32,
 }
 
 // Represents the data that differentiates each instance of the same mesh
@@ -66,9 +70,6 @@ struct DynamicShadowedPointLight {
     position : vec3<f32>,
     falloff : f32
 }
-
-// TODO: Replace with WESL logic
-const dynamicShadowedPointLightIntegerOffset = [<int><POINT_LIGHT_PADDING><68>];
 
 struct DynamicShadowedPointLightPadded {
     data : DynamicShadowedPointLight,
@@ -281,11 +282,12 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         var lightSpacePosition : vec4<f32> = lightsSpacesStore[spotLightSpaceIdx] * (in.worldPos);
         lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
         let lightSpaceDirIdx : u32 = spotLightSpaceIdx;
-        let texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
+        let texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z - 0.0000125);
+
         // Sets up sample location
         // Comp works for finding shadow length of frag 
         // to light on spotlight dir since both normalized
-        let fragToPlaneDist : f32 = dot(-spotlight.direction, fragToSpotLightDirNorm);
+        let fragToPlaneDist : f32 = dot(-spotlight.direction, fragToSpotLightDir);
         let planeSize : f32 = spotlight.planeDimSlope * fragToPlaneDist;
         let worldToTexCoordRatio : f32 = 1 / planeSize;
         let unit: f32 = colorFixedUniforms.pcfRange * worldToTexCoordRatio;

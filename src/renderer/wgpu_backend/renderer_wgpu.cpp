@@ -1646,7 +1646,7 @@ void WGPURenderBackend::RenderUpdate(RenderFrameInfo& state) {
 
   u32 spotShadowSpaceIdx = DefaultCascadeCount * shadowedDirLightData.size();
   for (u32 spotShadowIter = 0 ; spotShadowIter <  shadowedSpotLightData.size() ; spotShadowIter += 1) {
-    BeginDirectionalDepthPass(m_dynamicDirLightShadowMapTexture.GetView(spotShadowIter), spotShadowSpaceIdx);
+    BeginDirectionalDepthPass(m_dynamicSpotLightShadowMapTexture.GetView(spotShadowIter), spotShadowSpaceIdx);
     DrawObjects(meshCounts);
     EndPass();
     spotShadowSpaceIdx += 1;
