@@ -78,6 +78,7 @@ struct SpotLight
     glm::vec3 specular = glm::vec3{1};
     LightID lightID = -1;
 
+    // Angle of Cone in degrees
     f32 innerCone = 30;
     f32 outerCone = 45;
     f32 range = 100;

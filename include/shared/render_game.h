@@ -49,6 +49,9 @@ struct SpotLightRenderInfo {
     f32 outerCone;
     f32 range;
 
+    // WGPU Specific
+    f32 falloff; /* WGPU uses same distance falloff equation as point light*/
+
     bool needsUpdate;
 };
 

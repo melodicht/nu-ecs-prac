@@ -68,6 +68,8 @@ typedef size_t   siz;
 #define LOG(x) (void)(0)
 #define LOG_ERROR(x) (void)(0)
 
+
+
 #endif
 
 // Misc
@@ -183,8 +185,15 @@ inline void CPUPause() {
 // Streamlines process of passing platform funcs to game module api.
 
 // Helper macros
+// r: Return type 
+// n: Name of function
+// p: Arguments
+
+// > Represents shared fields between game module and platform <
 #define SKL_AS_FIELD(r, n, p) r (* n) p;
-#ifndef SKL_GAME_MODULE
+
+#if !defined(SKL_GAME_MODULE) || SKL_STATIC_MONOLITHIC
+// > Represents logic needed for platform to pack api functions into class < 
 #define SKL_AS_HEADER_FUNC(r, n, p) r n p;
 #define SKL_AS_CONSTRUCT_INSERT(r, n, p) ret.n = n;
 #define SKL_AS_CONSTRUCT_FUNC(name, methods)\
@@ -194,10 +203,11 @@ inline void CPUPause() {
         return ret;\
     }
 #else
+// > Represents logic needed for game module to receive api functions <
 #define SKL_AS_HEADER_FUNC(r, n, p);
 #define SKL_AS_CONSTRUCT_INSERT(r, n, p);
 #define SKL_AS_CONSTRUCT_FUNC(name, methods);
-#endif
+#endif\
 
 // Allows for funcs to be passed into the game module as a part of an api struct 
 // while only being declared once
@@ -212,3 +222,29 @@ inline void CPUPause() {
     };\
     \
     SKL_AS_CONSTRUCT_FUNC(name, methods)
+
+// > Represents logic of calling code right before main using static constructors <
+
+// Technically not meta def but it feels fine to put in here anyways
+class StaticRun {
+public:
+    template <typename RunFunc>
+    StaticRun(RunFunc&& f) {
+        f();
+    }
+};
+
+#define CONCAT_IMPL(a, b) a##b
+#define CONCAT(a, b) CONCAT_IMPL(a, b)
+
+// This ensures that the given code will run before main.
+#define RUN_ON_START(code, uniqueIdentifier) \
+    [[maybe_unused]] static StaticRun uniqueIdentifier([]{ code })
+
+
+// This shouldn't actually run but its meant to allow the IDE not trip up on compile definitions set by cmake
+#ifndef SKL_BASE_PATH
+// Just a dummy value, check cmake for real
+#define SKL_BASE_PATH ".."
+#warning "?????, cmake was supposed to handle this"
+#endif

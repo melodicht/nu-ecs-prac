@@ -78,7 +78,7 @@ if (NOT DEFINED SKL_STATIC_MONOLITHIC)
         endif()
         option(SKL_STATIC_MONOLITHIC "Whether the engine should be built as a single static library" ${_MONO_RESULT})
 endif()
-if ((NOT SKL_STATIC_MONOLITHIC) AND EMSCRIPTEN) 
+if ((NOT SKL_STATIC_MONOLITHIC) AND (EMSCRIPTEN OR SKL_EXTERNAL_GAME)) 
         message(FATAL_ERROR "Emscripten backend does not support shared libraries or hot reloading")
 endif()
 
@@ -107,9 +107,6 @@ target_compile_definitions(SKL_COMPILE_DEFINITIONS INTERFACE
 #==============================================================================
 # EMSCRIPTEN HANDLER
 #==============================================================================
-# Attach main module to library that holds main file
-# Attach side module to any other shared libraries
-
 set(EMSCRIPTEN_OPTIONS
         -sASYNCIFY
         -sALLOW_MEMORY_GROWTH
@@ -117,32 +114,8 @@ set(EMSCRIPTEN_OPTIONS
 
 set(SIDE_MODULE_TARGET_LIST)
 
-function(set_main_module LIBRARY) 
-        if (EMSCRIPTEN)
-                target_compile_options(${LIBRARY} PRIVATE
-                -sMAIN_MODULE=1)
-                target_link_options(${LIBRARY} PRIVATE
-                ${EMSCRIPTEN_OPTIONS}
-                -sASYNCIFY_STACK_SIZE=65536
-                -sALLOW_TABLE_GROWTH=1
-                -sMAIN_MODULE=1)
-        endif()
-endfunction()
-
-function(set_side_module LIBRARY) 
-        if (EMSCRIPTEN)
-                target_compile_options(${LIBRARY} PRIVATE
-                -sSIDE_MODULE=1)
-                target_link_options(${LIBRARY} PRIVATE
-                ${EMSCRIPTEN_OPTIONS}
-                -sSIDE_MODULE=1)
-                set(SIDE_MODULE_TARGET_LIST "${SIDE_MODULE_TARGET_LIST};${LIBRARY}" CACHE INTERNAL "")
-        endif()
-endfunction()
-
 if (EMSCRIPTEN)
         link_directories(${CMAKE_LIBRARY_OUTPUT_DIRECTORY})
-        set_property(GLOBAL PROPERTY TARGET_SUPPORTS_SHARED_LIBS TRUE)
 endif()
 
 #==============================================================================
@@ -172,6 +145,11 @@ CPMAddPackage("gh:kcat/openal-soft#1.25.1")
 
 CPMAddPackage("gh:marzer/tomlplusplus#v3.4.0")
 
+if (SKL_STATIC_MONOLITHIC)
+    set(JOLT_SHARED "OFF")
+else()
+    set(JOLT_SHARED "ON")
+endif()
 CPMAddPackage(
     NAME JoltPhysics
     GITHUB_REPOSITORY jrouwe/JoltPhysics
@@ -183,9 +161,8 @@ CPMAddPackage(
         "TARGET_PERFORMANCE_TEST OFF"
         "TARGET_SAMPLES OFF"
         "ENABLE_ALL_WARNINGS OFF"
-        "BUILD_SHARED_LIBS ON"
+        "BUILD_SHARED_LIBS ${JOLT_SHARED}"
       )
-set_side_module(Jolt)
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/src/utils skl-utils)
 
@@ -332,15 +309,23 @@ target_precompile_headers(engine PUBLIC ${PCH_HEADERS})
 if (NOT DEFINED SKL_EXTERNAL_GAME)
     file(GLOB_RECURSE GAME_SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/game/*.cpp)
 
-    add_library(game-module MODULE ${GAME_SRC})
-    # Version the PDB file to avoid locking issues
-    string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
-    set_target_properties(game-module PROPERTIES
-            PDB_NAME "game_module_${BUILD_TIME}")
-    target_link_libraries(game-module PRIVATE
-            "$<LINK_LIBRARY:WHOLE_ARCHIVE,engine>")
-    target_include_directories(game-module PRIVATE
+    if (NOT SKL_STATIC_MONOLITHIC)
+        add_library(game-module MODULE ${GAME_SRC})
+        # Version the PDB file to avoid locking issues
+        string(TIMESTAMP BUILD_TIME "%Y%m%d_%H%M%S")
+        set_target_properties(game-module PROPERTIES
+                PDB_NAME "game_module_${BUILD_TIME}")
+        target_link_libraries(game-module PRIVATE
+                "$<LINK_LIBRARY:WHOLE_ARCHIVE,engine>")
+        target_include_directories(game-module PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/include/game)
+    else()
+        add_library(game-module STATIC ${GAME_SRC})
+        target_link_libraries(game-module PRIVATE
+                "$<LINK_LIBRARY:WHOLE_ARCHIVE,engine>")
+        target_include_directories(game-module PUBLIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/game)
+    endif()
 endif()
 
 #==============================================================================
@@ -361,7 +346,11 @@ target_link_libraries(platform PRIVATE
         fastgltf::fastgltf
         SDL3::SDL3
         tomlplusplus::tomlplusplus)
-set_main_module(platform)
+
+if (SKL_STATIC_MONOLITHIC)
+    target_link_libraries(platform PRIVATE
+            "$<LINK_LIBRARY:WHOLE_ARCHIVE,game-module>")
+endif()
 
 add_dependencies(platform game-module)
 
@@ -427,10 +416,4 @@ else()
                 "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/maps@/maps/"
                 --preload-plugins
         )
-
-        foreach(dylib ${SIDE_MODULE_TARGET_LIST})
-                target_link_options(platform PRIVATE
-                        "SHELL:--preload-file $<TARGET_FILE:${dylib}>@/$<TARGET_FILE_NAME:${dylib}>"
-                )
-        endforeach()
 endif()

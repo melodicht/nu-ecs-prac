@@ -7,6 +7,10 @@
 #include <asset_types.h>
 #include <render_game.h>
 
+/**
+ * This file represents platform logic that is exported to the game.
+ */
+
 struct GameInput
 {
     s32 mouseDeltaX;
@@ -107,3 +111,12 @@ typedef GAME_INITIALIZE(game_initialize_t);
 
 #define GAME_UPDATE_AND_RENDER(name) void name(GameMemory &memory, GameInput &input, f32 frameTime)
 typedef GAME_UPDATE_AND_RENDER(game_update_and_render_t);
+
+#if SKL_STATIC_MONOLITHIC
+extern "C"
+{
+    GAME_LOAD(GameLoad);
+    GAME_INITIALIZE(GameInitialize);
+    GAME_UPDATE_AND_RENDER(GameUpdateAndRender);
+}
+#endif

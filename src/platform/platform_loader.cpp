@@ -1,5 +1,8 @@
 #include <platform_loader.h>
 
+#if !SKL_STATIC_MONOLITHIC
+// >>> Private helpers <<< 
+
 #include <format>
 
 #define PATH_BUFFER_COUNT 8
@@ -162,6 +165,7 @@ local void LoadSharedObject(const char* path)
     }
 }
 
+// >>> Public Interface <<< 
 GameCode::GameCode(bool editor) {
     const char* joltLibSrcFilePath = getJoltLibSrcFilePath();
     LoadSharedObject(joltLibSrcFilePath);
@@ -181,26 +185,50 @@ GameCode::GameCode(bool editor) {
     }
     
 }
-void GameCode::updateGameCode(GameMemory& memory, b8 hasEditor) {
+void GameCode::UpdateGameCode(GameMemory& memory, b8 hasEditor) {
     if (hasGameCodeChanged())
     {
         if (loadGameCode(m_fileNewLastWritten, hasEditor)) {
-            gameLoad(memory, hasEditor, true);
+            Load(memory, hasEditor, true);
         }
     }
 }
 
-GAME_LOAD(GameCode::gameLoad) {
+GAME_LOAD(GameCode::Load) {
     ASSERT(m_gameLoadPtr != nullptr);
     m_gameLoadPtr(memory, editor, gameInitialized);
 }
 
-GAME_INITIALIZE(GameCode::gameInitialize) {
+GAME_INITIALIZE(GameCode::Initialize) {
     ASSERT(m_gameInitializePtr != nullptr);
     m_gameInitializePtr(memory, mapName, editor);
 }
 
-GAME_UPDATE_AND_RENDER(GameCode::gameUpdateAndRender) {
+GAME_UPDATE_AND_RENDER(GameCode::UpdateAndRender) {
     ASSERT(m_gameUpdateAndRenderPtr != nullptr);
     m_gameUpdateAndRenderPtr(memory, input, frameTime);
 }
+#else 
+
+// Pulls in information from game module through header file 
+// rather than dylib location
+// See README on more information on SKL_GAME_HEADER.
+#include <game_platform.h>
+
+
+GameCode::GameCode(bool editor) {}
+
+void GameCode::UpdateGameCode(GameMemory& memory, b8 hasEditor) {}
+
+GAME_LOAD(GameCode::Load) {
+    GameLoad(memory, editor, gameInitialized);
+}
+
+GAME_INITIALIZE(GameCode::Initialize) {
+    ::GameInitialize(memory, mapName, editor);
+}
+
+GAME_UPDATE_AND_RENDER(GameCode::UpdateAndRender) {
+    ::GameUpdateAndRender(memory, input, frameTime);
+}
+#endif

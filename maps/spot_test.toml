@@ -1,0 +1,69 @@
+[camera.Transform3D]
+position = [-1.0, 0.0, 0.0]
+[camera.CameraComponent]
+farPlane = 100.0
+[camera.FlyingMovement]
+
+[light.Transform3D]
+position = [-1.0, 2.0, 0.0]
+parent = "camera"
+[light.SpotLight]
+innerCone = 5.0
+outerCone = 6.0
+
+[posXCube.Transform3D]
+position = [10.0, 0.0, 0.0]
+[posXCube.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+
+[negXCube.Transform3D]
+position = [-10.0, 0.0, 0.0]
+rotation = [0.0, 30.0, 30.0]
+[negXCube.MeshComponent]
+mesh = "cube"
+texture = "diamond_ore"
+
+[farCube.Transform3D]
+position = [0.0, 20.0, 0.0]
+scale = [10.0, 2.0, 10.0]
+[farCube.MeshComponent]
+mesh = "cube"
+color = [0.8, 0.0, 0.0]
+
+[posYPrism.Transform3D]
+position = [0.0, 10.0, 0.0]
+scale = [2.0, 2.0, 2.0]
+[posYPrism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+
+[negYPrism.Transform3D]
+position = [0.0, -10.0, 0.0]
+scale = [0.5, 3.0, 1.0]
+[negYPrism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+scale = [2.0, 2.0, 2.0]
+
+[posZPrism.Transform3D]
+position = [0.0, 0.0, 10.0]
+scale = [2.0, 2.0, 2.0]
+[posZPrism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+
+[negZrism.Transform3D]
+position = [0.0, 0.0, -10.0]
+scale = [0.5, 3.0, 1.0]
+[negZPrism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]
+scale = [2.0, 2.0, 2.0]
+
+[prism.Transform3D]
+position = [2.5, 1.0, 0.0]
+parent = "camera"
+[prism.MeshComponent]
+mesh = "prism"
+color = [0.8, 0.0, 0.0]

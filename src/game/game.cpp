@@ -1,8 +1,9 @@
+#include <game.h>
+
 #include <string>
 #include <array>
 
 #include <meta_definitions.h>
-#include <game.h>
 #include <engine.h>
 #include <city_builder.h>
 #include <scene.h>

@@ -57,71 +57,70 @@ struct WGPUBackendMeshIdx {
 // TODO: better represent vec3 that are upgraded to vec4 solely for alignment
 
 // Slots all fixed length data into one struct for efficiency
-struct WGPUBackendColorPassFixedData
+struct WGPUBackendColorPassUniforms
 {
     // Represents camera data
-    glm::mat4 m_combined;
-    glm::mat4 m_view;
-    glm::mat4 m_proj;
-    glm::vec3 m_pos;
+    glm::mat4 m_view{ 0 };
+    glm::vec3 m_pos{ 0 };
 
-    // Represents light 
-    u32 m_dirLightCount;
-    u32 m_pointLightCount;
-    u32 m_spotLightCount;
-    u32 m_dirLightCascadeCount;
-
-    // Represents PCS information
-    u32 m_dirLightMapPixelDimension;
-    u32 m_pointLightMapPixelDimension;
-    u32 m_padding1;
-    u32 m_padding2;
-    u32 m_pcsRange;
+    // Light Data
+    u32 m_dirLightCount{ 0 };
+    u32 m_pointLightCount{ 0 };
+    u32 m_spotLightCount{ 0 };
+    u32 m_padding{ 0 };
+    u32 m_padding2{ 0 };
 };
 
-struct WGPUBackendPointDepthPassFixedData
+struct WGPUBackendColorPassFixedUniforms {
+    // Light Data
+    u32 m_dirLightCascadeCount{ 0 };
+
+    // PCF Data
+    u32 padding { 0 };
+    u32 padding2 { 0 };
+    f32 m_pcfRange{ 0.0f };
+};
+
+struct WGPUBackendPointUniforms
 {
-    glm::vec3 m_lightPos;
-    f32 m_farPlane;
+    glm::mat4x4 m_camSpaceMat{ 0 };
 };
 
 // Represents a instance of a mesh
 struct WGPUBackendObjectData {
-    glm::mat4 m_model;
-    glm::mat4x4 m_normMat;
-    glm::vec4 m_color;
+    glm::mat4x4 m_model{ 0 };
+    glm::mat4x4 m_normMat{ 0 };
+    glm::vec4 m_color{ 0 };
 };
 
 // Represents a single shadowed directional light
 struct WGPUBackendDynamicShadowedDirLightData {
-    glm::vec3 m_diffuse;
-    float m_padding; // Fill with useful stuff later
-    glm::vec3 m_specular;
-    float m_padding2; // Fill with useful stuff later
-    glm::vec3 m_direction;
-    float m_intensity;
-};
-
-// Represents a single shadowed point light
-struct WGPUBackendDynamicShadowedPointLightData {
-    glm::vec3 m_diffuse;
-    float m_radius;
-    glm::vec3 m_specular;
-    float m_falloff;
-    glm::vec3 m_position;
-    float m_padding;
+    glm::vec3 m_color{ 0 };
+    f32 m_padding{ 0 };
+    glm::vec3 m_direction{ 0 };
+    f32 m_padding2{ 0 };
 };
 
 // Represents a single shadowed spot light
 struct WGPUBackendDynamicShadowedSpotLightData {
-    glm::vec3 m_diffuse;
-    float m_penumbraCutoff;
-    glm::vec3 m_specular;
-    float m_outerCutoff;
-    glm::vec3 m_position;
-    float m_padding; // Fill with useful stuff later
-    glm::vec3 m_direction;
-    float m_padding2; // Fill with useful stuff later
+    glm::vec3 m_color{ 0 };
+    f32 m_penumbraCosCutoff{ 0 };
+    glm::vec3 m_position{ 0 };
+    f32 m_outerCosCutoff{ 0 };
+    glm::vec3 m_direction{ 0 };
+    f32 m_range { 0 };
+    f32 m_nearPlaneDim{ 0 };
+    f32 m_planeDimSlope { 0 };
+    f32 m_falloff { 0 };
+    f32 m_padding { 0 };
+};
+
+// Represents a single shadowed point light
+struct WGPUBackendDynamicShadowedPointLightData {
+    glm::vec3 m_color{ 0 };
+    f32 m_radius{ 0 };
+    glm::vec3 m_position{ 0 };
+    f32 m_falloff{ 0 };
 };
 
 #pragma endregion

@@ -147,20 +147,27 @@ By default this is on.
 ### SKL_ENABLE_LOGGING
 When turned on, allows for console logging code to be run.
 
-It will be default turned on when SKL_Internal is on.
-
-Can only be turned on if SKL_INTERNAL is on.
+It will be default turned on.
 
 ### SKL_SLOW
 When turned on enables slower code that either avoids or breaks on certain issues.
 
-It will be default turned on when SKL_Internal is on.
+It will be default turned on.
 
-Can only be turned on if SKL_INTERNAL is on.
+### SKL_STATIC_MONOLITHIC
+When turned on, it disables hot reloading functionality and forces the game engine and game modules to build
+as a single monolithic library that only uses shared libraries.
+
+It will be default turned off.
+
+### SKL_EXTERNAL_GAME
+When turned on, forgoes building game module and instead links to game module defined by external source.
+
+This cannot be used with SKL_STATIC_MONOLITHIC.
 
 # Building and running the Project
 
-## Prerequisites
+## Universal Prerequisites
 
 1. Generator: Download Ninja or make
    - We know Ninja works.
@@ -171,25 +178,41 @@ Can only be turned on if SKL_INTERNAL is on.
 
 Any other dependencies of our project are installed when cmake is run.
 
-## Command Line Example Build Steps
+## Command Line Build Steps
 
-1. Clone the project
-2. To build the build system, in the `build` directory:
-   `cmake .. -G {Generator} -DCMAKE_C_COMPILER={path/to/c/compiler} -DCMAKE_CXX_COMPILER={path/to/cxx/compiler} -DSKL_RENDER_SYS="Default" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1 -DSKL_SLOW=0`
-3. To use the build system that was just generated:
+1. To setup the build system, in the `build` directory:
+   `cmake ..`
+    * Example cmake command `cmake .. -G {Generator} -DCMAKE_C_COMPILER={path/to/c/compiler} -DCMAKE_CXX_COMPILER={path/to/cxx/compiler} -DSKL_RENDER_SYS="Default" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1 -DSKL_SLOW=0`
+2. To use the build system that was just generated:
    `make` or `ninja`, whichever you put as the generator, you can also add `-j <number of threads>` to make it use multiple threads while compiling
-4. To run the game engine, in the `bin` directory: `skyline-engine.exe`
+3. To run the game engine, in the `bin` directory: `skyline-engine.exe`
 
-## XCode Example Build Steps
+## XCode Build Steps
 
-1. Clone the project.
-2. To build the build system, in the 'xcodebuild' directory (It could be named really anything xcodebuild just differentiates it from build folder).
-3. `cmake -G Xcode -DSKL_RENDER_SYS="Default" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1 -DSKL_SLOW=0`.
-4. Open up xcodebuild/skyline-engine.xcodeproj while in Xcode.
-5. Click auto generate schemes and select 'platform' scheme.
-6. Hit run.
+1. To setup the build system, traverse to the `xcodebuild` directory (It could be named really anything xcodebuild just differentiates it from build folder).
+2. Run `cmake ..` at `xcodebuild` directory with `-G Xcode` attached.
+    * Example cmake command `cmake -G Xcode -DSKL_RENDER_SYS="Default" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1 -DSKL_SLOW=0 ..`.
+3. Open up xcodebuild/skyline-engine.xcodeproj while in Xcode.
+4. Click auto generate schemes and select 'platform' scheme.
+5. Hit run.
 
-## Emscripten Example Build Steps
+## Web Platform
+### Requirements
+1. Emscripten: We use Emscripten to compile the engine's C++ to the web.
+2. Python: Used in build system in order to run 
+
+### Web build Example Build Steps
+1. To setup the build system to work with Emscripten, traverse to `webbuild` (It could be named really anything xcodebuild just differentiates it from build folder).
+2. Run `emcmake cmake ..` at `webbuild`.
+    * Example cmake command `emcmake cmake -G Xcode -DSKL_RENDER_SYS="Default" -DSKL_ENABLE_EDITOR_MODE=1 -DSKL_ENABLE_LOGGING=1 -DSKL_INTERNAL=1 -DSKL_SLOW=0`
+3. Run `make` like normal
+4. Traverse to `webbin`
+5. Setup local server with python -m http.server (python3 if not on windows)
+6. Go to http://[::]:8000/skyline-engine.html on WebGPU supported web browser.
+    * Keep in mind, often old version of Skyline Engine code when built to localhost, make sure to clear localhost browser cache on every change.
+
+### Emscripten Prerequisites
+
 
 
 # Engine Features

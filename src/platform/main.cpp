@@ -19,6 +19,12 @@
 #include <platform_loader.h>
 #include <main.h>
 
+#ifdef PLATFORM_WINDOWS
+#define EXECUTABLE_FILE_NAME "skyline-engine.exe"
+#else
+#define EXECUTABLE_FILE_NAME "./skyline-engine"
+#endif
+
 #if SKL_DEBUG_MEMORY_VIEWER
 DebugState globalDebugState_;
 DebugState* globalDebugState = &globalDebugState_;
@@ -62,6 +68,7 @@ file_global f32 mouseY = 0;
 // Kills the previous game process if it exists before creating the new game process.
 local void LaunchGame(SDLState* state, const char* mapName)
 {
+    #if !EMSCRIPTEN
     if (state->gameProcess)
     {
         bool forceful = false;
@@ -75,6 +82,7 @@ local void LaunchGame(SDLState* state, const char* mapName)
     {
         LOG_ERROR("Failed to launch game process! SDL_ERROR: " << SDL_GetError());
     }
+    #endif
 }
 
 void updateLoop(void* appInfo) {
@@ -84,7 +92,7 @@ void updateLoop(void* appInfo) {
 
     f32 frameTime = (f32)((info->now - info->last) / (f32)SDL_GetPerformanceFrequency());
 
-    info->gameCode.updateGameCode(info->gameMemory, info->editor);
+    info->gameCode.UpdateGameCode(info->gameMemory, info->editor);
 
     GameInput gameInput;
     gameInput.keysDownPrevFrame = keysDown;
@@ -161,10 +169,10 @@ void updateLoop(void* appInfo) {
     b32 shouldReloadGameCode = LoopUtils::ProcessInputWithLooping(&globalSDLState, &gameInput, forceReloadGameCode);
     if (shouldReloadGameCode)
     {
-        info->gameCode.gameLoad(info->gameMemory, info->editor, true);
+        info->gameCode.Load(info->gameMemory, info->editor, true);
     }
     
-    info->gameCode.gameUpdateAndRender(info->gameMemory, gameInput, frameTime);
+    info->gameCode.UpdateAndRender(info->gameMemory, gameInput, frameTime);
 
     mouseDeltaX = 0;
     mouseDeltaY = 0;
@@ -174,7 +182,6 @@ void updateLoop(void* appInfo) {
     //printf("%.02f ms/frame (FPS: %.02f)\n", msPerFrame, fps);
     return;
 }
-
 
 int main(int argc, char** argv)
 {
@@ -250,8 +257,8 @@ int main(int argc, char** argv)
     gameMemory.platformAPI.assetUtils = constructPlatformAssetUtils();
     gameMemory.platformAPI.renderer = constructPlatformRenderer();
     gameMemory.platformAPI.allocator = constructPlatformAllocator();
-    gameCode.gameLoad(gameMemory, editor, false);
-    gameCode.gameInitialize(gameMemory, mapName, editor);
+    gameCode.Load(gameMemory, editor, false);
+    gameCode.Initialize(gameMemory, mapName, editor);
 
     SDL_Event e;
     bool playing = true;

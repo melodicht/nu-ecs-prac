@@ -24,6 +24,15 @@ struct GameState
     OverlayMode overlayMode;
 };
 
+#if !SKL_STATIC_MONOLITHIC
+extern "C"
+{
+    GAME_LOAD(GameLoad);
+    GAME_INITIALIZE(GameInitialize);
+    GAME_UPDATE_AND_RENDER(GameUpdateAndRender);
+}
+#endif
+
 extern PlatformAssetUtils assetUtils;
 extern PlatformRenderer renderer;
 extern PlatformAllocator allocator;
