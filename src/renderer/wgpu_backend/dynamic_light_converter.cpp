@@ -2,16 +2,11 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 #include <skl_math_utils.h>
+#include <debug.h>
 
-// DEBUG
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/string_cast.hpp>
+// Only really needs to set near plane logic
+DynamicLightConverter::DynamicLightConverter(f32 defaultNearPlaneDistance) : m_defaultNearPlaneDistance(defaultNearPlaneDistance) {}
 
-// When near plane needs to be near 0
-// but not at 0
-const static float arbitrary_near = 0.1f;
-
-// NOTE: THIS ASSUMES A SYMMETRIC PERSPECTIVE MATRIX IS USED FOR PROJECTION
 // This prepares gpu side directional lights.
 // Light spaces are added on per cascade, 
 // (i.e. if lightSpacesCascadeCount == 2 and cpuType comprised of {a,b} then the added lightSpaces would be {(a cascade 1), (b cascade 1), (a cascade 2), (b cascade 2)})
@@ -26,6 +21,10 @@ std::vector<WGPUBackendDynamicShadowedDirLightData> DynamicLightConverter::Conve
     u32 mapSquareResolution,
     f32 camNear,
     f32 camFar) {
+    // Got confused on notes, symmetry in this context mean frustrum left right symmetry 
+    // not matrix
+        //ASSERT_PRINT(IsSymmetric(camPerspectiveMat), "Dir lights are assumed to have dynamic perspective matrices");
+
     glm::vec3 camScale = GetScaleFromView(camViewMat);
     glm::vec3 camTranslate = GetWorldTranslateFromView(camViewMat);
 
@@ -163,7 +162,7 @@ std::vector<WGPUBackendDynamicShadowedPointLightData> DynamicLightConverter::Con
         glm::mat4x4 proj = glm::perspective(
             glm::radians(90.0f), 
             (f32)shadowWidth/(f32)shadowHeight, 
-            arbitrary_near, 
+            m_defaultNearPlaneDistance, 
             cpuDat.radius);
         // X faces
         lightSpacesOutput.push_back(proj * lookAtHelper(lightPos, { 1, 0, 0}, { 0, 1, 0}));
@@ -194,8 +193,10 @@ std::vector<WGPUBackendDynamicShadowedSpotLightData> DynamicLightConverter::Conv
     ret.reserve(cpuType.size());
 
     for (const SpotLightRenderInfo& cpuDat : cpuType) {
-        float innerRadianCutoff = glm::radians(cpuDat.innerCone);
-        float outerRadianCutoff = glm::radians(cpuDat.outerCone);
+        const float innerRadianCutoff = glm::radians(cpuDat.innerCone);
+        const float outerRadianCutoff = glm::radians(cpuDat.outerCone);
+        
+        const float worldToTextureCoordSlope = 2 * glm::tan(outerRadianCutoff);
         // Assigns GPU side information
         WGPUBackendDynamicShadowedSpotLightData gpuDat{ };
         gpuDat.m_color = cpuDat.diffuse;
@@ -205,10 +206,21 @@ std::vector<WGPUBackendDynamicShadowedSpotLightData> DynamicLightConverter::Conv
         gpuDat.m_position = cpuDat.transform->GetWorldPosition();
         gpuDat.m_range = cpuDat.range;
         gpuDat.m_falloff = cpuDat.falloff;
+        gpuDat.m_nearPlaneDim = worldToTextureCoordSlope * m_defaultNearPlaneDistance;
+        gpuDat.m_planeDimSlope = worldToTextureCoordSlope;
         ret.push_back(gpuDat);
 
         // Assigns lightspace 
-        lightSpacesOutput.push_back(glm::perspective(outerRadianCutoff * 2, 1.0f, arbitrary_near, gpuDat.m_range));
+        glm::mat4x4 view = lookAtHelper(
+            gpuDat.m_position, 
+            gpuDat.m_direction, 
+            cpuDat.transform->GetUpVector());
+        glm::mat4x4 proj = glm::perspective(
+            outerRadianCutoff * 2, 
+            1.0f, 
+            m_defaultNearPlaneDistance, 
+            gpuDat.m_range);
+        lightSpacesOutput.push_back(proj * view);
     }
     
     return ret;

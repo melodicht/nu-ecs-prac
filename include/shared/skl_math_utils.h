@@ -6,6 +6,24 @@
 
 #include <skl_math_types.h>
 
+template<glm::length_t C, glm::length_t R, typename T, glm::qualifier Q>
+b8 IsSymmetric(const glm::mat<C, R, T, Q>& mat) {
+    if constexpr (C != R) {
+        return false; 
+    }
+    else {
+        constexpr uint64_t dim = C;
+        for (int x = 0 ; x < dim ; x++) {
+            for (int y = 0 ; y < x ; y++) {
+                if (mat[x][y] != mat[y][x]) {
+                    return false;
+                }
+            }
+        } 
+        return true;
+    }
+}
+
 glm::vec3 GetArbitraryOrthogonal(const glm::vec3& vec);
 
 glm::mat4x4 GetMatrixSpace(const glm::vec3& forward, const glm::vec3& up, const glm::vec3& right);

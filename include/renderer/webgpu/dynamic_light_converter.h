@@ -23,7 +23,9 @@ private:
     f32 m_prevBleed{ NAN };
     f32 m_nearPlaneDistance{ NAN };
     f32 m_farPlaneDistance{ NAN };
+    const f32 m_defaultNearPlaneDistance{ NAN };
 public:
+    DynamicLightConverter(f32 defaultNearPlaneDistance);
     // This prepares gpu side directional lights.
     // Light spaces are added on per cascade, 
     // (i.e. if lightSpacesCascadeCount == 2 and cpuType comprised of {a,b} then the added lightSpaces would be {(a cascade 1), (b cascade 1), (a cascade 2), (b cascade 2)})

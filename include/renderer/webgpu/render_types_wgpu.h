@@ -76,8 +76,8 @@ struct WGPUBackendColorPassFixedUniforms {
     u32 m_dirLightCascadeCount{ 0 };
 
     // PCF Data
-    u32 m_dirLightMapPixelDimension{ 0 };
-    u32 m_pointLightMapPixelDimension{ 0 };
+    u32 padding { 0 };
+    u32 padding2 { 0 };
     f32 m_pcfRange{ 0.0f };
 };
 
@@ -109,8 +109,10 @@ struct WGPUBackendDynamicShadowedSpotLightData {
     f32 m_outerCosCutoff{ 0 };
     glm::vec3 m_direction{ 0 };
     f32 m_range { 0 };
-    glm::vec3 m_padding { 0 }; // Fill with useful data later
+    f32 m_nearPlaneDim{ 0 };
+    f32 m_planeDimSlope { 0 };
     f32 m_falloff { 0 };
+    f32 m_padding { 0 };
 };
 
 // Represents a single shadowed point light

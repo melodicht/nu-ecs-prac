@@ -3,7 +3,13 @@ position = [-1.0, 0.0, 0.0]
 [camera.CameraComponent]
 farPlane = 100.0
 [camera.FlyingMovement]
-[camera.SpotLight]
+
+[light.Transform3D]
+position = [-1.0, 2.0, 0.0]
+parent = "camera"
+[light.SpotLight]
+innerCone = 5.0
+outerCone = 6.0
 
 [posXCube.Transform3D]
 position = [10.0, 0.0, 0.0]

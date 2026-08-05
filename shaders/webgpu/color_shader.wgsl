@@ -27,8 +27,8 @@ struct ColorFixedUniforms {
     dirLightCascadeCount: u32,
 
     // PCF Data
-    dirLightMapDimension: u32,
-    pointLightMapDimension: u32,
+    padding: u32,
+    padding2: u32,
     pcfRange: f32,
 }
 
@@ -54,8 +54,10 @@ struct DynamicShadowedSpotLight {
     outerCosCutoff : f32,
     direction : vec3<f32>,
     range : f32,
-    padding : vec3<f32>,
-    falloff : f32
+    nearPlaneWorldDim : f32,
+    planeDimSlope : f32,
+    falloff : f32,
+    padding : f32
 }
 
 struct DynamicShadowedPointLight {
@@ -226,7 +228,7 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
         let lightSpaceDirIdx : u32 = dirIter + cascadeCheck * colorUniforms.dirLightAmount;
         var lightSpacePosition : vec4<f32> = lightsSpacesStore[lightSpaceDirIdx] * (normalWorldPos);
         lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
-        let texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
+        let texturePosition : vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
         // Sets up sample location
         let worldToTexCoordRatio : f32 = shadowCascadesWorldToTextureCoordRatio[cascadeCheck];
         let unit: f32 = colorFixedUniforms.pcfRange * worldToTexCoordRatio;
@@ -254,13 +256,6 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
 
     var spotLightSpaceIdx : u32 = colorFixedUniforms.dirLightCascadeCount * colorUniforms.dirLightAmount;
     for (var spotIter : u32 = 0 ; spotIter < colorUniforms.spotLightAmount ; spotIter++) {
-        // Same logic of shadowing light spaces
-        // Finds whether lights were uncovered or not
-        var lightSpacePosition : vec4<f32> = lightsSpacesStore[spotLightSpaceIdx] * (in.worldPos);
-        lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
-
-        var texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
-
         var spotlight : DynamicShadowedSpotLight = shadowedSpotLightStore[spotIter];
 
         // Factors theta into lighting
@@ -281,10 +276,34 @@ fn fsMain(in : ColorPassVertexOut) -> @location(0) vec4<f32>  {
             let attenuationModifier : f32 = sqrt(1 - sqrtDist)/ (1 + spotlight.falloff * sqrtDist);
             distanceIntensity = attenuationModifier;
         }
-        
+
+        // Factors shadowing into lighting
+        var lightSpacePosition : vec4<f32> = lightsSpacesStore[spotLightSpaceIdx] * (in.worldPos);
+        lightSpacePosition = lightSpacePosition / lightSpacePosition.w;
+        let lightSpaceDirIdx : u32 = spotLightSpaceIdx;
+        let texturePosition: vec3<f32> = vec3<f32>((lightSpacePosition.x * 0.5) + 0.5, (lightSpacePosition.y * -0.5) + 0.5, lightSpacePosition.z);
+        // Sets up sample location
+        // Comp works for finding shadow length of frag 
+        // to light on spotlight dir since both normalized
+        let fragToPlaneDist : f32 = dot(-spotlight.direction, fragToSpotLightDirNorm);
+        let planeSize : f32 = spotlight.planeDimSlope * fragToPlaneDist;
+        let worldToTexCoordRatio : f32 = 1 / planeSize;
+        let unit: f32 = colorFixedUniforms.pcfRange * worldToTexCoordRatio;
+        let base: vec2<f32> = texturePosition.xy - vec2<f32>(unit * 0.5);
+
+        // Finds PCF percentage
+        var shadowIntensity: f32 = 0.0;
+        for (var xIter : u32 = 0 ; xIter < 2 ; xIter++) {
+            for (var yIter : u32 = 0 ; yIter < 2; yIter++) {
+                var newPos: vec2<f32> = base + vec2<f32>(f32(xIter)*unit, f32(yIter)*unit);
+                shadowIntensity += textureSampleCompare(shadowedSpotLightMap, shadowMapSampler, newPos, spotIter,texturePosition.z);
+            }
+        }
+        shadowIntensity /= 4;
 
         addBrdf(
-            spotlight.color * (distanceIntensity * thetaIntensity),
+            spotlight.color * 
+            (distanceIntensity * thetaIntensity* shadowIntensity),
             viewDir,
             fragToSpotLightDirNorm,
             in.normal,

@@ -1445,8 +1445,6 @@ void WGPURenderBackend::InitPipelines()
   // Initializes fixed uniform buffers
   WGPUBackendColorPassFixedUniforms uniforms {
     .m_dirLightCascadeCount = DefaultCascadeCount,
-    .m_dirLightMapPixelDimension = DefaultDirLightDim,
-    .m_pointLightMapPixelDimension = DefaultPointLightDim,
     .m_pcfRange = 0.005f
   };
   m_colorPassFixedUniformBuffer.WriteBuffer(m_wgpuQueue, uniforms);
